@@ -825,6 +825,7 @@ pub async fn augment_handler(
 
     let retrieval_config = RetrievalConfig {
         final_top_k: limit,
+        namespace: Some(namespace.clone()),
         ..RetrievalConfig::default()
     };
 
@@ -867,6 +868,7 @@ pub async fn augment_handler(
     let entities: Vec<EntityResponse> = result
         .entities
         .iter()
+        .filter(|e| node_matches_namespace(e, &namespace))
         .map(node_to_entity_response)
         .collect();
 

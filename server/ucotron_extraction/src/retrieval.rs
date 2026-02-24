@@ -20,7 +20,7 @@ use tracing::{debug, info, info_span, warn};
 
 use ucotron_core::{
     find_paths, BackendRegistry, MindsetDetector, MindsetScorer, MindsetTag, Node, NodeId,
-    NodeType, PathFinderConfig, PathRewardCalculator,
+    NodeType, PathFinderConfig, PathRewardCalculator, Value,
 };
 
 use crate::{EmbeddingPipeline, ExtractedEntity, NerPipeline};
@@ -357,6 +357,12 @@ impl<'a> RetrievalOrchestrator<'a> {
                         if let Ok(matches) = self.registry.vector().search(&entity_emb, 5) {
                             for (match_id, match_sim) in matches {
                                 if let Ok(Some(node)) = self.registry.graph().get_node(match_id) {
+                                    // Namespace isolation: skip entities from other namespaces (H9).
+                                    if let Some(ref ns) = self.config.namespace {
+                                        if !node_in_namespace(&node, ns) {
+                                            continue;
+                                        }
+                                    }
                                     if matches!(node.node_type, NodeType::Entity) {
                                         let node_name = node.content.to_lowercase();
                                         let entity_name = entity.text.to_lowercase();
@@ -451,6 +457,22 @@ impl<'a> RetrievalOrchestrator<'a> {
                 }
             }
 
+            // ── Namespace isolation: filter expanded nodes ──────────────
+            // BFS graph traversal follows edges without checking namespace,
+            // which can pull in nodes from other tenants. Remove them here
+            // to prevent cross-namespace data leaks (BUG-1 / H9).
+            if let Some(ref ns) = self.config.namespace {
+                let before = exp_nodes.len();
+                exp_nodes.retain(|_id, node| node_in_namespace(node, ns));
+                let removed = before - exp_nodes.len();
+                if removed > 0 {
+                    debug!(
+                        "Namespace filter removed {} cross-namespace nodes from graph expansion",
+                        removed
+                    );
+                }
+            }
+
             metrics.graph_expansion_us = ge_start.elapsed().as_micros() as u64;
             metrics.expanded_nodes_count = exp_nodes.len();
             ge_span.record("nodes_visited", exp_nodes.len() as u64);
@@ -499,6 +521,12 @@ impl<'a> RetrievalOrchestrator<'a> {
 
                 for cid in &community_candidates {
                     if let Ok(Some(node)) = self.registry.graph().get_node(*cid) {
+                        // Namespace isolation: skip community members from other namespaces (H9).
+                        if let Some(ref ns) = self.config.namespace {
+                            if !node_in_namespace(&node, ns) {
+                                continue;
+                            }
+                        }
                         if !expanded_nodes.contains_key(cid) {
                             similarity_map.entry(*cid).or_insert(0.1);
                             expanded_nodes.insert(*cid, node);
@@ -700,6 +728,18 @@ impl<'a> RetrievalOrchestrator<'a> {
 // ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
+
+/// Check if a node belongs to the given namespace.
+///
+/// Returns `true` if the node's `_namespace` metadata matches, or if the node
+/// has no `_namespace` metadata and the target namespace is "default".
+fn node_in_namespace(node: &Node, namespace: &str) -> bool {
+    match node.metadata.get("_namespace") {
+        Some(Value::String(ns)) => ns == namespace,
+        None => namespace == "default",
+        _ => namespace == "default",
+    }
+}
 
 /// Assemble a context string from scored memories and entity info.
 ///
@@ -2521,6 +2561,231 @@ mod tests {
                 "Query '{}' with {:?} mindset should have non-zero mindset scores",
                 query, mindset
             );
+        }
+    }
+
+    // ---- Namespace isolation tests (H9 / BUG-1) ----
+
+    /// Create a node with a specific namespace in metadata.
+    fn make_node_ns(
+        id: NodeId,
+        content: &str,
+        node_type: NodeType,
+        timestamp: u64,
+        namespace: &str,
+    ) -> Node {
+        let mut node = make_node(id, content, node_type, timestamp);
+        node.metadata
+            .insert("_namespace".into(), Value::String(namespace.into()));
+        node
+    }
+
+    #[test]
+    fn test_node_in_namespace_helper() {
+        let now = now_secs();
+        let node_a = make_node_ns(1, "content", NodeType::Event, now, "tenant-a");
+        let node_default = make_node(2, "content", NodeType::Event, now);
+
+        assert!(node_in_namespace(&node_a, "tenant-a"));
+        assert!(!node_in_namespace(&node_a, "tenant-b"));
+        assert!(!node_in_namespace(&node_a, "default"));
+
+        // Nodes without _namespace match "default"
+        assert!(node_in_namespace(&node_default, "default"));
+        assert!(!node_in_namespace(&node_default, "tenant-a"));
+    }
+
+    /// Verify that graph expansion does NOT leak data across namespaces.
+    ///
+    /// Setup: Two namespaces (tenant-a, tenant-b) with cross-namespace edges.
+    /// The graph BFS would normally follow these edges and include nodes from
+    /// the other namespace. With the namespace filter, only same-namespace
+    /// nodes should appear in the results.
+    #[test]
+    fn test_namespace_isolation_graph_expansion() {
+        let vec_backend = MockVec::new();
+        let graph_backend = MockGraph::new();
+        let now = now_secs();
+
+        // Tenant A nodes
+        let node_a1 = make_node_ns(
+            1,
+            "Project Alpha is a secret internal initiative",
+            NodeType::Event,
+            now,
+            "tenant-a",
+        );
+        let node_a2 = make_node_ns(
+            2,
+            "Alpha team meets every Tuesday",
+            NodeType::Event,
+            now,
+            "tenant-a",
+        );
+
+        // Tenant B nodes (should NEVER appear in tenant-a queries)
+        let node_b1 = make_node_ns(
+            3,
+            "Confidential Beta project revenue is 10M",
+            NodeType::Event,
+            now,
+            "tenant-b",
+        );
+        let node_b2 = make_node_ns(
+            4,
+            "Beta team salaries are above market rate",
+            NodeType::Event,
+            now,
+            "tenant-b",
+        );
+
+        graph_backend
+            .upsert_nodes(&[
+                node_a1.clone(),
+                node_a2.clone(),
+                node_b1.clone(),
+                node_b2.clone(),
+            ])
+            .unwrap();
+        vec_backend
+            .upsert_embeddings(&[
+                (1, node_a1.embedding.clone()),
+                (2, node_a2.embedding.clone()),
+                (3, node_b1.embedding.clone()),
+                (4, node_b2.embedding.clone()),
+            ])
+            .unwrap();
+
+        // Cross-namespace edges (simulates shared entity connections)
+        let edges = vec![
+            Edge {
+                source: 1,
+                target: 2,
+                edge_type: EdgeType::RelatesTo,
+                weight: 0.9,
+                metadata: HashMap::new(),
+            },
+            // Cross-namespace edge: A1 → B1 (this is the leak vector)
+            Edge {
+                source: 1,
+                target: 3,
+                edge_type: EdgeType::RelatesTo,
+                weight: 0.8,
+                metadata: HashMap::new(),
+            },
+            Edge {
+                source: 3,
+                target: 4,
+                edge_type: EdgeType::RelatesTo,
+                weight: 0.9,
+                metadata: HashMap::new(),
+            },
+        ];
+        graph_backend.upsert_edges(&edges).unwrap();
+
+        let registry = BackendRegistry::new(Box::new(vec_backend), Box::new(graph_backend));
+        let embedder = MockEmbedder;
+
+        // Query as tenant-a with namespace filter
+        let config = RetrievalConfig {
+            enable_entity_extraction: false,
+            enable_community_expansion: false,
+            graph_expansion_hops: 2, // 2 hops would reach B2 via A1→B1→B2
+            namespace: Some("tenant-a".to_string()),
+            final_top_k: 20,
+            ..Default::default()
+        };
+        let orchestrator = RetrievalOrchestrator::new(&registry, &embedder, None, config);
+        let result = orchestrator.retrieve("Project Alpha initiative").unwrap();
+
+        // CRITICAL: No tenant-b nodes should appear in results
+        for mem in &result.memories {
+            let ns = mem.node.metadata.get("_namespace");
+            match ns {
+                Some(Value::String(s)) => {
+                    assert_eq!(
+                        s, "tenant-a",
+                        "NAMESPACE LEAK: Found tenant-b node {} in tenant-a results: '{}'",
+                        mem.node.id, mem.node.content
+                    );
+                }
+                None => {
+                    // Nodes without namespace are OK for "default" but not for tenant-a
+                    panic!(
+                        "NAMESPACE LEAK: Found node without namespace {} in tenant-a results: '{}'",
+                        mem.node.id, mem.node.content
+                    );
+                }
+                _ => panic!("Unexpected namespace value type"),
+            }
+        }
+
+        // Verify tenant-a nodes are returned
+        assert!(
+            !result.memories.is_empty(),
+            "Should still return tenant-a nodes"
+        );
+    }
+
+    /// Verify that community expansion does NOT leak data across namespaces.
+    #[test]
+    fn test_namespace_isolation_community_expansion() {
+        let vec_backend = MockVec::new();
+        let graph_backend = MockGraph::new();
+        let now = now_secs();
+
+        let node_a = make_node_ns(
+            1,
+            "Tenant A private data about revenue",
+            NodeType::Event,
+            now,
+            "tenant-a",
+        );
+        let node_b = make_node_ns(
+            2,
+            "Tenant B confidential salaries",
+            NodeType::Event,
+            now,
+            "tenant-b",
+        );
+
+        graph_backend
+            .upsert_nodes(&[node_a.clone(), node_b.clone()])
+            .unwrap();
+        vec_backend
+            .upsert_embeddings(&[(1, node_a.embedding.clone()), (2, node_b.embedding.clone())])
+            .unwrap();
+
+        // Both nodes in same community (simulates Leiden clustering without namespace awareness)
+        {
+            let mut communities = graph_backend.communities.lock().unwrap();
+            communities.insert(1, vec![1, 2]);
+            communities.insert(2, vec![1, 2]);
+        }
+
+        let registry = BackendRegistry::new(Box::new(vec_backend), Box::new(graph_backend));
+        let embedder = MockEmbedder;
+
+        let config = RetrievalConfig {
+            enable_entity_extraction: false,
+            enable_community_expansion: true,
+            max_community_members: 10,
+            namespace: Some("tenant-a".to_string()),
+            final_top_k: 20,
+            ..Default::default()
+        };
+        let orchestrator = RetrievalOrchestrator::new(&registry, &embedder, None, config);
+        let result = orchestrator.retrieve("revenue data").unwrap();
+
+        // No tenant-b nodes should appear
+        for mem in &result.memories {
+            if let Some(Value::String(ns)) = mem.node.metadata.get("_namespace") {
+                assert_eq!(
+                    ns, "tenant-a",
+                    "NAMESPACE LEAK via community: Found tenant-b node {} in tenant-a results",
+                    mem.node.id
+                );
+            }
         }
     }
 }

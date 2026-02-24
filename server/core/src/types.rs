@@ -183,6 +183,8 @@ pub enum MindsetTag {
     Divergent,
     /// Verification/rules mode: strict logical checks.
     Algorithmic,
+    /// Spatial/graph-aware mode: prioritizes connectivity and traversal paths.
+    Spatial,
 }
 
 /// Resolution state of a [`Fact`] in the cognitive model.

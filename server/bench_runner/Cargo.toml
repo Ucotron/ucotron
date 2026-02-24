@@ -11,13 +11,10 @@ path = "src/main.rs"
 
 [features]
 default = []
-# Enable CozoDB benchmarks (requires cozo_impl in _archive/ to be in the workspace)
-cozo = ["ucotron-cozo"]
 
 [dependencies]
 ucotron-core = { workspace = true }
 ucotron-helix = { workspace = true }
-ucotron-cozo = { path = "../_archive/cozo_impl", optional = true }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

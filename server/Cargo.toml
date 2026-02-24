@@ -15,6 +15,9 @@ resolver = "2"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ucotron Team"]
+license = "MIT"
+repository = "https://github.com/Ucotron/ucotron"
+homepage = "https://ucotron.com"
 
 [workspace.dependencies]
 # Serialization
@@ -73,6 +76,9 @@ sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-r
 # MongoDB driver
 mongodb = "3.1"
 
+# LMDB storage engine
+heed = "0.22"
+
 # HTTP client (SDK)
 reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
@@ -99,9 +105,9 @@ opentelemetry-semantic-conventions = "0.27"
 tracing-opentelemetry = "0.28"
 
 # Internal crates
-ucotron-core = { path = "core" }
+ucotron-core = { path = "core", version = "0.1.0" }
 ucotron-helix = { path = "helix_impl" }
-ucotron-config = { path = "ucotron_config" }
+ucotron-config = { path = "ucotron_config", version = "0.1.0" }
 
 # Release profile optimized for benchmarking
 [profile.release]

@@ -149,10 +149,7 @@ pub fn generate_dataset(
     // Group edges by source node
     let mut edges_by_source: HashMap<NodeId, Vec<&Edge>> = HashMap::new();
     for edge in &all_edges {
-        edges_by_source
-            .entry(edge.source)
-            .or_default()
-            .push(edge);
+        edges_by_source.entry(edge.source).or_default().push(edge);
     }
 
     // 3. Generate samples from entity nodes with edges
@@ -233,10 +230,7 @@ pub fn generate_dataset_from_data(
 
     let mut edges_by_source: HashMap<NodeId, Vec<&Edge>> = HashMap::new();
     for edge in edges {
-        edges_by_source
-            .entry(edge.source)
-            .or_default()
-            .push(edge);
+        edges_by_source.entry(edge.source).or_default().push(edge);
     }
 
     let mut samples: Vec<TrainingSample> = Vec::new();
@@ -400,8 +394,7 @@ pub fn parse_jsonl(content: &str) -> Result<Vec<TrainingSample>> {
         .filter(|l| !l.trim().is_empty())
         .enumerate()
         .map(|(i, line)| {
-            serde_json::from_str(line)
-                .with_context(|| format!("Failed to parse line {}", i + 1))
+            serde_json::from_str(line).with_context(|| format!("Failed to parse line {}", i + 1))
         })
         .collect()
 }
@@ -533,9 +526,7 @@ fn build_sample(
 fn extract_entity_name(content: &str) -> String {
     let trimmed = content.trim();
     // Use content up to first period, question mark, or newline
-    let end = trimmed
-        .find(['.', '?', '!', '\n'])
-        .unwrap_or(trimmed.len());
+    let end = trimmed.find(['.', '?', '!', '\n']).unwrap_or(trimmed.len());
 
     let name = &trimmed[..end];
     // Limit to ~60 chars for entity name
@@ -557,7 +548,9 @@ fn deterministic_shuffle<T>(items: &mut [T], seed: u64) {
     // Linear congruential generator (Knuth)
     let mut state = seed;
     for i in (1..len).rev() {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         let j = (state >> 33) as usize % (i + 1);
         items.swap(i, j);
     }
@@ -570,8 +563,8 @@ fn deterministic_shuffle<T>(items: &mut [T], seed: u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ucotron_core::{Edge, Node, NodeType, EdgeType};
     use std::collections::HashMap;
+    use ucotron_core::{Edge, EdgeType, Node, NodeType};
 
     fn make_entity_node(id: NodeId, content: &str) -> Node {
         Node {
@@ -673,8 +666,10 @@ mod tests {
         // Node 1 has no edges, node 2 has 1, node 3 has 0
         let edges = vec![make_edge(2, 1, EdgeType::RelatesTo, 0.5)];
 
-        let mut config = DatasetConfig::default();
-        config.min_relations = 2; // Require at least 2 relations
+        let config = DatasetConfig {
+            min_relations: 2, // Require at least 2 relations
+            ..Default::default()
+        };
 
         let result = generate_dataset_from_data(&nodes, &edges, &config);
 
@@ -695,8 +690,10 @@ mod tests {
             edges.push(make_edge(i, i + 1, EdgeType::RelatesTo, 0.5));
         }
 
-        let mut config = DatasetConfig::default();
-        config.max_samples = 5;
+        let config = DatasetConfig {
+            max_samples: 5,
+            ..Default::default()
+        };
 
         let result = generate_dataset_from_data(&nodes, &edges, &config);
         let total = result.train.len() + result.validation.len();
@@ -715,8 +712,10 @@ mod tests {
             edges.push(make_edge(i, i + 1, EdgeType::RelatesTo, 0.5));
         }
 
-        let mut config = DatasetConfig::default();
-        config.train_ratio = 0.8;
+        let config = DatasetConfig {
+            train_ratio: 0.8,
+            ..Default::default()
+        };
 
         let result = generate_dataset_from_data(&nodes, &edges, &config);
         let total = result.train.len() + result.validation.len();
@@ -774,7 +773,7 @@ mod tests {
         node_map.insert(2u64, &target_madrid);
         node_map.insert(3u64, &target_google);
 
-        let edges_vec = vec![&edge1, &edge2];
+        let edges_vec = [&edge1, &edge2];
         let edges_ref: Vec<&&Edge> = edges_vec.iter().collect();
 
         let config = DatasetConfig::default();
@@ -795,7 +794,7 @@ mod tests {
         node_map.insert(1, &source);
         // Node 999 not in map
 
-        let edges_vec = vec![&edge];
+        let edges_vec = [&edge];
         let edges_ref: Vec<&&Edge> = edges_vec.iter().collect();
 
         let config = DatasetConfig::default();
@@ -957,7 +956,8 @@ mod tests {
         write_sft_jsonl(&samples, &path).unwrap();
 
         let content = std::fs::read_to_string(&path).unwrap();
-        let line: serde_json::Value = serde_json::from_str(content.lines().next().unwrap()).unwrap();
+        let line: serde_json::Value =
+            serde_json::from_str(content.lines().next().unwrap()).unwrap();
 
         let messages = line.get("messages").unwrap().as_array().unwrap();
         assert_eq!(messages.len(), 3);
@@ -1070,11 +1070,13 @@ mod tests {
         node_map.insert(1u64, &source);
         node_map.insert(2u64, &target);
 
-        let edges_vec = vec![&edge];
+        let edges_vec = [&edge];
         let edges_ref: Vec<&&Edge> = edges_vec.iter().collect();
 
-        let mut config = DatasetConfig::default();
-        config.max_text_length = 100;
+        let config = DatasetConfig {
+            max_text_length: 100,
+            ..Default::default()
+        };
 
         let sample = build_sample(&source, &edges_ref, &node_map, &config);
         assert!(sample.is_some());

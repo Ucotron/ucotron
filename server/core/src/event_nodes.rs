@@ -250,7 +250,12 @@ mod tests {
             crate::find_related(self, query, top_k, hops, crate::DEFAULT_HOP_DECAY)
         }
 
-        fn find_path(&self, _source: NodeId, _target: NodeId, _max_depth: u32) -> Result<Option<Vec<NodeId>>> {
+        fn find_path(
+            &self,
+            _source: NodeId,
+            _target: NodeId,
+            _max_depth: u32,
+        ) -> Result<Option<Vec<NodeId>>> {
             Ok(None) // not needed for event node tests
         }
 
@@ -317,25 +322,24 @@ mod tests {
 
     #[test]
     fn test_event_node_all_roles() {
-        let (event, edges) =
-            EventNodeBuilder::new(200, "Full event", vec![0.5f32; 384], 2000)
-                .participant(Participant {
-                    node_id: 10,
-                    role: ParticipantRole::Actor,
-                })
-                .participant(Participant {
-                    node_id: 20,
-                    role: ParticipantRole::Object,
-                })
-                .participant(Participant {
-                    node_id: 30,
-                    role: ParticipantRole::Location,
-                })
-                .participant(Participant {
-                    node_id: 40,
-                    role: ParticipantRole::Companion,
-                })
-                .build();
+        let (event, edges) = EventNodeBuilder::new(200, "Full event", vec![0.5f32; 384], 2000)
+            .participant(Participant {
+                node_id: 10,
+                role: ParticipantRole::Actor,
+            })
+            .participant(Participant {
+                node_id: 20,
+                role: ParticipantRole::Object,
+            })
+            .participant(Participant {
+                node_id: 30,
+                role: ParticipantRole::Location,
+            })
+            .participant(Participant {
+                node_id: 40,
+                role: ParticipantRole::Companion,
+            })
+            .build();
 
         assert_eq!(event.node_type, NodeType::Event);
         assert_eq!(edges.len(), 4);
@@ -490,10 +494,22 @@ mod tests {
         // From event node 100 → should reach all participants
         let event_neighbors = engine.get_neighbors(100, 1).unwrap();
         let event_neighbor_ids: Vec<NodeId> = event_neighbors.iter().map(|n| n.id).collect();
-        assert!(event_neighbor_ids.contains(&1), "Juan should be reachable from event");
-        assert!(event_neighbor_ids.contains(&2), "Pizza should be reachable from event");
-        assert!(event_neighbor_ids.contains(&3), "Plaza Mayor should be reachable from event");
-        assert!(event_neighbor_ids.contains(&4), "María should be reachable from event");
+        assert!(
+            event_neighbor_ids.contains(&1),
+            "Juan should be reachable from event"
+        );
+        assert!(
+            event_neighbor_ids.contains(&2),
+            "Pizza should be reachable from event"
+        );
+        assert!(
+            event_neighbor_ids.contains(&3),
+            "Plaza Mayor should be reachable from event"
+        );
+        assert!(
+            event_neighbor_ids.contains(&4),
+            "María should be reachable from event"
+        );
     }
 
     #[test]
@@ -598,7 +614,10 @@ mod tests {
         // 1 hop from Juan → event node
         let hop1 = engine.get_neighbors(1, 1).unwrap();
         let hop1_ids: Vec<NodeId> = hop1.iter().map(|n| n.id).collect();
-        assert!(hop1_ids.contains(&100), "Event reachable from Juan at 1 hop");
+        assert!(
+            hop1_ids.contains(&100),
+            "Event reachable from Juan at 1 hop"
+        );
         assert!(
             !hop1_ids.contains(&4),
             "María should NOT be reachable from Juan at 1 hop"

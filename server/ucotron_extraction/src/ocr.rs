@@ -144,7 +144,9 @@ pub fn extract_text_from_pdf_file(path: &Path) -> anyhow::Result<DocumentExtract
 /// Falls back gracefully with an error if tesseract is not available.
 pub fn ocr_image_file(path: &Path, config: &OcrConfig) -> anyhow::Result<DocumentExtractionResult> {
     if !config.enable_tesseract {
-        return Err(anyhow::anyhow!("Tesseract OCR is disabled in configuration"));
+        return Err(anyhow::anyhow!(
+            "Tesseract OCR is disabled in configuration"
+        ));
     }
 
     // Detect image format from extension
@@ -235,11 +237,7 @@ pub fn process_document(
     filename: &str,
     config: &OcrConfig,
 ) -> anyhow::Result<DocumentExtractionResult> {
-    let ext = filename
-        .rsplit('.')
-        .next()
-        .unwrap_or("")
-        .to_lowercase();
+    let ext = filename.rsplit('.').next().unwrap_or("").to_lowercase();
 
     match ext.as_str() {
         "pdf" => {
@@ -259,9 +257,7 @@ pub fn process_document(
                 Ok(result)
             }
         }
-        "jpg" | "jpeg" | "png" | "tiff" | "tif" | "bmp" => {
-            ocr_image_bytes(data, &ext, config)
-        }
+        "jpg" | "jpeg" | "png" | "tiff" | "tif" | "bmp" => ocr_image_bytes(data, &ext, config),
         _ => Err(anyhow::anyhow!(
             "Unsupported document format: '{}'. Supported: pdf, jpg, jpeg, png, tiff, tif, bmp",
             ext
@@ -380,10 +376,7 @@ pub fn split_into_pages(text: &str) -> Vec<PageExtraction> {
 /// 1. Page boundaries (primary split)
 /// 2. Paragraph boundaries within pages (secondary split for long pages)
 /// 3. Sentence boundaries (tertiary split for very long paragraphs)
-pub fn chunk_document_text(
-    pages: &[PageExtraction],
-    max_chunk_size: usize,
-) -> Vec<String> {
+pub fn chunk_document_text(pages: &[PageExtraction], max_chunk_size: usize) -> Vec<String> {
     let mut chunks = Vec::new();
 
     for page in pages {
@@ -416,7 +409,8 @@ pub fn chunk_document_text(
                 let sentences = split_into_sentences(para);
                 let mut sent_chunk = String::new();
                 for sent in &sentences {
-                    if sent_chunk.len() + sent.len() + 1 > max_chunk_size && !sent_chunk.is_empty() {
+                    if sent_chunk.len() + sent.len() + 1 > max_chunk_size && !sent_chunk.is_empty()
+                    {
                         chunks.push(sent_chunk.trim().to_string());
                         sent_chunk.clear();
                     }
@@ -596,7 +590,8 @@ mod tests {
     fn test_chunk_document_text_paragraph_split() {
         let pages = vec![PageExtraction {
             page_number: 1,
-            text: "Paragraph one content here.\n\nParagraph two content here.\n\nParagraph three.".to_string(),
+            text: "Paragraph one content here.\n\nParagraph two content here.\n\nParagraph three."
+                .to_string(),
         }];
         let chunks = chunk_document_text(&pages, 40);
         assert!(chunks.len() >= 2);
@@ -657,7 +652,8 @@ mod tests {
         let sentences = split_into_sentences(text);
         assert!(
             sentences.iter().any(|s| s.contains("$99.99")),
-            "Decimal price should not be split: {:?}", sentences
+            "Decimal price should not be split: {:?}",
+            sentences
         );
     }
 
@@ -667,7 +663,8 @@ mod tests {
         let sentences = split_into_sentences(text);
         assert!(
             sentences.iter().any(|s| s.contains("2.0.1")),
-            "Version number should not be split: {:?}", sentences
+            "Version number should not be split: {:?}",
+            sentences
         );
     }
 
@@ -733,9 +730,7 @@ mod tests {
         let config = OcrConfig::default();
         let result = process_document(b"data", "document.xyz", &config);
         assert!(result.is_err());
-        assert!(
-            result.unwrap_err().to_string().contains("Unsupported")
-        );
+        assert!(result.unwrap_err().to_string().contains("Unsupported"));
     }
 
     // --- Tesseract OCR tests (skip if not installed) ---
@@ -748,12 +743,7 @@ mod tests {
         };
         let result = ocr_image_bytes(b"fake image", "png", &config);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("disabled")
-        );
+        assert!(result.unwrap_err().to_string().contains("disabled"));
     }
 
     #[test]

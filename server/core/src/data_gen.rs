@@ -13,25 +13,77 @@
 use crate::{Edge, EdgeType, Node, NodeType, Value};
 use rand::distributions::{Distribution, Uniform};
 use rand::Rng;
-use rand_chacha::ChaCha8Rng;
 use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 use std::collections::HashMap;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
 /// Word pool for generating pseudo-lorem-ipsum content.
 const WORDS: &[&str] = &[
-    "memoria", "cognitiva", "grafo", "nodo", "arista", "vector", "semántico",
-    "episódico", "procedimental", "entidad", "evento", "hecho", "relación",
-    "causal", "temporal", "conflicto", "resolución", "confianza", "embedding",
-    "travesía", "búsqueda", "índice", "latencia", "rendimiento", "datos",
-    "sistema", "modelo", "algoritmo", "inferencia", "consulta", "resultado",
-    "profundidad", "amplitud", "ciclo", "ruta", "peso", "umbral", "cluster",
-    "comunidad", "decaimiento", "similitud", "distancia", "dimensión",
-    "normalización", "serialización", "benchmark", "ingesta", "lectura",
-    "escritura", "operación", "transacción", "lote", "concurrencia",
-    "estructura", "propiedad", "atributo", "contexto", "conocimiento",
-    "experiencia", "habilidad", "herramienta", "aprendizaje", "adaptación",
+    "memoria",
+    "cognitiva",
+    "grafo",
+    "nodo",
+    "arista",
+    "vector",
+    "semántico",
+    "episódico",
+    "procedimental",
+    "entidad",
+    "evento",
+    "hecho",
+    "relación",
+    "causal",
+    "temporal",
+    "conflicto",
+    "resolución",
+    "confianza",
+    "embedding",
+    "travesía",
+    "búsqueda",
+    "índice",
+    "latencia",
+    "rendimiento",
+    "datos",
+    "sistema",
+    "modelo",
+    "algoritmo",
+    "inferencia",
+    "consulta",
+    "resultado",
+    "profundidad",
+    "amplitud",
+    "ciclo",
+    "ruta",
+    "peso",
+    "umbral",
+    "cluster",
+    "comunidad",
+    "decaimiento",
+    "similitud",
+    "distancia",
+    "dimensión",
+    "normalización",
+    "serialización",
+    "benchmark",
+    "ingesta",
+    "lectura",
+    "escritura",
+    "operación",
+    "transacción",
+    "lote",
+    "concurrencia",
+    "estructura",
+    "propiedad",
+    "atributo",
+    "contexto",
+    "conocimiento",
+    "experiencia",
+    "habilidad",
+    "herramienta",
+    "aprendizaje",
+    "adaptación",
 ];
 
 /// Serializable container for generated benchmark data.
@@ -150,7 +202,10 @@ fn generate_embedding(rng: &mut ChaCha8Rng, dist: &Uniform<f32>) -> Vec<f32> {
 /// # Panics
 /// Panics if `nodes` is empty.
 pub fn generate_edges(nodes: &[Node], count: usize, seed: u64) -> Vec<Edge> {
-    assert!(!nodes.is_empty(), "Cannot generate edges for empty node set");
+    assert!(
+        !nodes.is_empty(),
+        "Cannot generate edges for empty node set"
+    );
 
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let n = nodes.len();
@@ -448,7 +503,10 @@ mod tests {
             .zip(nodes_b.iter())
             .filter(|(a, b)| a.content == b.content)
             .count();
-        assert!(same_content < nodes_a.len(), "Different seeds should produce different data");
+        assert!(
+            same_content < nodes_a.len(),
+            "Different seeds should produce different data"
+        );
     }
 
     #[test]
@@ -457,25 +515,50 @@ mod tests {
         for node in &nodes {
             assert_eq!(node.embedding.len(), 384);
             let norm: f32 = node.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-            assert!((norm - 1.0).abs() < 1e-5, "Embedding should be L2 normalized, got norm={}", norm);
+            assert!(
+                (norm - 1.0).abs() < 1e-5,
+                "Embedding should be L2 normalized, got norm={}",
+                norm
+            );
         }
     }
 
     #[test]
     fn test_generate_nodes_type_distribution() {
         let nodes = generate_nodes(10_000, 42);
-        let entity_count = nodes.iter().filter(|n| n.node_type == NodeType::Entity).count();
-        let event_count = nodes.iter().filter(|n| n.node_type == NodeType::Event).count();
-        let fact_count = nodes.iter().filter(|n| n.node_type == NodeType::Fact).count();
+        let entity_count = nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Entity)
+            .count();
+        let event_count = nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Event)
+            .count();
+        let fact_count = nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Fact)
+            .count();
 
         // With 10k nodes, distributions should be close to target (within 5%)
         let entity_pct = entity_count as f64 / 10_000.0;
         let event_pct = event_count as f64 / 10_000.0;
         let fact_pct = fact_count as f64 / 10_000.0;
 
-        assert!((entity_pct - 0.60).abs() < 0.05, "Entity should be ~60%, got {:.1}%", entity_pct * 100.0);
-        assert!((event_pct - 0.25).abs() < 0.05, "Event should be ~25%, got {:.1}%", event_pct * 100.0);
-        assert!((fact_pct - 0.15).abs() < 0.05, "Fact should be ~15%, got {:.1}%", fact_pct * 100.0);
+        assert!(
+            (entity_pct - 0.60).abs() < 0.05,
+            "Entity should be ~60%, got {:.1}%",
+            entity_pct * 100.0
+        );
+        assert!(
+            (event_pct - 0.25).abs() < 0.05,
+            "Event should be ~25%, got {:.1}%",
+            event_pct * 100.0
+        );
+        assert!(
+            (fact_pct - 0.15).abs() < 0.05,
+            "Fact should be ~15%, got {:.1}%",
+            fact_pct * 100.0
+        );
     }
 
     #[test]
@@ -485,7 +568,10 @@ mod tests {
         let one_year_secs: u64 = 365 * 24 * 3600;
         for node in &nodes {
             assert!(node.timestamp >= base_ts, "Timestamp below base");
-            assert!(node.timestamp < base_ts + one_year_secs, "Timestamp above range");
+            assert!(
+                node.timestamp < base_ts + one_year_secs,
+                "Timestamp above range"
+            );
         }
     }
 
@@ -515,8 +601,16 @@ mod tests {
         let edges = generate_edges(&nodes, 1000, 99);
         let max_id = nodes.len() as u64;
         for edge in &edges {
-            assert!(edge.source < max_id, "Source ID out of range: {}", edge.source);
-            assert!(edge.target < max_id, "Target ID out of range: {}", edge.target);
+            assert!(
+                edge.source < max_id,
+                "Source ID out of range: {}",
+                edge.source
+            );
+            assert!(
+                edge.target < max_id,
+                "Target ID out of range: {}",
+                edge.target
+            );
             assert_ne!(edge.source, edge.target, "Self-loop detected");
         }
     }
@@ -526,7 +620,11 @@ mod tests {
         let nodes = generate_nodes(100, 42);
         let edges = generate_edges(&nodes, 5000, 99);
         for edge in &edges {
-            assert_ne!(edge.source, edge.target, "Self-loop: {} -> {}", edge.source, edge.target);
+            assert_ne!(
+                edge.source, edge.target,
+                "Self-loop: {} -> {}",
+                edge.source, edge.target
+            );
         }
     }
 
@@ -644,7 +742,11 @@ mod tests {
         for node in &nodes {
             assert_eq!(node.embedding.len(), 384);
             let norm: f32 = node.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-            assert!((norm - 1.0).abs() < 1e-5, "Expected L2 norm ~1.0, got {}", norm);
+            assert!(
+                (norm - 1.0).abs() < 1e-5,
+                "Expected L2 norm ~1.0, got {}",
+                norm
+            );
         }
     }
 

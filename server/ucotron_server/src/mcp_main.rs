@@ -55,23 +55,20 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     // Initialize embedding pipeline.
-    let embedder: Arc<dyn ucotron_extraction::EmbeddingPipeline> =
-        match try_init_embedder(&config) {
-            Ok(e) => e,
-            Err(e) => {
-                tracing::warn!("Failed to load embedding model: {}. Using stub embedder.", e);
-                Arc::new(StubEmbedder)
-            }
-        };
+    let embedder: Arc<dyn ucotron_extraction::EmbeddingPipeline> = match try_init_embedder(&config)
+    {
+        Ok(e) => e,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to load embedding model: {}. Using stub embedder.",
+                e
+            );
+            Arc::new(StubEmbedder)
+        }
+    };
 
     // Build application state.
-    let state = Arc::new(AppState::new(
-        registry,
-        embedder,
-        None,
-        None,
-        config,
-    ));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     // Create MCP server and serve via stdio.
     let server = UcotronMcpServer::new(state);

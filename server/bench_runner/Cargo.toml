@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [features]
 default = []
+cozo = []
 
 [dependencies]
 ucotron-core = { workspace = true }

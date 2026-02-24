@@ -72,6 +72,12 @@ pub struct OtelMetrics {
     pub lmdb_map_usage_bytes: opentelemetry::metrics::Gauge<u64>,
 }
 
+impl Default for OtelMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OtelMetrics {
     /// Create all meter instruments from the global meter provider.
     pub fn new() -> Self {
@@ -167,20 +173,15 @@ impl OtelMetrics {
     }
 
     /// Record an HTTP request observation in OTLP metrics.
-    pub fn record_http_request(
-        &self,
-        method: &str,
-        path: &str,
-        status: u16,
-        duration_secs: f64,
-    ) {
+    pub fn record_http_request(&self, method: &str, path: &str, status: u16, duration_secs: f64) {
         let attrs = [
             KeyValue::new("http.method", method.to_string()),
             KeyValue::new("url.path", path.to_string()),
             KeyValue::new("http.status_code", status as i64),
         ];
         self.http_requests_total.add(1, &attrs);
-        self.http_request_duration_seconds.record(duration_secs, &attrs);
+        self.http_request_duration_seconds
+            .record(duration_secs, &attrs);
 
         if status >= 400 {
             let error_type = if status >= 500 {

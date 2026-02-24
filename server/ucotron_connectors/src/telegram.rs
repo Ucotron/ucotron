@@ -446,7 +446,7 @@ impl Connector for TelegramConnector {
                     }
 
                     // Track latest update_id for cursor
-                    if latest_update_id.map_or(true, |current| *update_id > current) {
+                    if latest_update_id.is_none_or(|current| *update_id > current) {
                         latest_update_id = Some(*update_id);
                     }
 
@@ -698,7 +698,13 @@ mod tests {
     #[test]
     fn test_message_to_content_item_text() {
         let connector = TelegramConnector::new();
-        let msg = make_message(42, Some("Hello from Telegram!"), Some("testuser"), -100123, "group");
+        let msg = make_message(
+            42,
+            Some("Hello from Telegram!"),
+            Some("testuser"),
+            -100123,
+            "group",
+        );
 
         let item = connector.message_to_content_item(&msg, "conn-1");
 

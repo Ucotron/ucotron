@@ -29,8 +29,6 @@
 //! UCOTRON_SERVER_PORT=9000 ucotron_server
 //! ```
 
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
 use axum::extract::{DefaultBodyLimit, State};
 use axum::http::Request;
 use axum::middleware::{self, Next};
@@ -38,6 +36,8 @@ use axum::response::Response;
 use axum::routing::{delete, get, post, put};
 use axum::Router;
 use clap::{Parser, Subcommand};
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
@@ -156,7 +156,10 @@ async fn main() -> anyhow::Result<()> {
         config.instance.resolved_instance_id(),
         config.instance.role,
         config.instance.id_range_start,
-        config.instance.id_range_start.saturating_add(config.instance.id_range_size),
+        config
+            .instance
+            .id_range_start
+            .saturating_add(config.instance.id_range_size),
     );
 
     // In shared mode, override data dirs to the shared path and acquire writer lock.
@@ -201,14 +204,17 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize embedding pipeline.
     // Try to load ONNX model; fall back to a stub if model files are not present.
-    let embedder: Arc<dyn ucotron_extraction::EmbeddingPipeline> =
-        match try_init_embedder(&config) {
-            Ok(e) => e,
-            Err(e) => {
-                tracing::warn!("Failed to load embedding model: {}. Using stub embedder.", e);
-                Arc::new(StubEmbedder)
-            }
-        };
+    let embedder: Arc<dyn ucotron_extraction::EmbeddingPipeline> = match try_init_embedder(&config)
+    {
+        Ok(e) => e,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to load embedding model: {}. Using stub embedder.",
+                e
+            );
+            Arc::new(StubEmbedder)
+        }
+    };
 
     // Build application state.
     let mut app_state = AppState::new(
@@ -237,7 +243,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/v1/memories", post(handlers::create_memory_handler))
         .route("/api/v1/memories", get(handlers::list_memories_handler))
         .route("/api/v1/memories/{id}", get(handlers::get_memory_handler))
-        .route("/api/v1/memories/{id}", put(handlers::update_memory_handler))
+        .route(
+            "/api/v1/memories/{id}",
+            put(handlers::update_memory_handler),
+        )
         .route(
             "/api/v1/memories/{id}",
             delete(handlers::delete_memory_handler),
@@ -263,10 +272,7 @@ async fn main() -> anyhow::Result<()> {
             post(handlers::create_video_memory_handler),
         )
         // Search
-        .route(
-            "/api/v1/memories/search",
-            post(handlers::search_handler),
-        )
+        .route("/api/v1/memories/search", post(handlers::search_handler))
         // Entities
         .route("/api/v1/entities", get(handlers::list_entities_handler))
         .route("/api/v1/entities/{id}", get(handlers::get_entity_handler))
@@ -294,10 +300,7 @@ async fn main() -> anyhow::Result<()> {
             post(handlers::multimodal_search_handler),
         )
         // Media file serving (image, audio, video)
-        .route(
-            "/api/v1/media/{id}",
-            get(handlers::get_media_handler),
-        )
+        .route("/api/v1/media/{id}", get(handlers::get_media_handler))
         // Video segment navigation
         .route(
             "/api/v1/videos/{parent_id}/segments",
@@ -360,8 +363,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .route(
             "/api/v1/agents/{id}/share",
-            post(handlers::create_share_handler)
-                .get(handlers::list_shares_handler),
+            post(handlers::create_share_handler).get(handlers::list_shares_handler),
         )
         .route(
             "/api/v1/agents/{id}/share/{target}",
@@ -391,11 +393,11 @@ async fn main() -> anyhow::Result<()> {
         )
         // MCP Streamable HTTP (SSE) transport — all methods on /mcp
         .nest_service("/mcp", {
-            use ucotron_server::mcp::UcotronMcpServer;
             use rmcp::transport::streamable_http_server::{
                 session::local::LocalSessionManager,
                 tower::{StreamableHttpServerConfig, StreamableHttpService},
             };
+            use ucotron_server::mcp::UcotronMcpServer;
             let mcp_state = state.clone();
             let session_mgr = Arc::new(LocalSessionManager::default());
             let mcp_config = StreamableHttpServerConfig::default();
@@ -407,10 +409,7 @@ async fn main() -> anyhow::Result<()> {
         })
         // Swagger UI for interactive API exploration
         // SwaggerUi serves the OpenAPI JSON at the URL passed to .url()
-        .merge(
-            SwaggerUi::new("/swagger-ui")
-                .url("/api/v1/openapi.json", ApiDoc::openapi()),
-        )
+        .merge(SwaggerUi::new("/swagger-ui").url("/api/v1/openapi.json", ApiDoc::openapi()))
         // Middleware (order matters: first added = outermost)
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -464,7 +463,15 @@ async fn handle_command(command: &Commands, cli: &Cli) -> anyhow::Result<()> {
             link_same_user,
             link_same_agent,
         } => {
-            handle_migrate(from, file, namespace.as_deref(), *link_same_user, *link_same_agent, cli).await
+            handle_migrate(
+                from,
+                file,
+                namespace.as_deref(),
+                *link_same_user,
+                *link_same_agent,
+                cli,
+            )
+            .await
         }
     }
 }
@@ -502,7 +509,11 @@ async fn handle_migrate(
 
             // Parse Mem0 data.
             let memories = ucotron_core::mem0_adapter::parse_mem0_json(&json_data)?;
-            println!("Parsed {} Mem0 memories from '{}'", memories.len(), file_path);
+            println!(
+                "Parsed {} Mem0 memories from '{}'",
+                memories.len(),
+                file_path
+            );
 
             if memories.is_empty() {
                 println!("No memories to import.");
@@ -530,8 +541,7 @@ async fn handle_migrate(
 
             // Import using the standard pipeline.
             // Find the next available node ID by scanning existing nodes.
-            let existing_nodes = registry.graph().get_all_nodes()
-                .unwrap_or_default();
+            let existing_nodes = registry.graph().get_all_nodes().unwrap_or_default();
             let next_id = existing_nodes.iter().map(|n| n.id).max().unwrap_or(0) + 1;
 
             let import_result = ucotron_core::jsonld_export::import_graph(
@@ -604,8 +614,7 @@ async fn handle_migrate(
             let registry = ucotron_core::BackendRegistry::new(vector_backend, graph_backend);
 
             // Import using the standard pipeline.
-            let existing_nodes = registry.graph().get_all_nodes()
-                .unwrap_or_default();
+            let existing_nodes = registry.graph().get_all_nodes().unwrap_or_default();
             let next_id = existing_nodes.iter().map(|n| n.id).max().unwrap_or(0) + 1;
 
             let import_result = ucotron_core::jsonld_export::import_graph(

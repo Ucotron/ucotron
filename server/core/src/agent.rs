@@ -37,7 +37,12 @@ pub struct Agent {
 impl Agent {
     /// Create a new agent with the given fields. The namespace defaults to
     /// `"agent_{id}"` if not explicitly provided.
-    pub fn new(id: impl Into<String>, name: impl Into<String>, owner: impl Into<String>, created_at: u64) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        owner: impl Into<String>,
+        created_at: u64,
+    ) -> Self {
         let id = id.into();
         let namespace = format!("agent_{}", &id);
         Self {
@@ -165,8 +170,8 @@ mod tests {
 
     #[test]
     fn test_agent_with_namespace() {
-        let agent = Agent::new("bot-1", "My Bot", "user-42", 1700000000)
-            .with_namespace("custom-ns");
+        let agent =
+            Agent::new("bot-1", "My Bot", "user-42", 1700000000).with_namespace("custom-ns");
         assert_eq!(agent.namespace, "custom-ns");
     }
 
@@ -176,10 +181,12 @@ mod tests {
         config.insert("model".to_string(), Value::String("qwen-2.5".to_string()));
         config.insert("temperature".to_string(), Value::Float(0.7));
 
-        let agent = Agent::new("bot-1", "Bot", "owner", 0)
-            .with_config(config.clone());
+        let agent = Agent::new("bot-1", "Bot", "owner", 0).with_config(config.clone());
         assert_eq!(agent.config.len(), 2);
-        assert_eq!(agent.config.get("model"), Some(&Value::String("qwen-2.5".to_string())));
+        assert_eq!(
+            agent.config.get("model"),
+            Some(&Value::String("qwen-2.5".to_string()))
+        );
     }
 
     #[test]
@@ -203,7 +210,8 @@ mod tests {
     fn test_agent_share_serialization() {
         let share = AgentShare::new("a", "b", SharePermission::ReadWrite, 123456);
         let serialized = bincode::serialize(&share).expect("serialize AgentShare");
-        let deserialized: AgentShare = bincode::deserialize(&serialized).expect("deserialize AgentShare");
+        let deserialized: AgentShare =
+            bincode::deserialize(&serialized).expect("deserialize AgentShare");
         assert_eq!(share, deserialized);
     }
 
@@ -232,7 +240,8 @@ mod tests {
             time_range_end: Some(2000),
         };
         let serialized = bincode::serialize(&filter).expect("serialize CloneFilter");
-        let deserialized: CloneFilter = bincode::deserialize(&serialized).expect("deserialize CloneFilter");
+        let deserialized: CloneFilter =
+            bincode::deserialize(&serialized).expect("deserialize CloneFilter");
         assert_eq!(filter, deserialized);
     }
 
@@ -254,7 +263,8 @@ mod tests {
             ids_remapped: 3,
         };
         let serialized = bincode::serialize(&result).expect("serialize MergeResult");
-        let deserialized: MergeResult = bincode::deserialize(&serialized).expect("deserialize MergeResult");
+        let deserialized: MergeResult =
+            bincode::deserialize(&serialized).expect("deserialize MergeResult");
         assert_eq!(result, deserialized);
     }
 }

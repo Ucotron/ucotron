@@ -390,23 +390,23 @@ mod tests {
 
     #[test]
     fn test_cosine_similarity_identical() {
-        let a = l2_normalize(&vec![1.0, 2.0, 3.0]);
+        let a = l2_normalize(&[1.0, 2.0, 3.0]);
         let sim = cosine_similarity(&a, &a);
         assert!((sim - 1.0).abs() < 1e-6);
     }
 
     #[test]
     fn test_cosine_similarity_orthogonal() {
-        let a = l2_normalize(&vec![1.0, 0.0]);
-        let b = l2_normalize(&vec![0.0, 1.0]);
+        let a = l2_normalize(&[1.0, 0.0]);
+        let b = l2_normalize(&[0.0, 1.0]);
         let sim = cosine_similarity(&a, &b);
         assert!(sim.abs() < 1e-6);
     }
 
     #[test]
     fn test_cosine_similarity_opposite() {
-        let a = l2_normalize(&vec![1.0, 0.0]);
-        let b = l2_normalize(&vec![-1.0, 0.0]);
+        let a = l2_normalize(&[1.0, 0.0]);
+        let b = l2_normalize(&[-1.0, 0.0]);
         let sim = cosine_similarity(&a, &b);
         assert!((sim + 1.0).abs() < 1e-6);
     }
@@ -460,10 +460,7 @@ mod tests {
         // Check first pixel of each channel
         let s = CLIP_IMAGE_SIZE * CLIP_IMAGE_SIZE;
         assert!((pixels[0] - expected_r).abs() < 1e-4, "R channel mismatch");
-        assert!(
-            (pixels[s] - expected_g).abs() < 1e-4,
-            "G channel mismatch"
-        );
+        assert!((pixels[s] - expected_g).abs() < 1e-4, "G channel mismatch");
         assert!(
             (pixels[2 * s] - expected_b).abs() < 1e-4,
             "B channel mismatch"
@@ -524,8 +521,7 @@ mod tests {
     // --- Model-dependent tests (skip gracefully if models absent) ---
 
     fn clip_model_dir() -> String {
-        let base = std::env::var("UCOTRON_MODELS_DIR")
-            .unwrap_or_else(|_| "models".to_string());
+        let base = std::env::var("UCOTRON_MODELS_DIR").unwrap_or_else(|_| "models".to_string());
         format!("{}/clip-vit-base-patch32", base)
     }
 
@@ -549,7 +545,11 @@ mod tests {
             return;
         }
         let pipeline = ClipImagePipeline::new(&path, ClipConfig::default());
-        assert!(pipeline.is_ok(), "Failed to load CLIP visual model: {:?}", pipeline.err());
+        assert!(
+            pipeline.is_ok(),
+            "Failed to load CLIP visual model: {:?}",
+            pipeline.err()
+        );
     }
 
     #[test]
@@ -572,21 +572,28 @@ mod tests {
         assert_eq!(embedding.len(), CLIP_EMBED_DIM);
         // Should be L2-normalized
         let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 1e-4, "Embedding not normalized: {}", norm);
+        assert!(
+            (norm - 1.0).abs() < 1e-4,
+            "Embedding not normalized: {}",
+            norm
+        );
     }
 
     #[test]
     fn test_clip_text_pipeline_loads() {
         let model_path = clip_text_model_path();
         let tok_path = clip_tokenizer_path();
-        if !std::path::Path::new(&model_path).exists()
-            || !std::path::Path::new(&tok_path).exists()
+        if !std::path::Path::new(&model_path).exists() || !std::path::Path::new(&tok_path).exists()
         {
             eprintln!("SKIP: CLIP text model not found");
             return;
         }
         let pipeline = ClipTextPipeline::new(&model_path, &tok_path, 4);
-        assert!(pipeline.is_ok(), "Failed to load CLIP text model: {:?}", pipeline.err());
+        assert!(
+            pipeline.is_ok(),
+            "Failed to load CLIP text model: {:?}",
+            pipeline.err()
+        );
     }
 
     #[test]

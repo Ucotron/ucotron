@@ -295,7 +295,11 @@ impl CronScheduler {
         let id = connector_id.into();
         self.connectors.write().await.insert(
             id.clone(),
-            ConnectorEntry { sync_fn, webhook_fn: None, enabled },
+            ConnectorEntry {
+                sync_fn,
+                webhook_fn: None,
+                enabled,
+            },
         );
         self.state.write().await.add_schedule(schedule);
     }
@@ -328,15 +332,12 @@ impl CronScheduler {
         payload: WebhookPayload,
     ) -> anyhow::Result<Vec<ContentItem>> {
         let connectors = self.connectors.read().await;
-        let entry = connectors.get(connector_id).ok_or_else(|| {
-            anyhow::anyhow!("Connector '{}' not found", connector_id)
-        })?;
+        let entry = connectors
+            .get(connector_id)
+            .ok_or_else(|| anyhow::anyhow!("Connector '{}' not found", connector_id))?;
 
         if !entry.enabled {
-            return Err(anyhow::anyhow!(
-                "Connector '{}' is disabled",
-                connector_id
-            ));
+            return Err(anyhow::anyhow!("Connector '{}' is disabled", connector_id));
         }
 
         let webhook_fn = entry.webhook_fn.as_ref().ok_or_else(|| {
@@ -602,9 +603,7 @@ impl CronScheduler {
             .as_secs();
 
         let status = match &last_error {
-            Some(err) => SyncStatus::Failed {
-                error: err.clone(),
-            },
+            Some(err) => SyncStatus::Failed { error: err.clone() },
             None => SyncStatus::Success,
         };
 
@@ -677,10 +676,7 @@ mod tests {
             .retries(5);
 
         assert_eq!(schedule.connector_id, "conn-1");
-        assert_eq!(
-            schedule.cron_expression,
-            Some("0 */6 * * *".to_string())
-        );
+        assert_eq!(schedule.cron_expression, Some("0 */6 * * *".to_string()));
         assert_eq!(schedule.timeout_secs, 600);
         assert_eq!(schedule.max_retries, 5);
         assert!(schedule.enabled);
@@ -791,7 +787,7 @@ mod tests {
             .unwrap()
             .as_secs();
         // Next fire should be within 60 seconds from now
-        assert!(ts > now || ts == now);
+        assert!(ts >= now);
         assert!(ts <= now + 61);
     }
 
@@ -961,7 +957,9 @@ mod tests {
         let sync_fn = mock_sync_fn(1, "mock-cursor-1");
         let schedule = SyncSchedule::new("cursor-conn");
 
-        scheduler.register("cursor-conn", sync_fn, true, schedule).await;
+        scheduler
+            .register("cursor-conn", sync_fn, true, schedule)
+            .await;
 
         scheduler.trigger_sync("cursor-conn").await.unwrap();
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
@@ -969,10 +967,7 @@ mod tests {
         let cursors = scheduler.cursors().read().await;
         let cursor = cursors.get("cursor-conn");
         assert!(cursor.is_some());
-        assert_eq!(
-            cursor.unwrap().value,
-            Some("mock-cursor-1".to_string())
-        );
+        assert_eq!(cursor.unwrap().value, Some("mock-cursor-1".to_string()));
 
         scheduler.shutdown().await;
     }
@@ -986,7 +981,9 @@ mod tests {
         let sync_fn = mock_sync_fn(1, "cursor");
         let schedule = SyncSchedule::new("disabled-conn");
 
-        scheduler.register("disabled-conn", sync_fn, false, schedule).await;
+        scheduler
+            .register("disabled-conn", sync_fn, false, schedule)
+            .await;
 
         scheduler.trigger_sync("disabled-conn").await.unwrap();
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
@@ -1007,7 +1004,9 @@ mod tests {
         let sync_fn = failing_sync_fn("connection refused");
         let schedule = SyncSchedule::new("fail-conn").retries(0);
 
-        scheduler.register("fail-conn", sync_fn, true, schedule).await;
+        scheduler
+            .register("fail-conn", sync_fn, true, schedule)
+            .await;
 
         scheduler.trigger_sync("fail-conn").await.unwrap();
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -1017,7 +1016,9 @@ mod tests {
         // Should have Running + Failed records
         assert!(!history.is_empty());
         // At least one record should be Failed
-        let has_failed = history.iter().any(|r| matches!(r.status, SyncStatus::Failed { .. }));
+        let has_failed = history
+            .iter()
+            .any(|r| matches!(r.status, SyncStatus::Failed { .. }));
         assert!(has_failed, "Expected at least one Failed record");
 
         scheduler.shutdown().await;
@@ -1110,10 +1111,15 @@ mod tests {
 
         let sync_fn = mock_sync_fn(1, "cursor");
         let schedule = SyncSchedule::new("disabled-wh");
-        scheduler.register("disabled-wh", sync_fn, false, schedule).await;
+        scheduler
+            .register("disabled-wh", sync_fn, false, schedule)
+            .await;
 
         let wh_fn = mock_webhook_fn(1);
-        scheduler.register_webhook("disabled-wh", wh_fn).await.unwrap();
+        scheduler
+            .register_webhook("disabled-wh", wh_fn)
+            .await
+            .unwrap();
 
         let payload = WebhookPayload {
             body: b"{}".to_vec(),
@@ -1198,12 +1204,16 @@ mod tests {
 
         let sync_fn = mock_sync_fn(1, "cursor");
         let schedule = SyncSchedule::new("header-wh");
-        scheduler.register("header-wh", sync_fn, true, schedule).await;
+        scheduler
+            .register("header-wh", sync_fn, true, schedule)
+            .await;
 
         // Webhook handler that inspects headers.
         let wh_fn: WebhookFn = Arc::new(|payload: WebhookPayload| {
             Box::pin(async move {
-                let event = payload.headers.get("x-github-event")
+                let event = payload
+                    .headers
+                    .get("x-github-event")
                     .cloned()
                     .unwrap_or_default();
                 Ok(vec![crate::connector::ContentItem {
@@ -1221,7 +1231,10 @@ mod tests {
                 }])
             })
         });
-        scheduler.register_webhook("header-wh", wh_fn).await.unwrap();
+        scheduler
+            .register_webhook("header-wh", wh_fn)
+            .await
+            .unwrap();
 
         let mut headers = HashMap::new();
         headers.insert("x-github-event".to_string(), "push".to_string());
@@ -1230,7 +1243,10 @@ mod tests {
             headers,
             content_type: Some("application/json".to_string()),
         };
-        let items = scheduler.handle_webhook("header-wh", payload).await.unwrap();
+        let items = scheduler
+            .handle_webhook("header-wh", payload)
+            .await
+            .unwrap();
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].content, "event: push");
 

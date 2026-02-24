@@ -95,7 +95,8 @@ pub struct ExtractedEntity {
 /// NER pipeline trait for extracting named entities from text.
 pub trait NerPipeline: Send + Sync {
     /// Extract entities from text with the given label set.
-    fn extract_entities(&self, text: &str, labels: &[&str]) -> anyhow::Result<Vec<ExtractedEntity>>;
+    fn extract_entities(&self, text: &str, labels: &[&str])
+        -> anyhow::Result<Vec<ExtractedEntity>>;
 
     /// Extract entities from a batch of texts with the given label set.
     ///
@@ -162,10 +163,8 @@ pub trait CrossModalTextEncoder: Send + Sync {
 /// transcribed text that can be fed into the ingestion pipeline.
 pub trait TranscriptionPipeline: Send + Sync {
     /// Transcribe audio from a WAV file.
-    fn transcribe_file(
-        &self,
-        path: &std::path::Path,
-    ) -> anyhow::Result<audio::TranscriptionResult>;
+    fn transcribe_file(&self, path: &std::path::Path)
+        -> anyhow::Result<audio::TranscriptionResult>;
 
     /// Transcribe audio from raw f32 samples at a given sample rate.
     fn transcribe_samples(
@@ -190,10 +189,8 @@ pub trait DocumentOcrPipeline: Send + Sync {
     ) -> anyhow::Result<ocr::DocumentExtractionResult>;
 
     /// Process a document from a file path.
-    fn process_file(
-        &self,
-        path: &std::path::Path,
-    ) -> anyhow::Result<ocr::DocumentExtractionResult>;
+    fn process_file(&self, path: &std::path::Path)
+        -> anyhow::Result<ocr::DocumentExtractionResult>;
 }
 
 /// Default implementation of [`DocumentOcrPipeline`] using pdf_extract + Tesseract CLI.

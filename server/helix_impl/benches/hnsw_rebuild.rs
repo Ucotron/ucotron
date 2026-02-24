@@ -8,13 +8,13 @@
 //! Results are used in ADR-001 (Incremental HNSW Insert Decision).
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use ucotron_config::HnswConfig;
-use ucotron_core::backends::VectorBackend;
-use ucotron_helix::HnswVectorBackend;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use tempfile::TempDir;
+use ucotron_config::HnswConfig;
+use ucotron_core::backends::VectorBackend;
+use ucotron_helix::HnswVectorBackend;
 
 /// Generate a random L2-normalized 384-dim embedding vector.
 fn random_embedding(rng: &mut ChaCha8Rng) -> Vec<f32> {
@@ -44,12 +44,9 @@ fn bench_rebuild_upsert(c: &mut Criterion) {
             enabled: true,
         };
 
-        let backend = HnswVectorBackend::open(
-            dir.path().to_str().unwrap(),
-            2 * 1024 * 1024 * 1024,
-            config,
-        )
-        .unwrap();
+        let backend =
+            HnswVectorBackend::open(dir.path().to_str().unwrap(), 2 * 1024 * 1024 * 1024, config)
+                .unwrap();
 
         // Pre-populate with base_size vectors (single batch to minimize setup time)
         let mut rng = ChaCha8Rng::seed_from_u64(42);

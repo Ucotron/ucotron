@@ -140,11 +140,7 @@ impl MultimodalNodeBuilder {
     ///
     /// Image nodes require a 512-dim `embedding_visual` (CLIP) and `media_uri`.
     /// Optionally, `content` (description) and `embedding` (text) can be set.
-    pub fn image(
-        id: NodeId,
-        media_uri: impl Into<String>,
-        embedding_visual: Vec<f32>,
-    ) -> Self {
+    pub fn image(id: NodeId, media_uri: impl Into<String>, embedding_visual: Vec<f32>) -> Self {
         Self {
             id,
             media_type: MediaType::Image,
@@ -340,10 +336,7 @@ impl MultimodalNodeBuilder {
         // Validate timestamp range
         if let Some((start, end)) = self.timestamp_range {
             if start >= end {
-                return Err(MultimodalValidationError::InvalidTimestampRange {
-                    start,
-                    end,
-                });
+                return Err(MultimodalValidationError::InvalidTimestampRange { start, end });
             }
         }
 
@@ -386,10 +379,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(node.node_type, NodeType::Fact);
-        assert_eq!(
-            node.media_uri,
-            Some("file:///notes/note1.txt".to_string())
-        );
+        assert_eq!(node.media_uri, Some("file:///notes/note1.txt".to_string()));
         assert_eq!(
             node.metadata.get("source"),
             Some(&Value::String("user_input".to_string()))
@@ -465,31 +455,26 @@ mod tests {
 
     #[test]
     fn test_image_node_basic() {
-        let node =
-            MultimodalNodeBuilder::image(20, "file:///images/photo.jpg", vec![0.3f32; 512])
-                .timestamp(3_000_000)
-                .build()
-                .unwrap();
+        let node = MultimodalNodeBuilder::image(20, "file:///images/photo.jpg", vec![0.3f32; 512])
+            .timestamp(3_000_000)
+            .build()
+            .unwrap();
 
         assert_eq!(node.id, 20);
         assert_eq!(node.content, ""); // no content by default
         assert!(node.embedding.is_empty()); // no text embedding by default
         assert_eq!(node.media_type, Some(MediaType::Image));
-        assert_eq!(
-            node.media_uri,
-            Some("file:///images/photo.jpg".to_string())
-        );
+        assert_eq!(node.media_uri, Some("file:///images/photo.jpg".to_string()));
         assert_eq!(node.embedding_visual.as_ref().unwrap().len(), 512);
     }
 
     #[test]
     fn test_image_node_with_description() {
-        let node =
-            MultimodalNodeBuilder::image(21, "file:///images/sunset.png", vec![0.3f32; 512])
-                .content("A beautiful sunset over the ocean".to_string())
-                .embedding(vec![0.1f32; 384])
-                .build()
-                .unwrap();
+        let node = MultimodalNodeBuilder::image(21, "file:///images/sunset.png", vec![0.3f32; 512])
+            .content("A beautiful sunset over the ocean".to_string())
+            .embedding(vec![0.1f32; 384])
+            .build()
+            .unwrap();
 
         assert_eq!(node.content, "A beautiful sunset over the ocean");
         assert_eq!(node.embedding.len(), 384);
@@ -498,10 +483,9 @@ mod tests {
 
     #[test]
     fn test_image_node_invalid_visual_dim() {
-        let err =
-            MultimodalNodeBuilder::image(22, "file:///img.jpg", vec![0.3f32; 256]) // wrong dim!
-                .build()
-                .unwrap_err();
+        let err = MultimodalNodeBuilder::image(22, "file:///img.jpg", vec![0.3f32; 256]) // wrong dim!
+            .build()
+            .unwrap_err();
         assert_eq!(
             err,
             MultimodalValidationError::InvalidVisualEmbeddingDim {
@@ -528,10 +512,7 @@ mod tests {
         assert_eq!(node.id, 30);
         assert_eq!(node.media_type, Some(MediaType::VideoSegment));
         assert_eq!(node.node_type, NodeType::Event);
-        assert_eq!(
-            node.media_uri,
-            Some("file:///video/clip.mp4".to_string())
-        );
+        assert_eq!(node.media_uri, Some("file:///video/clip.mp4".to_string()));
         assert_eq!(node.embedding_visual.as_ref().unwrap().len(), 512);
         assert_eq!(node.parent_video_id, Some(1000));
     }
@@ -584,15 +565,11 @@ mod tests {
 
     #[test]
     fn test_invalid_timestamp_range() {
-        let err = MultimodalNodeBuilder::audio(
-            40,
-            "transcript",
-            vec![0.1f32; 384],
-            "file:///audio.wav",
-        )
-        .timestamp_range(60_000, 30_000) // start > end
-        .build()
-        .unwrap_err();
+        let err =
+            MultimodalNodeBuilder::audio(40, "transcript", vec![0.1f32; 384], "file:///audio.wav")
+                .timestamp_range(60_000, 30_000) // start > end
+                .build()
+                .unwrap_err();
 
         assert_eq!(
             err,
@@ -605,15 +582,11 @@ mod tests {
 
     #[test]
     fn test_timestamp_range_equal_invalid() {
-        let err = MultimodalNodeBuilder::audio(
-            41,
-            "transcript",
-            vec![0.1f32; 384],
-            "file:///audio.wav",
-        )
-        .timestamp_range(5_000, 5_000) // start == end
-        .build()
-        .unwrap_err();
+        let err =
+            MultimodalNodeBuilder::audio(41, "transcript", vec![0.1f32; 384], "file:///audio.wav")
+                .timestamp_range(5_000, 5_000) // start == end
+                .build()
+                .unwrap_err();
 
         assert_eq!(
             err,

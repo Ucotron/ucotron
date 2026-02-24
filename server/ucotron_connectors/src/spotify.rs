@@ -150,10 +150,7 @@ impl SpotifyConnector {
             let limit = remaining.min(50);
             let resp: EpisodeListResponse = self
                 .client
-                .get(format!(
-                    "{}/shows/{}/episodes",
-                    SPOTIFY_API_BASE, show_id
-                ))
+                .get(format!("{}/shows/{}/episodes", SPOTIFY_API_BASE, show_id))
                 .bearer_auth(token)
                 .query(&[
                     ("market", market),
@@ -245,12 +242,7 @@ impl SpotifyConnector {
         // Include show name if available
         let show_name = show_info
             .map(|s| s.name.clone())
-            .or_else(|| {
-                episode
-                    .show
-                    .as_ref()
-                    .map(|s| s.name.clone())
-            });
+            .or_else(|| episode.show.as_ref().map(|s| s.name.clone()));
 
         if let Some(ref show) = show_name {
             content_parts.push(format!("Show: {}", show));
@@ -291,10 +283,7 @@ impl SpotifyConnector {
         let content = content_parts.join("\n\n");
 
         // Parse release_date to Unix timestamp
-        let created_at = episode
-            .release_date
-            .as_deref()
-            .and_then(parse_release_date);
+        let created_at = episode.release_date.as_deref().and_then(parse_release_date);
 
         let mut extra = HashMap::new();
         extra.insert(
@@ -310,7 +299,7 @@ impl SpotifyConnector {
                 "show_name".to_string(),
                 serde_json::Value::String(show.name.clone()),
             );
-        } else if let Some(ref info) = show_info {
+        } else if let Some(info) = show_info {
             extra.insert(
                 "show_name".to_string(),
                 serde_json::Value::String(info.name.clone()),
@@ -342,21 +331,14 @@ impl SpotifyConnector {
         // Determine publisher from show info
         let author = show_info
             .and_then(|s| s.publisher.clone())
-            .or_else(|| {
-                episode
-                    .show
-                    .as_ref()
-                    .and_then(|s| s.publisher.clone())
-            });
+            .or_else(|| episode.show.as_ref().and_then(|s| s.publisher.clone()));
 
         // Build source URL
         let source_url = episode
             .external_urls
             .as_ref()
             .and_then(|urls| urls.spotify.clone())
-            .unwrap_or_else(|| {
-                format!("https://open.spotify.com/episode/{}", episode.id)
-            });
+            .unwrap_or_else(|| format!("https://open.spotify.com/episode/{}", episode.id));
 
         ContentItem {
             content,
@@ -443,7 +425,9 @@ impl Connector for SpotifyConnector {
         let has_episodes = !Self::get_episode_ids(config).is_empty();
 
         if !has_shows && !has_episodes {
-            bail!("Spotify connector requires at least one of: show_ids or episode_ids in settings");
+            bail!(
+                "Spotify connector requires at least one of: show_ids or episode_ids in settings"
+            );
         }
 
         Ok(())
@@ -526,7 +510,7 @@ impl Connector for SpotifyConnector {
             if let Some(ref date) = release_date {
                 if latest_date
                     .as_ref()
-                    .map_or(true, |current: &String| date.as_str() > current.as_str())
+                    .is_none_or(|current: &String| date.as_str() > current.as_str())
                 {
                     latest_date = Some(date.clone());
                 }
@@ -644,7 +628,7 @@ fn parse_release_date(date: &str) -> Option<u64> {
 
     // Simple conversion: days since Unix epoch (1970-01-01)
     // Using a simplified calendar (not accounting for leap seconds)
-    if year < 1970 || month < 1 || month > 12 || day < 1 || day > 31 {
+    if year < 1970 || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
         return None;
     }
 
@@ -668,7 +652,7 @@ fn parse_release_date(date: &str) -> Option<u64> {
 
 /// Checks if a year is a leap year.
 fn is_leap_year(year: u32) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 /// Strips HTML tags from a string, returning plain text.
@@ -777,10 +761,7 @@ mod tests {
     fn test_validate_valid_config_with_episodes() {
         let c = SpotifyConnector::new();
         let mut settings = HashMap::new();
-        settings.insert(
-            "episode_ids".to_string(),
-            serde_json::json!(["ep1", "ep2"]),
-        );
+        settings.insert("episode_ids".to_string(), serde_json::json!(["ep1", "ep2"]));
         let config = make_config(token_auth(), settings);
         assert!(c.validate_config(&config).is_ok());
     }
@@ -789,10 +770,7 @@ mod tests {
     fn test_validate_rejects_wrong_connector_type() {
         let c = SpotifyConnector::new();
         let mut settings = HashMap::new();
-        settings.insert(
-            "show_ids".to_string(),
-            serde_json::json!(["show1"]),
-        );
+        settings.insert("show_ids".to_string(), serde_json::json!(["show1"]));
         let mut config = make_config(oauth_auth(), settings);
         config.connector_type = "youtube".to_string();
         let err = c.validate_config(&config).unwrap_err();
@@ -803,10 +781,7 @@ mod tests {
     fn test_validate_rejects_no_auth() {
         let c = SpotifyConnector::new();
         let mut settings = HashMap::new();
-        settings.insert(
-            "show_ids".to_string(),
-            serde_json::json!(["show1"]),
-        );
+        settings.insert("show_ids".to_string(), serde_json::json!(["show1"]));
         let config = make_config(AuthConfig::None, settings);
         assert!(c.validate_config(&config).is_err());
     }
@@ -958,7 +933,9 @@ mod tests {
         let item = SpotifyConnector::episode_to_content_item(&episode, None, "conn-1");
         assert!(item.content.contains("Title: My Podcast Episode"));
         assert!(item.content.contains("Show: Rust Radio"));
-        assert!(item.content.contains("Description: A great episode about Rust."));
+        assert!(item
+            .content
+            .contains("Description: A great episode about Rust."));
         assert!(item.content.contains("Duration: 30:00"));
         assert_eq!(item.source.connector_type, "spotify");
         assert_eq!(item.source.source_id, "ep123");
@@ -1002,8 +979,7 @@ mod tests {
             description: Some("Show desc".to_string()),
         };
 
-        let item =
-            SpotifyConnector::episode_to_content_item(&episode, Some(&show_info), "conn-2");
+        let item = SpotifyConnector::episode_to_content_item(&episode, Some(&show_info), "conn-2");
         assert!(item.content.contains("Show: My Show"));
         assert_eq!(item.source.author, Some("Publisher Co".to_string()));
         // Fallback URL when no external_urls
@@ -1102,10 +1078,7 @@ mod tests {
 
     #[test]
     fn test_strip_html_tags() {
-        assert_eq!(
-            strip_html_tags("<p>Hello <b>world</b></p>"),
-            "Hello world"
-        );
+        assert_eq!(strip_html_tags("<p>Hello <b>world</b></p>"), "Hello world");
         assert_eq!(strip_html_tags("no tags here"), "no tags here");
         assert_eq!(
             strip_html_tags("<a href=\"url\">link</a> &amp; more"),

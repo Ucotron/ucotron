@@ -324,9 +324,7 @@ impl PostgresConnector {
             // Concatenate content columns
             let content_parts: Vec<String> = content_cols
                 .iter()
-                .filter_map(|col| {
-                    row.try_get::<String, _>(col.as_str()).ok()
-                })
+                .filter_map(|col| row.try_get::<String, _>(col.as_str()).ok())
                 .filter(|s| !s.is_empty())
                 .collect();
 
@@ -368,7 +366,6 @@ impl PostgresConnector {
 
         Ok(items)
     }
-
 }
 
 impl Default for PostgresConnector {
@@ -470,7 +467,11 @@ impl Connector for PostgresConnector {
         Self::validate_identifier(&schema)?;
 
         // Validate content_columns if present
-        if let Some(cc_map) = config.settings.get("content_columns").and_then(|v| v.as_object()) {
+        if let Some(cc_map) = config
+            .settings
+            .get("content_columns")
+            .and_then(|v| v.as_object())
+        {
             for (table_name, cols) in cc_map {
                 Self::validate_identifier(table_name)?;
                 if let Some(arr) = cols.as_array() {
@@ -600,7 +601,7 @@ mod tests {
 
     #[test]
     fn test_default_constructor() {
-        let connector = PostgresConnector::default();
+        let connector = PostgresConnector;
         assert_eq!(connector.id(), "postgres");
     }
 
@@ -637,10 +638,7 @@ mod tests {
         };
         let result = connector.validate_config(&config);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("ConnectionString"));
+        assert!(result.unwrap_err().to_string().contains("ConnectionString"));
     }
 
     #[test]
@@ -674,7 +672,10 @@ mod tests {
         );
         let result = connector.validate_config(&config);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Invalid identifier"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid identifier"));
     }
 
     #[test]
@@ -704,10 +705,9 @@ mod tests {
     fn test_validate_config_invalid_cursor_column() {
         let connector = PostgresConnector::new();
         let mut config = make_config("postgres://localhost/db");
-        config.settings.insert(
-            "cursor_column".to_string(),
-            serde_json::json!("col; DROP"),
-        );
+        config
+            .settings
+            .insert("cursor_column".to_string(), serde_json::json!("col; DROP"));
         let result = connector.validate_config(&config);
         assert!(result.is_err());
     }
@@ -820,10 +820,9 @@ mod tests {
     #[test]
     fn test_get_cursor_column_custom() {
         let mut config = make_config("postgres://localhost/db");
-        config.settings.insert(
-            "cursor_column".to_string(),
-            serde_json::json!("updated_at"),
-        );
+        config
+            .settings
+            .insert("cursor_column".to_string(), serde_json::json!("updated_at"));
         assert_eq!(
             PostgresConnector::get_cursor_column(&config).unwrap(),
             "updated_at"
@@ -931,10 +930,7 @@ mod tests {
         let mut settings = HashMap::new();
         settings.insert("tables".to_string(), serde_json::json!(["users"]));
         settings.insert("id_column".to_string(), serde_json::json!("user_id"));
-        settings.insert(
-            "cursor_column".to_string(),
-            serde_json::json!("updated_at"),
-        );
+        settings.insert("cursor_column".to_string(), serde_json::json!("updated_at"));
         settings.insert("limit".to_string(), serde_json::json!(5000));
         settings.insert("schema".to_string(), serde_json::json!("app"));
         settings.insert(

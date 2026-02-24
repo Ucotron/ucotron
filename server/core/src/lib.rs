@@ -33,7 +33,10 @@ pub mod reward;
 pub mod types;
 pub mod zep_adapter;
 
-pub use agent::{Agent, AgentId, AgentShare, CloneFilter, CloneResult, MergeResult, SharePermission};
+pub use agent::{
+    Agent, AgentId, AgentShare, CloneFilter, CloneResult, MergeResult, SharePermission,
+};
+pub use arena_traversal::{ArenaQueryTraversal, BfsArena};
 pub use backends::{
     BackendRegistry, ExternalGraphBackend, ExternalVectorBackend, GraphBackend, VectorBackend,
     VisualVectorBackend,
@@ -47,10 +50,9 @@ pub use entity_resolution::{
     resolve_entities, structural_similarity, EntityCluster, EntityResolutionConfig,
     DEFAULT_SIMILARITY_THRESHOLD,
 };
-pub use arena_traversal::{ArenaQueryTraversal, BfsArena};
 pub use hybrid::{arena_find_related, find_related, DEFAULT_HOP_DECAY};
 pub use multimodal::{MultimodalNodeBuilder, MultimodalValidationError};
-pub use query::{QueryBuilder, TraversalQuery, VectorQuery, PathQuery};
+pub use query::{PathQuery, QueryBuilder, TraversalQuery, VectorQuery};
 pub use retrieval::{MindsetDetector, MindsetKeyword, MindsetScorer, MindsetWeights};
 pub use reward::{
     find_paths, predicate_similarity, PathCentralityCalculator, PathFinderConfig,

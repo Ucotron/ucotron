@@ -188,9 +188,15 @@ mod tests {
 
         assert_eq!(resolution.strategy, ResolutionStrategy::Temporal);
         assert_eq!(resolution.winner.object, "green");
-        assert_eq!(resolution.winner.resolution_state, ResolutionState::Accepted);
+        assert_eq!(
+            resolution.winner.resolution_state,
+            ResolutionState::Accepted
+        );
         assert_eq!(resolution.loser.object, "blue");
-        assert_eq!(resolution.loser.resolution_state, ResolutionState::Superseded);
+        assert_eq!(
+            resolution.loser.resolution_state,
+            ResolutionState::Superseded
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -214,9 +220,15 @@ mod tests {
 
         assert_eq!(resolution.strategy, ResolutionStrategy::Confidence);
         assert_eq!(resolution.winner.object, "green");
-        assert_eq!(resolution.winner.resolution_state, ResolutionState::Accepted);
+        assert_eq!(
+            resolution.winner.resolution_state,
+            ResolutionState::Accepted
+        );
         assert_eq!(resolution.loser.object, "red");
-        assert_eq!(resolution.loser.resolution_state, ResolutionState::Superseded);
+        assert_eq!(
+            resolution.loser.resolution_state,
+            ResolutionState::Superseded
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -292,9 +304,7 @@ mod tests {
         let config = ConflictConfig::default();
         let t_base = 1_700_000_000u64;
 
-        let existing_facts = vec![
-            Fact::new(1, 100, "color_is", "blue", 0.9, t_base),
-        ];
+        let existing_facts = vec![Fact::new(1, 100, "color_is", "blue", 0.9, t_base)];
 
         // Different subject — no conflict
         let new_fact = Fact::new(2, 200, "color_is", "green", 0.9, t_base + 100);
@@ -397,7 +407,10 @@ mod tests {
         assert_eq!(resolution.winner.object, "correct");
         assert_eq!(resolution.winner.source_confidence, 0.95);
         assert_eq!(resolution.loser.object, "wrong");
-        assert_eq!(resolution.loser.resolution_state, ResolutionState::Superseded);
+        assert_eq!(
+            resolution.loser.resolution_state,
+            ResolutionState::Superseded
+        );
     }
 
     #[test]
@@ -432,7 +445,10 @@ mod tests {
         assert_eq!(resolution.winner.id, 2);
         assert_eq!(resolution.loser.id, 1);
         // Loser is Superseded, not removed
-        assert_eq!(resolution.loser.resolution_state, ResolutionState::Superseded);
+        assert_eq!(
+            resolution.loser.resolution_state,
+            ResolutionState::Superseded
+        );
         // Winner retains original data
         assert_eq!(resolution.winner.predicate, "lives_in");
         assert_eq!(resolution.winner.object, "Berlin");
@@ -445,7 +461,10 @@ mod tests {
         let existing = vec![Fact::new(1, 100, "lives_in", "Madrid", 0.9, 1000)];
         let new_fact = Fact::new(2, 100, "lives_in", "Madrid", 0.8, 2000);
         let conflict = detect_conflict(&new_fact, &existing, &config);
-        assert!(conflict.is_none(), "Same object value is agreement, not conflict");
+        assert!(
+            conflict.is_none(),
+            "Same object value is agreement, not conflict"
+        );
     }
 
     #[test]

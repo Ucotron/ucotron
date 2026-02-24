@@ -14,16 +14,16 @@
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use rand::Rng;
+use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
+use std::path::{Path, PathBuf};
+use std::time::Instant;
 use ucotron_core::data_gen;
 use ucotron_core::{Config, Edge, Node, NodeId, StorageEngine};
 #[cfg(feature = "cozo")]
 use ucotron_cozo::CozoEngine;
 use ucotron_helix::HelixEngine;
-use rand::SeedableRng;
-use rand::Rng;
-use rand_chacha::ChaCha8Rng;
-use std::path::{Path, PathBuf};
-use std::time::Instant;
 
 /// Ucotron Storage Engine Benchmark Runner
 #[derive(Parser)]
@@ -223,11 +223,7 @@ fn get_resident_memory_bytes() -> Option<u64> {
     let status = fs::read_to_string("/proc/self/status").ok()?;
     for line in status.lines() {
         if line.starts_with("VmRSS:") {
-            let kb: u64 = line
-                .split_whitespace()
-                .nth(1)?
-                .parse()
-                .ok()?;
+            let kb: u64 = line.split_whitespace().nth(1)?.parse().ok()?;
             return Some(kb * 1024);
         }
     }
@@ -711,7 +707,10 @@ fn benchmark_search<E: StorageEngine>(
     let num_queries = queries.len();
 
     // Vector-only search
-    println!("  {}: Running {} vector searches...", engine_name, num_queries);
+    println!(
+        "  {}: Running {} vector searches...",
+        engine_name, num_queries
+    );
     let mut vector_latencies = Vec::with_capacity(num_queries);
     for q in queries {
         let start = Instant::now();
@@ -720,7 +719,10 @@ fn benchmark_search<E: StorageEngine>(
     }
 
     // Graph 1-hop: pick a node from vector results and do 1-hop traversal
-    println!("  {}: Running {} graph 1-hop traversals...", engine_name, num_queries);
+    println!(
+        "  {}: Running {} graph 1-hop traversals...",
+        engine_name, num_queries
+    );
     let mut graph_1hop_latencies = Vec::with_capacity(num_queries);
     for q in queries {
         // Find a seed node first (not timed)
@@ -732,7 +734,10 @@ fn benchmark_search<E: StorageEngine>(
     }
 
     // Graph 2-hop
-    println!("  {}: Running {} graph 2-hop traversals...", engine_name, num_queries);
+    println!(
+        "  {}: Running {} graph 2-hop traversals...",
+        engine_name, num_queries
+    );
     let mut graph_2hop_latencies = Vec::with_capacity(num_queries);
     for q in queries {
         let seeds = engine.vector_search(q, 1)?;
@@ -743,7 +748,10 @@ fn benchmark_search<E: StorageEngine>(
     }
 
     // Hybrid search (vector + graph)
-    println!("  {}: Running {} hybrid searches (top_k={}, hops={})...", engine_name, num_queries, top_k, hops);
+    println!(
+        "  {}: Running {} hybrid searches (top_k={}, hops={})...",
+        engine_name, num_queries, top_k, hops
+    );
     let mut hybrid_latencies = Vec::with_capacity(num_queries);
     for q in queries {
         let start = Instant::now();
@@ -874,9 +882,17 @@ fn run_search(
             batch_size: 10_000,
         };
         let mut engine = HelixEngine::init(&config).context("HelixDB init failed")?;
-        engine.insert_nodes(&nodes).context("HelixDB insert_nodes failed")?;
-        engine.insert_edges(&edges).context("HelixDB insert_edges failed")?;
-        println!("  HelixDB ready with {} nodes, {} edges", nodes.len(), edges.len());
+        engine
+            .insert_nodes(&nodes)
+            .context("HelixDB insert_nodes failed")?;
+        engine
+            .insert_edges(&edges)
+            .context("HelixDB insert_edges failed")?;
+        println!(
+            "  HelixDB ready with {} nodes, {} edges",
+            nodes.len(),
+            edges.len()
+        );
 
         let metrics = benchmark_search(&engine, "HelixDB", &queries, top_k, hops)?;
         results.push(metrics);
@@ -896,9 +912,17 @@ fn run_search(
             batch_size: 10_000,
         };
         let mut engine = CozoEngine::init(&config).context("CozoDB init failed")?;
-        engine.insert_nodes(&nodes).context("CozoDB insert_nodes failed")?;
-        engine.insert_edges(&edges).context("CozoDB insert_edges failed")?;
-        println!("  CozoDB ready with {} nodes, {} edges", nodes.len(), edges.len());
+        engine
+            .insert_nodes(&nodes)
+            .context("CozoDB insert_nodes failed")?;
+        engine
+            .insert_edges(&edges)
+            .context("CozoDB insert_edges failed")?;
+        println!(
+            "  CozoDB ready with {} nodes, {} edges",
+            nodes.len(),
+            edges.len()
+        );
 
         let metrics = benchmark_search(&engine, "CozoDB", &queries, top_k, hops)?;
         results.push(metrics);
@@ -956,11 +980,12 @@ fn benchmark_recursion_engine<E: StorageEngine>(
         max_db_size: 10 * 1024 * 1024 * 1024,
         batch_size: 10_000,
     };
-    let mut engine = E::init(&config)
-        .with_context(|| format!("{}: init failed", engine_name))?;
-    engine.insert_nodes(nodes)
+    let mut engine = E::init(&config).with_context(|| format!("{}: init failed", engine_name))?;
+    engine
+        .insert_nodes(nodes)
         .with_context(|| format!("{}: insert_nodes failed", engine_name))?;
-    engine.insert_edges(edges)
+    engine
+        .insert_edges(edges)
         .with_context(|| format!("{}: insert_edges failed", engine_name))?;
 
     // Warm up: run one traversal to prime caches
@@ -1000,7 +1025,8 @@ fn benchmark_recursion_engine<E: StorageEngine>(
         (latencies.iter().sum::<u64>()) / latencies.len() as u64
     };
 
-    engine.shutdown()
+    engine
+        .shutdown()
         .with_context(|| format!("{}: shutdown failed", engine_name))?;
 
     Ok(RecursionMetrics {
@@ -1019,7 +1045,11 @@ fn benchmark_recursion_engine<E: StorageEngine>(
 // Recursion comparison table
 // ---------------------------------------------------------------------------
 
-fn print_recursion_table(title: &str, helix_results: &[RecursionMetrics], cozo_results: &[RecursionMetrics]) {
+fn print_recursion_table(
+    title: &str,
+    helix_results: &[RecursionMetrics],
+    cozo_results: &[RecursionMetrics],
+) {
     println!();
     println!("## {}", title);
     println!();
@@ -1044,17 +1074,28 @@ fn print_recursion_table(title: &str, helix_results: &[RecursionMetrics], cozo_r
             );
         }
     } else {
-        let results = if has_helix { helix_results } else { cozo_results };
+        let results = if has_helix {
+            helix_results
+        } else {
+            cozo_results
+        };
         let name = if has_helix { "HelixDB" } else { "CozoDB" };
-        println!("| Depth | Nodes | {} P50 | {} P95 | {} P99 | {} Mean | {} RAM |", name, name, name, name, name);
+        println!(
+            "| Depth | Nodes | {} P50 | {} P95 | {} P99 | {} Mean | {} RAM |",
+            name, name, name, name, name
+        );
         println!("|-------|-------|-------------|-------------|-------------|--------------|-------------|");
         for r in results {
             let ram = r.ram_bytes.map_or("N/A".to_string(), format_bytes);
             println!(
                 "| {:>5} | {:>5} | {:>11} | {:>11} | {:>11} | {:>12} | {:>11} |",
-                r.depth, r.node_count,
-                format_duration_ms(r.p50_us), format_duration_ms(r.p95_us), format_duration_ms(r.p99_us),
-                format_duration_ms(r.mean_us), ram,
+                r.depth,
+                r.node_count,
+                format_duration_ms(r.p50_us),
+                format_duration_ms(r.p95_us),
+                format_duration_ms(r.p99_us),
+                format_duration_ms(r.mean_us),
+                ram,
             );
         }
     }
@@ -1111,7 +1152,13 @@ fn run_recursion(
         let source = nodes.first().unwrap().id;
         let target = nodes.last().unwrap().id;
         let max_depth = depth as u32 + 10; // allow some slack beyond exact chain length
-        println!("  Chain: {} nodes, {} edges (source={}, target={})", nodes.len(), edges.len(), source, target);
+        println!(
+            "  Chain: {} nodes, {} edges (source={}, target={})",
+            nodes.len(),
+            edges.len(),
+            source,
+            target
+        );
 
         // HelixDB
         if !cozo_only {
@@ -1119,14 +1166,15 @@ fn run_recursion(
             std::fs::create_dir_all(&helix_dir)?;
             println!("  Benchmarking HelixDB (chain depth={})...", depth);
             let metrics = benchmark_recursion_engine::<HelixEngine>(
-                "HelixDB", &helix_dir, &nodes, &edges,
-                source, target, max_depth, depth, iterations,
+                "HelixDB", &helix_dir, &nodes, &edges, source, target, max_depth, depth, iterations,
             )?;
-            println!("    P50={}, P95={}, P99={}, Mean={}",
+            println!(
+                "    P50={}, P95={}, P99={}, Mean={}",
                 format_duration_ms(metrics.p50_us),
                 format_duration_ms(metrics.p95_us),
                 format_duration_ms(metrics.p99_us),
-                format_duration_ms(metrics.mean_us));
+                format_duration_ms(metrics.mean_us)
+            );
             helix_chain_results.push(metrics);
         }
 
@@ -1137,29 +1185,43 @@ fn run_recursion(
             std::fs::create_dir_all(&cozo_dir)?;
             println!("  Benchmarking CozoDB (chain depth={})...", depth);
             let metrics = benchmark_recursion_engine::<CozoEngine>(
-                "CozoDB", &cozo_dir, &nodes, &edges,
-                source, target, max_depth, depth, iterations,
+                "CozoDB", &cozo_dir, &nodes, &edges, source, target, max_depth, depth, iterations,
             )?;
-            println!("    P50={}, P95={}, P99={}, Mean={}",
+            println!(
+                "    P50={}, P95={}, P99={}, Mean={}",
                 format_duration_ms(metrics.p50_us),
                 format_duration_ms(metrics.p95_us),
                 format_duration_ms(metrics.p99_us),
-                format_duration_ms(metrics.mean_us));
+                format_duration_ms(metrics.mean_us)
+            );
             cozo_chain_results.push(metrics);
         }
     }
 
-    print_recursion_table("Chain Traversal (find_path start→end)", &helix_chain_results, &cozo_chain_results);
+    print_recursion_table(
+        "Chain Traversal (find_path start→end)",
+        &helix_chain_results,
+        &cozo_chain_results,
+    );
 
     // --- Tree benchmark ---
     if include_tree {
-        println!("Generating tree graph (branching={}, depth={})...", tree_branching, tree_depth);
+        println!(
+            "Generating tree graph (branching={}, depth={})...",
+            tree_branching, tree_depth
+        );
         let (nodes, edges) = data_gen::generate_tree(tree_depth, tree_branching, seed);
         // Source = root (first node), target = a deep leaf (last node)
         let source = nodes.first().unwrap().id;
         let target = nodes.last().unwrap().id;
         let max_depth = tree_depth as u32 + 10;
-        println!("  Tree: {} nodes, {} edges (source={}, target={})", nodes.len(), edges.len(), source, target);
+        println!(
+            "  Tree: {} nodes, {} edges (source={}, target={})",
+            nodes.len(),
+            edges.len(),
+            source,
+            target
+        );
 
         let mut helix_tree_results: Vec<RecursionMetrics> = Vec::new();
         #[allow(unused_mut)]
@@ -1168,17 +1230,22 @@ fn run_recursion(
         if !cozo_only {
             let helix_dir = base_dir.join("helix_tree");
             std::fs::create_dir_all(&helix_dir)?;
-            println!("  Benchmarking HelixDB (tree branching={}, depth={})...", tree_branching, tree_depth);
+            println!(
+                "  Benchmarking HelixDB (tree branching={}, depth={})...",
+                tree_branching, tree_depth
+            );
             let metrics = benchmark_recursion_engine::<HelixEngine>(
-                "HelixDB", &helix_dir, &nodes, &edges,
-                source, target, max_depth, tree_depth, iterations,
+                "HelixDB", &helix_dir, &nodes, &edges, source, target, max_depth, tree_depth,
+                iterations,
             )?;
-            println!("    P50={}, P95={}, P99={}, Mean={} ({} nodes)",
+            println!(
+                "    P50={}, P95={}, P99={}, Mean={} ({} nodes)",
                 format_duration_ms(metrics.p50_us),
                 format_duration_ms(metrics.p95_us),
                 format_duration_ms(metrics.p99_us),
                 format_duration_ms(metrics.mean_us),
-                metrics.node_count);
+                metrics.node_count
+            );
             helix_tree_results.push(metrics);
         }
 
@@ -1186,22 +1253,32 @@ fn run_recursion(
         if !helix_only {
             let cozo_dir = base_dir.join("cozo_tree");
             std::fs::create_dir_all(&cozo_dir)?;
-            println!("  Benchmarking CozoDB (tree branching={}, depth={})...", tree_branching, tree_depth);
+            println!(
+                "  Benchmarking CozoDB (tree branching={}, depth={})...",
+                tree_branching, tree_depth
+            );
             let metrics = benchmark_recursion_engine::<CozoEngine>(
-                "CozoDB", &cozo_dir, &nodes, &edges,
-                source, target, max_depth, tree_depth, iterations,
+                "CozoDB", &cozo_dir, &nodes, &edges, source, target, max_depth, tree_depth,
+                iterations,
             )?;
-            println!("    P50={}, P95={}, P99={}, Mean={} ({} nodes)",
+            println!(
+                "    P50={}, P95={}, P99={}, Mean={} ({} nodes)",
                 format_duration_ms(metrics.p50_us),
                 format_duration_ms(metrics.p95_us),
                 format_duration_ms(metrics.p99_us),
                 format_duration_ms(metrics.mean_us),
-                metrics.node_count);
+                metrics.node_count
+            );
             cozo_tree_results.push(metrics);
         }
 
         print_recursion_table(
-            &format!("Tree Traversal (branching={}, depth={}, {} nodes)", tree_branching, tree_depth, nodes.len()),
+            &format!(
+                "Tree Traversal (branching={}, depth={}, {} nodes)",
+                tree_branching,
+                tree_depth,
+                nodes.len()
+            ),
             &helix_tree_results,
             &cozo_tree_results,
         );
@@ -1242,7 +1319,9 @@ fn main() -> Result<()> {
             cozo_only,
             seed,
         } => {
-            run_search(queries, top_k, hops, count, edges, helix_only, cozo_only, seed)?;
+            run_search(
+                queries, top_k, hops, count, edges, helix_only, cozo_only, seed,
+            )?;
         }
         Commands::Recursion {
             depths,
@@ -1254,7 +1333,16 @@ fn main() -> Result<()> {
             tree_branching,
             tree_depth,
         } => {
-            run_recursion(&depths, iterations, helix_only, cozo_only, seed, include_tree, tree_branching, tree_depth)?;
+            run_recursion(
+                &depths,
+                iterations,
+                helix_only,
+                cozo_only,
+                seed,
+                include_tree,
+                tree_branching,
+                tree_depth,
+            )?;
         }
         Commands::Cost {
             nodes,
@@ -1265,7 +1353,15 @@ fn main() -> Result<()> {
             readers,
             format,
         } => {
-            run_cost_estimation(nodes, queries_per_day, namespaces, multimodal, multi_instance, readers, &format)?;
+            run_cost_estimation(
+                nodes,
+                queries_per_day,
+                namespaces,
+                multimodal,
+                multi_instance,
+                readers,
+                &format,
+            )?;
         }
     }
 
@@ -1314,15 +1410,15 @@ fn select_instance(provider: &str, ram_mb: f64, cpu_cores: u32) -> (&'static str
         "aws" => {
             // us-east-1 pricing (on-demand, Linux)
             let instances = [
-                ("t3.medium",    2, 4.0,   30.37),
-                ("t3.large",     2, 8.0,   60.74),
-                ("t3.xlarge",    4, 16.0, 121.47),
-                ("t3.2xlarge",   8, 32.0, 242.94),
-                ("m6i.xlarge",   4, 16.0, 138.70),
-                ("m6i.2xlarge",  8, 32.0, 277.40),
+                ("t3.medium", 2, 4.0, 30.37),
+                ("t3.large", 2, 8.0, 60.74),
+                ("t3.xlarge", 4, 16.0, 121.47),
+                ("t3.2xlarge", 8, 32.0, 242.94),
+                ("m6i.xlarge", 4, 16.0, 138.70),
+                ("m6i.2xlarge", 8, 32.0, 277.40),
                 ("m6i.4xlarge", 16, 64.0, 554.80),
-                ("r6i.xlarge",   4, 32.0, 181.54),
-                ("r6i.2xlarge",  8, 64.0, 363.07),
+                ("r6i.xlarge", 4, 32.0, 181.54),
+                ("r6i.2xlarge", 8, 64.0, 363.07),
             ];
             for &(name, vcpus, ram, cost) in &instances {
                 if vcpus >= cpu_cores && ram >= ram_gb {
@@ -1334,14 +1430,14 @@ fn select_instance(provider: &str, ram_mb: f64, cpu_cores: u32) -> (&'static str
         "gcp" => {
             // us-central1 pricing (on-demand)
             let instances = [
-                ("e2-medium",      2,  4.0,   24.27),
-                ("e2-standard-2",  2,  8.0,   48.55),
-                ("e2-standard-4",  4, 16.0,   97.09),
-                ("e2-standard-8",  8, 32.0,  194.18),
-                ("n2-standard-4",  4, 16.0,  116.58),
-                ("n2-standard-8",  8, 32.0,  233.16),
-                ("n2-highmem-4",   4, 32.0,  156.92),
-                ("n2-highmem-8",   8, 64.0,  313.84),
+                ("e2-medium", 2, 4.0, 24.27),
+                ("e2-standard-2", 2, 8.0, 48.55),
+                ("e2-standard-4", 4, 16.0, 97.09),
+                ("e2-standard-8", 8, 32.0, 194.18),
+                ("n2-standard-4", 4, 16.0, 116.58),
+                ("n2-standard-8", 8, 32.0, 233.16),
+                ("n2-highmem-4", 4, 32.0, 156.92),
+                ("n2-highmem-8", 8, 64.0, 313.84),
             ];
             for &(name, vcpus, ram, cost) in &instances {
                 if vcpus >= cpu_cores && ram >= ram_gb {
@@ -1353,12 +1449,12 @@ fn select_instance(provider: &str, ram_mb: f64, cpu_cores: u32) -> (&'static str
         "azure" => {
             // East US pricing (pay-as-you-go)
             let instances = [
-                ("Standard_B2s",    2,  4.0,   30.37),
-                ("Standard_D2s_v5", 2,  8.0,   70.08),
-                ("Standard_D4s_v5", 4, 16.0,  140.16),
-                ("Standard_D8s_v5", 8, 32.0,  280.32),
-                ("Standard_E4s_v5", 4, 32.0,  182.50),
-                ("Standard_E8s_v5", 8, 64.0,  365.00),
+                ("Standard_B2s", 2, 4.0, 30.37),
+                ("Standard_D2s_v5", 2, 8.0, 70.08),
+                ("Standard_D4s_v5", 4, 16.0, 140.16),
+                ("Standard_D8s_v5", 8, 32.0, 280.32),
+                ("Standard_E4s_v5", 4, 32.0, 182.50),
+                ("Standard_E8s_v5", 8, 64.0, 365.00),
             ];
             for &(name, vcpus, ram, cost) in &instances {
                 if vcpus >= cpu_cores && ram >= ram_gb {
@@ -1396,8 +1492,10 @@ fn estimate_provider_cost(
     multi_instance: bool,
     readers: u64,
 ) -> ProviderCost {
-    let (ram_mb, disk_mb, cpu_cores) = estimate_resource_requirements(nodes, queries_per_day, multimodal);
-    let (instance_type, instance_cost, vcpus, ram_gb) = select_instance(provider, ram_mb, cpu_cores);
+    let (ram_mb, disk_mb, cpu_cores) =
+        estimate_resource_requirements(nodes, queries_per_day, multimodal);
+    let (instance_type, instance_cost, vcpus, ram_gb) =
+        select_instance(provider, ram_mb, cpu_cores);
 
     let instance_count = if multi_instance { 1 + readers } else { 1 };
     let compute_monthly = instance_cost * instance_count as f64;
@@ -1406,18 +1504,18 @@ fn estimate_provider_cost(
 
     // Storage pricing per GB/month
     let storage_price_per_gb = match provider {
-        "aws" => 0.08,     // gp3
-        "gcp" => 0.17,     // pd-ssd
-        "azure" => 0.132,  // Premium SSD P6 effective
+        "aws" => 0.08,    // gp3
+        "gcp" => 0.17,    // pd-ssd
+        "azure" => 0.132, // Premium SSD P6 effective
         _ => 0.10,
     };
     let storage_monthly = disk_gb as f64 * storage_price_per_gb * instance_count as f64;
 
     // Control plane
     let control_plane_monthly = match provider {
-        "aws" => 73.00,   // EKS
-        "gcp" => 73.00,   // GKE Standard
-        "azure" => 0.0,   // AKS free tier
+        "aws" => 73.00, // EKS
+        "gcp" => 73.00, // GKE Standard
+        "azure" => 0.0, // AKS free tier
         _ => 0.0,
     };
 
@@ -1425,9 +1523,9 @@ fn estimate_provider_cost(
     // ~1KB per query response → 1 GB per 1M queries
     let egress_gb_per_month = (queries_per_day as f64 * 30.0 / 1_000_000.0).ceil();
     let network_monthly = match provider {
-        "aws" => 32.0 + 16.0 + egress_gb_per_month * 0.09,  // NAT + NLB + egress
-        "gcp" => 32.0 + egress_gb_per_month * 0.12,           // Cloud NAT + egress
-        "azure" => 18.0 + egress_gb_per_month * 0.087,        // LB + egress
+        "aws" => 32.0 + 16.0 + egress_gb_per_month * 0.09, // NAT + NLB + egress
+        "gcp" => 32.0 + egress_gb_per_month * 0.12,        // Cloud NAT + egress
+        "azure" => 18.0 + egress_gb_per_month * 0.087,     // LB + egress
         _ => 0.0,
     };
 
@@ -1477,7 +1575,8 @@ fn format_cost_markdown(
     readers: u64,
     costs: &[ProviderCost],
 ) -> String {
-    let (ram_mb, disk_mb, cpu_cores) = estimate_resource_requirements(nodes, queries_per_day, multimodal);
+    let (ram_mb, disk_mb, cpu_cores) =
+        estimate_resource_requirements(nodes, queries_per_day, multimodal);
 
     let mut out = String::new();
     out.push_str("# Ucotron Cloud Cost Estimation\n\n");
@@ -1487,50 +1586,99 @@ fn format_cost_markdown(
     out.push_str("| Parameter | Value |\n");
     out.push_str("|-----------|-------|\n");
     out.push_str(&format!("| Memory nodes | {} |\n", format_number(nodes)));
-    out.push_str(&format!("| Queries/day | {} |\n", format_number(queries_per_day)));
+    out.push_str(&format!(
+        "| Queries/day | {} |\n",
+        format_number(queries_per_day)
+    ));
     out.push_str(&format!("| Namespaces | {} |\n", namespaces));
-    out.push_str(&format!("| Multimodal | {} |\n", if multimodal { "Yes" } else { "No" }));
-    out.push_str(&format!("| Multi-instance | {} |\n", if multi_instance { format!("Yes (1W + {}R)", readers) } else { "No (single)".to_string() }));
-    out.push_str("\n");
+    out.push_str(&format!(
+        "| Multimodal | {} |\n",
+        if multimodal { "Yes" } else { "No" }
+    ));
+    out.push_str(&format!(
+        "| Multi-instance | {} |\n",
+        if multi_instance {
+            format!("Yes (1W + {}R)", readers)
+        } else {
+            "No (single)".to_string()
+        }
+    ));
+    out.push('\n');
 
     out.push_str("## Estimated Resource Requirements\n\n");
     out.push_str("| Resource | Estimate | Basis |\n");
     out.push_str("|----------|----------|-------|\n");
-    out.push_str(&format!("| RAM | {:.1} GB | ~320 MB per 100k nodes + {} MB models |\n",
+    out.push_str(&format!(
+        "| RAM | {:.1} GB | ~320 MB per 100k nodes + {} MB models |\n",
         ram_mb / 1024.0,
-        if multimodal { 600 } else { 200 }));
-    out.push_str(&format!("| Disk | {:.1} GB | ~430 MB per 100k nodes{} |\n",
+        if multimodal { 600 } else { 200 }
+    ));
+    out.push_str(&format!(
+        "| Disk | {:.1} GB | ~430 MB per 100k nodes{} |\n",
         disk_mb / 1024.0,
-        if multimodal { " × 1.5 (dual index)" } else { "" }));
-    out.push_str(&format!("| vCPUs | {} | ~50 qps/core at P95 <20ms |\n", cpu_cores));
-    out.push_str("\n");
+        if multimodal {
+            " × 1.5 (dual index)"
+        } else {
+            ""
+        }
+    ));
+    out.push_str(&format!(
+        "| vCPUs | {} | ~50 qps/core at P95 <20ms |\n",
+        cpu_cores
+    ));
+    out.push('\n');
 
     out.push_str("## Cost Comparison\n\n");
     out.push_str("| Component | AWS (EKS) | GCP (GKE) | Azure (AKS) |\n");
     out.push_str("|-----------|-----------|-----------|-------------|\n");
-    out.push_str(&format!("| Region | {} | {} | {} |\n",
-        costs[0].region, costs[1].region, costs[2].region));
-    out.push_str(&format!("| Instance | {} | {} | {} |\n",
-        costs[0].instance_type, costs[1].instance_type, costs[2].instance_type));
-    out.push_str(&format!("| vCPUs × RAM | {}×{:.0}GB | {}×{:.0}GB | {}×{:.0}GB |\n",
-        costs[0].instance_vcpus, costs[0].instance_ram_gb,
-        costs[1].instance_vcpus, costs[1].instance_ram_gb,
-        costs[2].instance_vcpus, costs[2].instance_ram_gb));
-    out.push_str(&format!("| Instances | {} | {} | {} |\n",
-        costs[0].instance_count, costs[1].instance_count, costs[2].instance_count));
-    out.push_str(&format!("| Disk | {} GB | {} GB | {} GB |\n",
-        costs[0].disk_size_gb, costs[1].disk_size_gb, costs[2].disk_size_gb));
-    out.push_str(&format!("| **Compute** | **${:.0}** | **${:.0}** | **${:.0}** |\n",
-        costs[0].compute_monthly, costs[1].compute_monthly, costs[2].compute_monthly));
-    out.push_str(&format!("| Control plane | ${:.0} | ${:.0} | ${:.0} |\n",
-        costs[0].control_plane_monthly, costs[1].control_plane_monthly, costs[2].control_plane_monthly));
-    out.push_str(&format!("| Storage | ${:.0} | ${:.0} | ${:.0} |\n",
-        costs[0].storage_monthly, costs[1].storage_monthly, costs[2].storage_monthly));
-    out.push_str(&format!("| Network | ${:.0} | ${:.0} | ${:.0} |\n",
-        costs[0].network_monthly, costs[1].network_monthly, costs[2].network_monthly));
-    out.push_str(&format!("| **Total/month** | **${:.0}** | **${:.0}** | **${:.0}** |\n",
-        costs[0].total_monthly, costs[1].total_monthly, costs[2].total_monthly));
-    out.push_str("\n");
+    out.push_str(&format!(
+        "| Region | {} | {} | {} |\n",
+        costs[0].region, costs[1].region, costs[2].region
+    ));
+    out.push_str(&format!(
+        "| Instance | {} | {} | {} |\n",
+        costs[0].instance_type, costs[1].instance_type, costs[2].instance_type
+    ));
+    out.push_str(&format!(
+        "| vCPUs × RAM | {}×{:.0}GB | {}×{:.0}GB | {}×{:.0}GB |\n",
+        costs[0].instance_vcpus,
+        costs[0].instance_ram_gb,
+        costs[1].instance_vcpus,
+        costs[1].instance_ram_gb,
+        costs[2].instance_vcpus,
+        costs[2].instance_ram_gb
+    ));
+    out.push_str(&format!(
+        "| Instances | {} | {} | {} |\n",
+        costs[0].instance_count, costs[1].instance_count, costs[2].instance_count
+    ));
+    out.push_str(&format!(
+        "| Disk | {} GB | {} GB | {} GB |\n",
+        costs[0].disk_size_gb, costs[1].disk_size_gb, costs[2].disk_size_gb
+    ));
+    out.push_str(&format!(
+        "| **Compute** | **${:.0}** | **${:.0}** | **${:.0}** |\n",
+        costs[0].compute_monthly, costs[1].compute_monthly, costs[2].compute_monthly
+    ));
+    out.push_str(&format!(
+        "| Control plane | ${:.0} | ${:.0} | ${:.0} |\n",
+        costs[0].control_plane_monthly,
+        costs[1].control_plane_monthly,
+        costs[2].control_plane_monthly
+    ));
+    out.push_str(&format!(
+        "| Storage | ${:.0} | ${:.0} | ${:.0} |\n",
+        costs[0].storage_monthly, costs[1].storage_monthly, costs[2].storage_monthly
+    ));
+    out.push_str(&format!(
+        "| Network | ${:.0} | ${:.0} | ${:.0} |\n",
+        costs[0].network_monthly, costs[1].network_monthly, costs[2].network_monthly
+    ));
+    out.push_str(&format!(
+        "| **Total/month** | **${:.0}** | **${:.0}** | **${:.0}** |\n",
+        costs[0].total_monthly, costs[1].total_monthly, costs[2].total_monthly
+    ));
+    out.push('\n');
 
     // Notes
     if costs.iter().any(|c| !c.notes.is_empty()) {
@@ -1541,7 +1689,7 @@ fn format_cost_markdown(
                 for note in &cost.notes {
                     out.push_str(&format!("- {}\n", note));
                 }
-                out.push_str("\n");
+                out.push('\n');
             }
         }
     }
@@ -1556,7 +1704,7 @@ fn format_cost_markdown(
     out.push_str("- No LLM API costs (Ucotron uses local ONNX models)\n");
     out.push_str("- RAM sizing based on Phase 1 benchmarks: 320 MB per 100k nodes\n");
     out.push_str("- Query throughput based on P95 hybrid search: ~50 qps per vCPU core\n");
-    out.push_str("\n");
+    out.push('\n');
 
     // Savings tips
     out.push_str("## Cost Optimization Tips\n\n");
@@ -1580,11 +1728,14 @@ fn format_cost_json(
     readers: u64,
     costs: &[ProviderCost],
 ) -> String {
-    let (ram_mb, disk_mb, cpu_cores) = estimate_resource_requirements(nodes, queries_per_day, multimodal);
+    let (ram_mb, disk_mb, cpu_cores) =
+        estimate_resource_requirements(nodes, queries_per_day, multimodal);
 
     let mut providers = String::from("[");
     for (i, cost) in costs.iter().enumerate() {
-        if i > 0 { providers.push(','); }
+        if i > 0 {
+            providers.push(',');
+        }
         providers.push_str(&format!(
             r#"{{"provider":"{}","region":"{}","instance_type":"{}","instance_vcpus":{},"instance_ram_gb":{},"instance_count":{},"disk_size_gb":{},"compute_monthly":{:.2},"control_plane_monthly":{:.2},"storage_monthly":{:.2},"network_monthly":{:.2},"total_monthly":{:.2}}}"#,
             cost.provider, cost.region, cost.instance_type,
@@ -1599,8 +1750,15 @@ fn format_cost_json(
 
     format!(
         r#"{{"workload":{{"nodes":{},"queries_per_day":{},"namespaces":{},"multimodal":{},"multi_instance":{},"readers":{}}},"resources":{{"ram_mb":{:.0},"disk_mb":{:.0},"cpu_cores":{}}},"providers":{}}}"#,
-        nodes, queries_per_day, namespaces, multimodal, multi_instance, readers,
-        ram_mb, disk_mb, cpu_cores,
+        nodes,
+        queries_per_day,
+        namespaces,
+        multimodal,
+        multi_instance,
+        readers,
+        ram_mb,
+        disk_mb,
+        cpu_cores,
         providers
     )
 }
@@ -1621,7 +1779,9 @@ fn chrono_lite_date() -> String {
     let mut month = 1u64;
     let mut d = remaining_days;
     for &md in &month_days {
-        if d < md { break; }
+        if d < md {
+            break;
+        }
         d -= md;
         month += 1;
     }
@@ -1633,7 +1793,9 @@ fn format_number(n: u64) -> String {
     let s = n.to_string();
     let mut result = String::new();
     for (i, c) in s.chars().rev().enumerate() {
-        if i > 0 && i % 3 == 0 { result.push(','); }
+        if i > 0 && i % 3 == 0 {
+            result.push(',');
+        }
         result.push(c);
     }
     result.chars().rev().collect()
@@ -1650,12 +1812,37 @@ fn run_cost_estimation(
 ) -> Result<()> {
     let costs: Vec<ProviderCost> = ["aws", "gcp", "azure"]
         .iter()
-        .map(|p| estimate_provider_cost(p, nodes, queries_per_day, multimodal, multi_instance, readers))
+        .map(|p| {
+            estimate_provider_cost(
+                p,
+                nodes,
+                queries_per_day,
+                multimodal,
+                multi_instance,
+                readers,
+            )
+        })
         .collect();
 
     let output = match format {
-        "json" => format_cost_json(nodes, queries_per_day, namespaces, multimodal, multi_instance, readers, &costs),
-        _ => format_cost_markdown(nodes, queries_per_day, namespaces, multimodal, multi_instance, readers, &costs),
+        "json" => format_cost_json(
+            nodes,
+            queries_per_day,
+            namespaces,
+            multimodal,
+            multi_instance,
+            readers,
+            &costs,
+        ),
+        _ => format_cost_markdown(
+            nodes,
+            queries_per_day,
+            namespaces,
+            multimodal,
+            multi_instance,
+            readers,
+            &costs,
+        ),
     };
 
     println!("{}", output);
@@ -1736,7 +1923,11 @@ mod tests {
     fn test_ingest_small_helix_only() {
         // Integration test: run a small ingest benchmark with HelixDB only
         let result = run_ingest(100, 200, true, false, None, 42);
-        assert!(result.is_ok(), "Small Helix ingest failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Small Helix ingest failed: {:?}",
+            result.err()
+        );
     }
 
     #[cfg(feature = "cozo")]
@@ -1744,7 +1935,11 @@ mod tests {
     fn test_ingest_small_cozo_only() {
         // Integration test: run a small ingest benchmark with CozoDB only
         let result = run_ingest(100, 200, false, true, None, 42);
-        assert!(result.is_ok(), "Small Cozo ingest failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Small Cozo ingest failed: {:?}",
+            result.err()
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -1804,7 +1999,11 @@ mod tests {
             assert_eq!(q.len(), 384);
             // Check L2 normalization: magnitude should be ~1.0
             let mag: f32 = q.iter().map(|x| x * x).sum::<f32>().sqrt();
-            assert!((mag - 1.0).abs() < 1e-5, "Query not normalized: mag={}", mag);
+            assert!(
+                (mag - 1.0).abs() < 1e-5,
+                "Query not normalized: mag={}",
+                mag
+            );
         }
     }
 
@@ -1821,7 +2020,11 @@ mod tests {
     fn test_search_small_helix_only() {
         // Integration: run a small search benchmark on HelixDB
         let result = run_search(10, 5, 1, 100, 200, true, false, 42);
-        assert!(result.is_ok(), "Small Helix search failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Small Helix search failed: {:?}",
+            result.err()
+        );
     }
 
     #[cfg(feature = "cozo")]
@@ -1829,7 +2032,11 @@ mod tests {
     fn test_search_small_cozo_only() {
         // Integration: run a small search benchmark on CozoDB
         let result = run_search(10, 5, 1, 100, 200, false, true, 42);
-        assert!(result.is_ok(), "Small Cozo search failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Small Cozo search failed: {:?}",
+            result.err()
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -1840,7 +2047,11 @@ mod tests {
     fn test_recursion_small_helix_chain() {
         // Integration: run recursion benchmark on small chains with HelixDB only
         let result = run_recursion(&[5, 10], 3, true, false, 42, false, 3, 10);
-        assert!(result.is_ok(), "Small Helix chain recursion failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Small Helix chain recursion failed: {:?}",
+            result.err()
+        );
     }
 
     #[cfg(feature = "cozo")]
@@ -1848,7 +2059,11 @@ mod tests {
     fn test_recursion_small_cozo_chain() {
         // Integration: run recursion benchmark on small chains with CozoDB only
         let result = run_recursion(&[5, 10], 3, false, true, 42, false, 3, 10);
-        assert!(result.is_ok(), "Small Cozo chain recursion failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Small Cozo chain recursion failed: {:?}",
+            result.err()
+        );
     }
 
     #[test]
@@ -1856,7 +2071,11 @@ mod tests {
         // Integration: run recursion benchmark including tree test with HelixDB
         // Uses branching=2, depth=5 (31 nodes) for fast test execution
         let result = run_recursion(&[5], 2, true, false, 42, true, 2, 5);
-        assert!(result.is_ok(), "Helix tree recursion failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Helix tree recursion failed: {:?}",
+            result.err()
+        );
     }
 
     #[cfg(feature = "cozo")]
@@ -1865,7 +2084,11 @@ mod tests {
         // Integration: run recursion benchmark including tree test with CozoDB
         // Uses branching=2, depth=5 (31 nodes) for fast test execution
         let result = run_recursion(&[5], 2, false, true, 42, true, 2, 5);
-        assert!(result.is_ok(), "Cozo tree recursion failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Cozo tree recursion failed: {:?}",
+            result.err()
+        );
     }
 
     #[test]
@@ -1887,9 +2110,9 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
 
         let metrics = benchmark_recursion_engine::<HelixEngine>(
-            "HelixDB", &dir, &nodes, &edges,
-            source, target, 30, 20, 5,
-        ).unwrap();
+            "HelixDB", &dir, &nodes, &edges, source, target, 30, 20, 5,
+        )
+        .unwrap();
 
         assert_eq!(metrics.engine_name, "HelixDB");
         assert_eq!(metrics.depth, 20);
@@ -1922,16 +2145,25 @@ mod tests {
     fn test_estimate_resources_small_workload() {
         let (ram_mb, disk_mb, cpu_cores) = estimate_resource_requirements(100_000, 10_000, false);
         // 100k nodes: ~320 MB data + 200 MB models + 512 MB base = ~1032 MB
-        assert!(ram_mb > 900.0 && ram_mb < 1200.0, "RAM estimate: {} MB", ram_mb);
+        assert!(
+            ram_mb > 900.0 && ram_mb < 1200.0,
+            "RAM estimate: {} MB",
+            ram_mb
+        );
         // 100k nodes: ~430 MB disk
-        assert!(disk_mb > 300.0 && disk_mb < 600.0, "Disk estimate: {} MB", disk_mb);
+        assert!(
+            disk_mb > 300.0 && disk_mb < 600.0,
+            "Disk estimate: {} MB",
+            disk_mb
+        );
         // 10k queries/day = 0.12 qps → min 2 cores
         assert_eq!(cpu_cores, 2, "CPU cores should be minimum 2");
     }
 
     #[test]
     fn test_estimate_resources_large_workload() {
-        let (ram_mb, disk_mb, cpu_cores) = estimate_resource_requirements(1_000_000, 1_000_000, true);
+        let (ram_mb, disk_mb, cpu_cores) =
+            estimate_resource_requirements(1_000_000, 1_000_000, true);
         // 1M nodes multimodal: much more RAM
         assert!(ram_mb > 3000.0, "Large workload RAM: {} MB", ram_mb);
         // 1M nodes multimodal: ~6.45 GB disk
@@ -1944,10 +2176,19 @@ mod tests {
     fn test_estimate_resources_multimodal_increases_disk() {
         let (_, disk_no_mm, _) = estimate_resource_requirements(100_000, 10_000, false);
         let (_, disk_mm, _) = estimate_resource_requirements(100_000, 10_000, true);
-        assert!(disk_mm > disk_no_mm, "Multimodal should increase disk: {} vs {}", disk_mm, disk_no_mm);
+        assert!(
+            disk_mm > disk_no_mm,
+            "Multimodal should increase disk: {} vs {}",
+            disk_mm,
+            disk_no_mm
+        );
         // Multimodal adds 1.5x factor
         let ratio = disk_mm / disk_no_mm;
-        assert!((ratio - 1.5).abs() < 0.01, "Multimodal disk ratio: {}", ratio);
+        assert!(
+            (ratio - 1.5).abs() < 0.01,
+            "Multimodal disk ratio: {}",
+            ratio
+        );
     }
 
     #[test]
@@ -1993,7 +2234,10 @@ mod tests {
         let single = estimate_provider_cost("aws", 100_000, 10_000, false, false, 0);
         let multi = estimate_provider_cost("aws", 100_000, 10_000, false, true, 2);
         assert_eq!(multi.instance_count, 3); // 1 writer + 2 readers
-        assert!(multi.compute_monthly > single.compute_monthly, "Multi should cost more");
+        assert!(
+            multi.compute_monthly > single.compute_monthly,
+            "Multi should cost more"
+        );
     }
 
     #[test]
@@ -2030,7 +2274,10 @@ mod tests {
         assert!(json.ends_with('}'), "Should end with brace");
         assert!(json.contains("\"workload\""), "Should contain workload");
         assert!(json.contains("\"providers\""), "Should contain providers");
-        assert!(json.contains("\"total_monthly\""), "Should contain total_monthly");
+        assert!(
+            json.contains("\"total_monthly\""),
+            "Should contain total_monthly"
+        );
     }
 
     #[test]
@@ -2048,6 +2295,9 @@ mod tests {
     #[test]
     fn test_azure_free_control_plane() {
         let cost = estimate_provider_cost("azure", 100_000, 10_000, false, false, 0);
-        assert_eq!(cost.control_plane_monthly, 0.0, "Azure AKS free tier has no control plane cost");
+        assert_eq!(
+            cost.control_plane_monthly, 0.0,
+            "Azure AKS free tier has no control plane cost"
+        );
     }
 }

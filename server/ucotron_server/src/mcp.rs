@@ -11,11 +11,8 @@
 use std::sync::Arc;
 
 use rmcp::{
-    ErrorData as McpError, ServerHandler,
-    handler::server::tool::ToolRouter,
-    handler::server::wrapper::Parameters,
-    model::*,
-    tool, tool_router, tool_handler,
+    handler::server::tool::ToolRouter, handler::server::wrapper::Parameters, model::*, tool,
+    tool_handler, tool_router, ErrorData as McpError, ServerHandler,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -146,8 +143,8 @@ impl UcotronMcpServer {
         &self,
         params: Parameters<AddMemoryParams>,
     ) -> Result<CallToolResult, McpError> {
-        use ucotron_extraction::ingestion::{IngestionConfig, IngestionOrchestrator};
         use std::sync::atomic::Ordering;
+        use ucotron_extraction::ingestion::{IngestionConfig, IngestionOrchestrator};
 
         let params = params.0;
 
@@ -208,12 +205,9 @@ impl UcotronMcpServer {
         name = "ucotron_search",
         description = "Search for relevant memories in the Ucotron cognitive graph using semantic similarity and graph-based ranking."
     )]
-    async fn search(
-        &self,
-        params: Parameters<SearchParams>,
-    ) -> Result<CallToolResult, McpError> {
-        use ucotron_extraction::retrieval::{RetrievalConfig, RetrievalOrchestrator};
+    async fn search(&self, params: Parameters<SearchParams>) -> Result<CallToolResult, McpError> {
         use std::sync::atomic::Ordering;
+        use ucotron_extraction::retrieval::{RetrievalConfig, RetrievalOrchestrator};
 
         let params = params.0;
 
@@ -235,10 +229,38 @@ impl UcotronMcpServer {
             retrieval_config,
         );
         if self.state.config.mindset.enabled {
-            let alg: Vec<&str> = self.state.config.mindset.algorithmic_keywords.iter().map(|s| s.as_str()).collect();
-            let div: Vec<&str> = self.state.config.mindset.divergent_keywords.iter().map(|s| s.as_str()).collect();
-            let con: Vec<&str> = self.state.config.mindset.convergent_keywords.iter().map(|s| s.as_str()).collect();
-            let spa: Vec<&str> = self.state.config.mindset.spatial_keywords.iter().map(|s| s.as_str()).collect();
+            let alg: Vec<&str> = self
+                .state
+                .config
+                .mindset
+                .algorithmic_keywords
+                .iter()
+                .map(|s| s.as_str())
+                .collect();
+            let div: Vec<&str> = self
+                .state
+                .config
+                .mindset
+                .divergent_keywords
+                .iter()
+                .map(|s| s.as_str())
+                .collect();
+            let con: Vec<&str> = self
+                .state
+                .config
+                .mindset
+                .convergent_keywords
+                .iter()
+                .map(|s| s.as_str())
+                .collect();
+            let spa: Vec<&str> = self
+                .state
+                .config
+                .mindset
+                .spatial_keywords
+                .iter()
+                .map(|s| s.as_str())
+                .collect();
             orchestrator = orchestrator.with_mindset_detector(
                 ucotron_core::MindsetDetector::from_keyword_lists(&alg, &div, &con, &spa),
             );
@@ -353,15 +375,17 @@ impl UcotronMcpServer {
             }
         };
 
-        let type_filter = params.entity_type.as_deref().and_then(|t| {
-            match t.to_lowercase().as_str() {
-                "entity" => Some(ucotron_core::NodeType::Entity),
-                "event" => Some(ucotron_core::NodeType::Event),
-                "fact" => Some(ucotron_core::NodeType::Fact),
-                "skill" => Some(ucotron_core::NodeType::Skill),
-                _ => None,
-            }
-        });
+        let type_filter =
+            params
+                .entity_type
+                .as_deref()
+                .and_then(|t| match t.to_lowercase().as_str() {
+                    "entity" => Some(ucotron_core::NodeType::Entity),
+                    "event" => Some(ucotron_core::NodeType::Event),
+                    "fact" => Some(ucotron_core::NodeType::Fact),
+                    "skill" => Some(ucotron_core::NodeType::Skill),
+                    _ => None,
+                });
 
         let mut entities: Vec<EntityResult> = Vec::new();
         for (node_id, _score) in &results {
@@ -393,12 +417,9 @@ impl UcotronMcpServer {
         name = "ucotron_augment",
         description = "Retrieve relevant memories and entities to augment a given context. Returns structured context for LLM prompt injection."
     )]
-    async fn augment(
-        &self,
-        params: Parameters<AugmentParams>,
-    ) -> Result<CallToolResult, McpError> {
-        use ucotron_extraction::retrieval::{RetrievalConfig, RetrievalOrchestrator};
+    async fn augment(&self, params: Parameters<AugmentParams>) -> Result<CallToolResult, McpError> {
         use std::sync::atomic::Ordering;
+        use ucotron_extraction::retrieval::{RetrievalConfig, RetrievalOrchestrator};
 
         let params = params.0;
 
@@ -420,10 +441,38 @@ impl UcotronMcpServer {
             retrieval_config,
         );
         if self.state.config.mindset.enabled {
-            let alg: Vec<&str> = self.state.config.mindset.algorithmic_keywords.iter().map(|s| s.as_str()).collect();
-            let div: Vec<&str> = self.state.config.mindset.divergent_keywords.iter().map(|s| s.as_str()).collect();
-            let con: Vec<&str> = self.state.config.mindset.convergent_keywords.iter().map(|s| s.as_str()).collect();
-            let spa: Vec<&str> = self.state.config.mindset.spatial_keywords.iter().map(|s| s.as_str()).collect();
+            let alg: Vec<&str> = self
+                .state
+                .config
+                .mindset
+                .algorithmic_keywords
+                .iter()
+                .map(|s| s.as_str())
+                .collect();
+            let div: Vec<&str> = self
+                .state
+                .config
+                .mindset
+                .divergent_keywords
+                .iter()
+                .map(|s| s.as_str())
+                .collect();
+            let con: Vec<&str> = self
+                .state
+                .config
+                .mindset
+                .convergent_keywords
+                .iter()
+                .map(|s| s.as_str())
+                .collect();
+            let spa: Vec<&str> = self
+                .state
+                .config
+                .mindset
+                .spatial_keywords
+                .iter()
+                .map(|s| s.as_str())
+                .collect();
             orchestrator = orchestrator.with_mindset_detector(
                 ucotron_core::MindsetDetector::from_keyword_lists(&alg, &div, &con, &spa),
             );
@@ -461,12 +510,9 @@ impl UcotronMcpServer {
         name = "ucotron_learn",
         description = "Extract memories, entities, and relationships from agent output text and store them in the cognitive graph."
     )]
-    async fn learn(
-        &self,
-        params: Parameters<LearnParams>,
-    ) -> Result<CallToolResult, McpError> {
-        use ucotron_extraction::ingestion::{IngestionConfig, IngestionOrchestrator};
+    async fn learn(&self, params: Parameters<LearnParams>) -> Result<CallToolResult, McpError> {
         use std::sync::atomic::Ordering;
+        use ucotron_extraction::ingestion::{IngestionConfig, IngestionOrchestrator};
 
         let params = params.0;
 
@@ -531,9 +577,7 @@ impl ServerHandler for UcotronMcpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             protocol_version: ProtocolVersion::V_2024_11_05,
-            capabilities: ServerCapabilities::builder()
-                .enable_tools()
-                .build(),
+            capabilities: ServerCapabilities::builder().enable_tools().build(),
             server_info: Implementation {
                 name: "ucotron-server".to_string(),
                 title: Some("Ucotron MCP Server".to_string()),
@@ -558,7 +602,7 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Mutex;
 
-    use ucotron_core::{BackendRegistry, Node, VectorBackend, GraphBackend};
+    use ucotron_core::{BackendRegistry, GraphBackend, Node, VectorBackend};
 
     // -- Mock backends for testing --
 
@@ -686,12 +730,14 @@ mod tests {
 
     /// Extract text from the first Content item in a CallToolResult.
     fn extract_text(result: &CallToolResult) -> String {
-        result.content.first().map(|c| {
-            match &c.raw {
+        result
+            .content
+            .first()
+            .map(|c| match &c.raw {
                 RawContent::Text(t) => t.text.clone(),
                 _ => String::new(),
-            }
-        }).unwrap_or_default()
+            })
+            .unwrap_or_default()
     }
 
     fn build_mcp_server() -> UcotronMcpServer {
@@ -701,7 +747,7 @@ mod tests {
         let embedder = Arc::new(MockEmbedder) as Arc<dyn ucotron_extraction::EmbeddingPipeline>;
         let config = ucotron_config::UcotronConfig::default();
 
-        let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+        let state = Arc::new(AppState::new(registry, embedder, None, None, config));
         UcotronMcpServer::new(state)
     }
 

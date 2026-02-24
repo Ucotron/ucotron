@@ -18,9 +18,7 @@ use anyhow::{Context, Result};
 use tokio::sync::watch;
 use tracing::{debug, info, warn};
 
-use ucotron_core::community::{
-    detect_communities_incremental, CommunityConfig, CommunityResult,
-};
+use ucotron_core::community::{detect_communities_incremental, CommunityConfig, CommunityResult};
 use ucotron_core::{BackendRegistry, NodeId, NodeType, Value};
 
 // ---------------------------------------------------------------------------
@@ -64,9 +62,7 @@ impl Default for ConsolidationConfig {
 
 impl ConsolidationConfig {
     /// Create a ConsolidationConfig from the ucotron_config crate's config.
-    pub fn from_ucotron_config(
-        config: &ucotron_config::ConsolidationConfig,
-    ) -> Self {
+    pub fn from_ucotron_config(config: &ucotron_config::ConsolidationConfig) -> Self {
         Self {
             enable_community_detection: true,
             enable_entity_merge: true,
@@ -210,10 +206,7 @@ impl<'a> ConsolidationOrchestrator<'a> {
                 Ok(decayed) => {
                     metrics.nodes_decayed = decayed.len();
                     decayed_nodes = decayed;
-                    info!(
-                        decayed = metrics.nodes_decayed,
-                        "Memory decay complete"
-                    );
+                    info!(decayed = metrics.nodes_decayed, "Memory decay complete");
                 }
                 Err(e) => {
                     warn!("Memory decay failed: {}", e);
@@ -443,10 +436,7 @@ impl ConsolidationWorker {
     /// Send `true` to the sender to stop the worker gracefully.
     ///
     /// The `registry` must be `Arc` so it can be shared with the background task.
-    pub fn spawn(
-        self,
-        registry: Arc<BackendRegistry>,
-    ) -> watch::Sender<bool> {
+    pub fn spawn(self, registry: Arc<BackendRegistry>) -> watch::Sender<bool> {
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
         tokio::spawn(async move {
@@ -457,14 +447,9 @@ impl ConsolidationWorker {
     }
 
     /// Internal run loop. Runs until shutdown signal received.
-    async fn run(
-        self,
-        registry: Arc<BackendRegistry>,
-        mut shutdown_rx: watch::Receiver<bool>,
-    ) {
-        let mut interval = tokio::time::interval(
-            tokio::time::Duration::from_secs(self.interval_secs),
-        );
+    async fn run(self, registry: Arc<BackendRegistry>, mut shutdown_rx: watch::Receiver<bool>) {
+        let mut interval =
+            tokio::time::interval(tokio::time::Duration::from_secs(self.interval_secs));
         // First tick completes immediately — skip it to avoid running on startup
         interval.tick().await;
 
@@ -538,8 +523,8 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ucotron_core::{Edge, GraphBackend, Node, VectorBackend};
     use std::sync::Mutex;
+    use ucotron_core::{Edge, GraphBackend, Node, VectorBackend};
 
     // ---- Mock backends for testing ----
 
@@ -775,10 +760,8 @@ mod tests {
     fn test_consolidation_empty_graph() {
         let graph = MockGraph::new();
         let registry = registry_with(graph);
-        let mut orchestrator = ConsolidationOrchestrator::new(
-            &registry,
-            ConsolidationConfig::default(),
-        );
+        let mut orchestrator =
+            ConsolidationOrchestrator::new(&registry, ConsolidationConfig::default());
 
         let result = orchestrator.consolidate().unwrap();
         assert_eq!(result.metrics.communities_detected, 0);
@@ -795,19 +778,32 @@ mod tests {
         // Create nodes for two clusters
         let mut nodes = Vec::new();
         for i in 1..=8 {
-            nodes.push(make_entity_node(i, &format!("node_{}", i), unit_vec(16, i as usize), 1000));
+            nodes.push(make_entity_node(
+                i,
+                &format!("node_{}", i),
+                unit_vec(16, i as usize),
+                1000,
+            ));
         }
         graph.upsert_nodes(&nodes).unwrap();
 
         // Cluster A: 1-4 densely connected
         let cluster_a_edges = vec![
-            (1, 2, 1.0), (1, 3, 1.0), (1, 4, 1.0),
-            (2, 3, 1.0), (2, 4, 1.0), (3, 4, 1.0),
+            (1, 2, 1.0),
+            (1, 3, 1.0),
+            (1, 4, 1.0),
+            (2, 3, 1.0),
+            (2, 4, 1.0),
+            (3, 4, 1.0),
         ];
         // Cluster B: 5-8 densely connected
         let cluster_b_edges = vec![
-            (5, 6, 1.0), (5, 7, 1.0), (5, 8, 1.0),
-            (6, 7, 1.0), (6, 8, 1.0), (7, 8, 1.0),
+            (5, 6, 1.0),
+            (5, 7, 1.0),
+            (5, 8, 1.0),
+            (6, 7, 1.0),
+            (6, 8, 1.0),
+            (7, 8, 1.0),
         ];
         // Weak bridge
         let bridge = vec![(4, 5, 0.1)];
@@ -843,10 +839,12 @@ mod tests {
 
         // Two "Juan" entities with same embedding -> should be flagged as duplicate
         let emb = unit_vec(16, 0);
-        graph.upsert_nodes(&[
-            make_entity_node(1, "Juan", emb.clone(), 1000),
-            make_entity_node(2, "Juan", emb.clone(), 2000),
-        ]).unwrap();
+        graph
+            .upsert_nodes(&[
+                make_entity_node(1, "Juan", emb.clone(), 1000),
+                make_entity_node(2, "Juan", emb.clone(), 2000),
+            ])
+            .unwrap();
 
         // Need at least one edge to discover nodes
         {
@@ -879,10 +877,12 @@ mod tests {
         let graph = MockGraph::new();
 
         // Two "Apple" entities with very different embeddings -> should NOT merge
-        graph.upsert_nodes(&[
-            make_entity_node(1, "Apple", unit_vec(16, 0), 1000),
-            make_entity_node(2, "Apple", unit_vec(16, 1), 2000),
-        ]).unwrap();
+        graph
+            .upsert_nodes(&[
+                make_entity_node(1, "Apple", unit_vec(16, 0), 1000),
+                make_entity_node(2, "Apple", unit_vec(16, 1), 2000),
+            ])
+            .unwrap();
 
         {
             let mut e = graph.edges.lock().unwrap();
@@ -911,10 +911,12 @@ mod tests {
 
         // Same embedding but different names -> should NOT merge
         let emb = unit_vec(16, 0);
-        graph.upsert_nodes(&[
-            make_entity_node(1, "Juan", emb.clone(), 1000),
-            make_entity_node(2, "Maria", emb.clone(), 2000),
-        ]).unwrap();
+        graph
+            .upsert_nodes(&[
+                make_entity_node(1, "Juan", emb.clone(), 1000),
+                make_entity_node(2, "Maria", emb.clone(), 2000),
+            ])
+            .unwrap();
 
         {
             let mut e = graph.edges.lock().unwrap();
@@ -943,10 +945,12 @@ mod tests {
         let one_year_ago = now - 365 * 24 * 3600;
         let recent = now - 3600; // 1 hour ago
 
-        graph.upsert_nodes(&[
-            make_entity_node(1, "old_node", unit_vec(16, 0), one_year_ago),
-            make_entity_node(2, "recent_node", unit_vec(16, 1), recent),
-        ]).unwrap();
+        graph
+            .upsert_nodes(&[
+                make_entity_node(1, "old_node", unit_vec(16, 0), one_year_ago),
+                make_entity_node(2, "recent_node", unit_vec(16, 1), recent),
+            ])
+            .unwrap();
 
         {
             let mut e = graph.edges.lock().unwrap();
@@ -973,12 +977,20 @@ mod tests {
         let old_decay = result.decayed_nodes.iter().find(|(id, _)| *id == 1);
         assert!(old_decay.is_some());
         let (_, factor) = old_decay.unwrap();
-        assert!(*factor < 0.1, "1-year-old node should have significant decay, got {}", factor);
+        assert!(
+            *factor < 0.1,
+            "1-year-old node should have significant decay, got {}",
+            factor
+        );
 
         // Recent node might also have some decay but should be close to 1.0
         let recent_decay = result.decayed_nodes.iter().find(|(id, _)| *id == 2);
         if let Some((_, factor)) = recent_decay {
-            assert!(*factor > 0.9, "Recent node should have minimal decay, got {}", factor);
+            assert!(
+                *factor > 0.9,
+                "Recent node should have minimal decay, got {}",
+                factor
+            );
         }
     }
 
@@ -986,9 +998,9 @@ mod tests {
     fn test_memory_decay_skips_zero_timestamp() {
         let graph = MockGraph::new();
 
-        graph.upsert_nodes(&[
-            make_entity_node(1, "no_timestamp", unit_vec(16, 0), 0),
-        ]).unwrap();
+        graph
+            .upsert_nodes(&[make_entity_node(1, "no_timestamp", unit_vec(16, 0), 0)])
+            .unwrap();
 
         {
             let mut e = graph.edges.lock().unwrap();
@@ -1020,19 +1032,18 @@ mod tests {
 
         // Create a small graph with clusters, duplicates, and old nodes
         let emb = unit_vec(16, 0);
-        graph.upsert_nodes(&[
-            make_entity_node(1, "Juan", emb.clone(), old_ts),
-            make_entity_node(2, "Juan", emb.clone(), old_ts + 100), // duplicate
-            make_entity_node(3, "Maria", unit_vec(16, 1), now - 3600),
-            make_entity_node(4, "Madrid", unit_vec(16, 2), now - 3600),
-        ]).unwrap();
+        graph
+            .upsert_nodes(&[
+                make_entity_node(1, "Juan", emb.clone(), old_ts),
+                make_entity_node(2, "Juan", emb.clone(), old_ts + 100), // duplicate
+                make_entity_node(3, "Maria", unit_vec(16, 1), now - 3600),
+                make_entity_node(4, "Madrid", unit_vec(16, 2), now - 3600),
+            ])
+            .unwrap();
 
         {
             let mut e = graph.edges.lock().unwrap();
-            *e = vec![
-                (1, 3, 1.0), (1, 4, 1.0), (2, 3, 1.0),
-                (3, 4, 1.0),
-            ];
+            *e = vec![(1, 3, 1.0), (1, 4, 1.0), (2, 3, 1.0), (3, 4, 1.0)];
         }
 
         let registry = registry_with(graph);
@@ -1068,10 +1079,12 @@ mod tests {
     fn test_consolidation_disabled_steps() {
         let graph = MockGraph::new();
         let emb = unit_vec(16, 0);
-        graph.upsert_nodes(&[
-            make_entity_node(1, "Test", emb.clone(), 1000),
-            make_entity_node(2, "Test", emb.clone(), 2000),
-        ]).unwrap();
+        graph
+            .upsert_nodes(&[
+                make_entity_node(1, "Test", emb.clone(), 1000),
+                make_entity_node(2, "Test", emb.clone(), 2000),
+            ])
+            .unwrap();
 
         {
             let mut e = graph.edges.lock().unwrap();
@@ -1099,9 +1112,9 @@ mod tests {
     fn test_consolidation_metrics_timing() {
         let graph = MockGraph::new();
         let emb = unit_vec(16, 0);
-        graph.upsert_nodes(&[
-            make_entity_node(1, "A", emb.clone(), 500),
-        ]).unwrap();
+        graph
+            .upsert_nodes(&[make_entity_node(1, "A", emb.clone(), 500)])
+            .unwrap();
 
         {
             let mut e = graph.edges.lock().unwrap();
@@ -1127,9 +1140,14 @@ mod tests {
         let graph = MockGraph::new();
 
         for i in 1..=4 {
-            graph.upsert_nodes(&[
-                make_entity_node(i, &format!("node_{}", i), unit_vec(16, i as usize), 1000),
-            ]).unwrap();
+            graph
+                .upsert_nodes(&[make_entity_node(
+                    i,
+                    &format!("node_{}", i),
+                    unit_vec(16, i as usize),
+                    1000,
+                )])
+                .unwrap();
         }
 
         {
@@ -1163,10 +1181,12 @@ mod tests {
 
         // Event nodes should not be merged even with same name/embedding
         let emb = unit_vec(16, 0);
-        graph.upsert_nodes(&[
-            make_event_node(1, "lunch event", emb.clone(), 1000),
-            make_event_node(2, "lunch event", emb.clone(), 2000),
-        ]).unwrap();
+        graph
+            .upsert_nodes(&[
+                make_event_node(1, "lunch event", emb.clone(), 1000),
+                make_event_node(2, "lunch event", emb.clone(), 2000),
+            ])
+            .unwrap();
 
         {
             let mut e = graph.edges.lock().unwrap();
@@ -1206,12 +1226,15 @@ mod tests {
         let graph = MockGraph::new();
         let registry = Arc::new(registry_with(graph));
 
-        let worker = ConsolidationWorker::new(1, ConsolidationConfig {
-            enable_community_detection: false,
-            enable_entity_merge: false,
-            enable_decay: false,
-            ..Default::default()
-        });
+        let worker = ConsolidationWorker::new(
+            1,
+            ConsolidationConfig {
+                enable_community_detection: false,
+                enable_entity_merge: false,
+                enable_decay: false,
+                ..Default::default()
+            },
+        );
 
         let shutdown_tx = worker.spawn(registry);
 
@@ -1231,9 +1254,9 @@ mod tests {
     async fn test_consolidation_worker_runs_cycle() {
         let graph = MockGraph::new();
         let emb = unit_vec(16, 0);
-        graph.upsert_nodes(&[
-            make_entity_node(1, "test", emb.clone(), 1000),
-        ]).unwrap();
+        graph
+            .upsert_nodes(&[make_entity_node(1, "test", emb.clone(), 1000)])
+            .unwrap();
         {
             let mut e = graph.edges.lock().unwrap();
             e.push((1, 1, 1.0));
@@ -1241,12 +1264,15 @@ mod tests {
 
         let registry = Arc::new(registry_with(graph));
 
-        let worker = ConsolidationWorker::new(1, ConsolidationConfig {
-            enable_community_detection: false,
-            enable_entity_merge: false,
-            enable_decay: false,
-            ..Default::default()
-        });
+        let worker = ConsolidationWorker::new(
+            1,
+            ConsolidationConfig {
+                enable_community_detection: false,
+                enable_entity_merge: false,
+                enable_decay: false,
+                ..Default::default()
+            },
+        );
 
         let shutdown_tx = worker.spawn(Arc::clone(&registry));
 
@@ -1270,7 +1296,11 @@ mod tests {
         // sim = 1.0 / (1.0 * 1.118) ≈ 0.894 (but zip truncates b to len 2)
         // Actually, zip only uses first 2 elements: dot=1, mag_a=1, mag_b=1 → sim ≈ 1.0
         // ... but magnitude uses full vectors. Let's just check it returns a valid value.
-        assert!((-1.0..=1.0).contains(&sim), "Similarity out of range: {}", sim);
+        assert!(
+            (-1.0..=1.0).contains(&sim),
+            "Similarity out of range: {}",
+            sim
+        );
     }
 
     #[test]
@@ -1296,9 +1326,14 @@ mod tests {
         let now = 100_000_000u64;
         let recent_ts = now - 60; // 1 minute ago
 
-        graph.upsert_nodes(&[
-            make_entity_node(1, "very recent", unit_vec(16, 0), recent_ts),
-        ]).unwrap();
+        graph
+            .upsert_nodes(&[make_entity_node(
+                1,
+                "very recent",
+                unit_vec(16, 0),
+                recent_ts,
+            )])
+            .unwrap();
         {
             let mut e = graph.edges.lock().unwrap();
             e.push((1, 1, 1.0)); // self-edge so node is discoverable
@@ -1321,7 +1356,11 @@ mod tests {
 
         // Recent node should have decay factor very close to 1.0
         if let Some((_, factor)) = result.decayed_nodes.iter().find(|(id, _)| *id == 1) {
-            assert!(*factor > 0.99, "Recent node should have high decay factor, got {}", factor);
+            assert!(
+                *factor > 0.99,
+                "Recent node should have high decay factor, got {}",
+                factor
+            );
         }
     }
 }

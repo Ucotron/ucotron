@@ -484,9 +484,7 @@ mod tests {
         fn upsert_edges(&self, edges: &[Edge]) -> anyhow::Result<()> {
             let mut adj = self.adj.lock().unwrap();
             for edge in edges {
-                adj.entry(edge.source)
-                    .or_default()
-                    .push(edge.target);
+                adj.entry(edge.source).or_default().push(edge.target);
             }
             Ok(())
         }
@@ -725,10 +723,8 @@ mod tests {
 
     #[test]
     fn test_external_vector_backend_stub_returns_errors() {
-        let backend = ExternalVectorBackend::new(
-            "http://localhost:6333".to_string(),
-            "ucotron".to_string(),
-        );
+        let backend =
+            ExternalVectorBackend::new("http://localhost:6333".to_string(), "ucotron".to_string());
 
         let err = backend.upsert_embeddings(&[(1, vec![1.0])]).unwrap_err();
         assert!(err.to_string().contains("not yet implemented"));
@@ -775,8 +771,9 @@ mod tests {
             "http://localhost:6333".to_string(),
             "test".to_string(),
         ));
-        let _graph: Box<dyn GraphBackend> =
-            Box::new(ExternalGraphBackend::new("redis://localhost:6379".to_string()));
+        let _graph: Box<dyn GraphBackend> = Box::new(ExternalGraphBackend::new(
+            "redis://localhost:6379".to_string(),
+        ));
     }
 
     #[test]
@@ -798,9 +795,7 @@ mod tests {
     #[test]
     fn test_vector_backend_search_top_k_zero() {
         let backend = MockVectorBackend::new();
-        backend
-            .upsert_embeddings(&[(1, vec![1.0, 0.0])])
-            .unwrap();
+        backend.upsert_embeddings(&[(1, vec![1.0, 0.0])]).unwrap();
         let results = backend.search(&[1.0, 0.0], 0).unwrap();
         assert!(results.is_empty());
     }
@@ -815,9 +810,7 @@ mod tests {
     #[test]
     fn test_vector_backend_delete_empty_slice() {
         let backend = MockVectorBackend::new();
-        backend
-            .upsert_embeddings(&[(1, vec![1.0])])
-            .unwrap();
+        backend.upsert_embeddings(&[(1, vec![1.0])]).unwrap();
         backend.delete(&[]).unwrap();
         let results = backend.search(&[1.0], 10).unwrap();
         assert_eq!(results.len(), 1);
@@ -826,17 +819,16 @@ mod tests {
     #[test]
     fn test_vector_backend_upsert_overwrites() {
         let backend = MockVectorBackend::new();
-        backend
-            .upsert_embeddings(&[(1, vec![1.0, 0.0])])
-            .unwrap();
+        backend.upsert_embeddings(&[(1, vec![1.0, 0.0])]).unwrap();
         // Overwrite with different embedding
-        backend
-            .upsert_embeddings(&[(1, vec![0.0, 1.0])])
-            .unwrap();
+        backend.upsert_embeddings(&[(1, vec![0.0, 1.0])]).unwrap();
         let results = backend.search(&[0.0, 1.0], 1).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, 1);
-        assert!((results[0].1 - 1.0).abs() < 1e-6, "Should match new embedding");
+        assert!(
+            (results[0].1 - 1.0).abs() < 1e-6,
+            "Should match new embedding"
+        );
     }
 
     #[test]
@@ -925,10 +917,7 @@ mod tests {
     }
 
     impl VisualVectorBackend for MockVisualVectorBackend {
-        fn upsert_visual_embeddings(
-            &self,
-            items: &[(NodeId, Vec<f32>)],
-        ) -> anyhow::Result<()> {
+        fn upsert_visual_embeddings(&self, items: &[(NodeId, Vec<f32>)]) -> anyhow::Result<()> {
             let mut map = self.embeddings.lock().unwrap();
             for (id, vec) in items {
                 map.insert(*id, vec.clone());
@@ -936,11 +925,7 @@ mod tests {
             Ok(())
         }
 
-        fn search_visual(
-            &self,
-            query: &[f32],
-            top_k: usize,
-        ) -> anyhow::Result<Vec<(NodeId, f32)>> {
+        fn search_visual(&self, query: &[f32], top_k: usize) -> anyhow::Result<Vec<(NodeId, f32)>> {
             let map = self.embeddings.lock().unwrap();
             let mut scores: Vec<(NodeId, f32)> = map
                 .iter()
@@ -1047,19 +1032,13 @@ mod tests {
         // Insert different embeddings into text and visual indices
         registry
             .vector()
-            .upsert_embeddings(&[
-                (1, vec![1.0, 0.0, 0.0]),
-                (2, vec![0.0, 1.0, 0.0]),
-            ])
+            .upsert_embeddings(&[(1, vec![1.0, 0.0, 0.0]), (2, vec![0.0, 1.0, 0.0])])
             .unwrap();
 
         registry
             .visual()
             .unwrap()
-            .upsert_visual_embeddings(&[
-                (1, vec![0.0, 0.0, 1.0]),
-                (2, vec![0.0, 1.0, 0.0]),
-            ])
+            .upsert_visual_embeddings(&[(1, vec![0.0, 0.0, 1.0]), (2, vec![0.0, 1.0, 0.0])])
             .unwrap();
 
         // Text search: query [1,0,0] → node 1 is best

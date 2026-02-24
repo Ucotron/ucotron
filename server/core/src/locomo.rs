@@ -228,8 +228,8 @@ impl LoCoMoDataset {
     ///
     /// Supports both array format (list of samples) and single-object format.
     pub fn from_json_str(json: &str, variant: &str) -> Result<Self> {
-        let value: serde_json::Value = serde_json::from_str(json)
-            .with_context(|| "Failed to parse LoCoMo JSON")?;
+        let value: serde_json::Value =
+            serde_json::from_str(json).with_context(|| "Failed to parse LoCoMo JSON")?;
 
         let samples_values = match &value {
             serde_json::Value::Array(arr) => arr.clone(),
@@ -296,7 +296,10 @@ impl LoCoMoDataset {
     }
 
     /// Convert with explicit granularity control.
-    pub fn to_eval_dataset_with_granularity(&self, granularity: DocumentGranularity) -> EvalDataset {
+    pub fn to_eval_dataset_with_granularity(
+        &self,
+        granularity: DocumentGranularity,
+    ) -> EvalDataset {
         let mut documents = Vec::new();
         let mut queries = Vec::new();
         let mut seen_docs: HashMap<String, bool> = HashMap::new();
@@ -783,12 +786,8 @@ impl LoCoMoReport {
         // Per-category breakdown
         if !self.per_category_results.is_empty() {
             md.push_str("## Per-Category Results\n\n");
-            md.push_str(
-                "| QA Category | Queries | MRR | Recall@5 | NDCG@5 | F1 | P95 (ms) |\n",
-            );
-            md.push_str(
-                "|-------------|---------|-----|----------|--------|----|---------|\n",
-            );
+            md.push_str("| QA Category | Queries | MRR | Recall@5 | NDCG@5 | F1 | P95 (ms) |\n");
+            md.push_str("|-------------|---------|-----|----------|--------|----|---------|\n");
 
             // Sort by category name for consistent output
             let mut cats: Vec<_> = self.per_category_results.iter().collect();
@@ -811,16 +810,12 @@ impl LoCoMoReport {
 
         // Baseline comparison
         md.push_str("## Comparison with Published Baselines\n\n");
-        md.push_str(
-            "| System | Overall F1 | Judge Score | Notes |\n",
-        );
-        md.push_str(
-            "|--------|-----------|-------------|-------|\n",
-        );
+        md.push_str("| System | Overall F1 | Judge Score | Notes |\n");
+        md.push_str("|--------|-----------|-------------|-------|\n");
 
         // Add Ucotron row first
         md.push_str(
-            "| **Ucotron** | N/A | N/A | Local HNSW + graph expansion (retrieval-only) |\n"
+            "| **Ucotron** | N/A | N/A | Local HNSW + graph expansion (retrieval-only) |\n",
         );
 
         for baseline in &self.baselines {
@@ -1068,8 +1063,16 @@ mod tests {
                 date_time: "1:56 pm on 8 May, 2023".to_string(),
                 turns: vec![
                     make_turn("Alice", "D1:1", "Hey! I just started learning piano."),
-                    make_turn("Bob", "D1:2", "That's great! How long have you been playing?"),
-                    make_turn("Alice", "D1:3", "About two weeks. I'm taking lessons on Tuesdays."),
+                    make_turn(
+                        "Bob",
+                        "D1:2",
+                        "That's great! How long have you been playing?",
+                    ),
+                    make_turn(
+                        "Alice",
+                        "D1:3",
+                        "About two weeks. I'm taking lessons on Tuesdays.",
+                    ),
                 ],
             },
             ConversationSession {
@@ -1088,7 +1091,11 @@ mod tests {
                 date_time: "10:00 am on 15 June, 2023".to_string(),
                 turns: vec![
                     make_turn("Bob", "D3:1", "How's the piano going?"),
-                    make_turn("Alice", "D3:2", "I switched to guitar instead. Piano was too hard."),
+                    make_turn(
+                        "Alice",
+                        "D3:2",
+                        "I switched to guitar instead. Piano was too hard.",
+                    ),
                 ],
             },
         ];
@@ -1311,7 +1318,10 @@ mod tests {
         let loaded = LoCoMoDataset::from_file(&path).unwrap();
         assert_eq!(loaded.samples.len(), ds.samples.len());
         assert_eq!(loaded.samples[0].qa.len(), ds.samples[0].qa.len());
-        assert_eq!(loaded.samples[0].sessions.len(), ds.samples[0].sessions.len());
+        assert_eq!(
+            loaded.samples[0].sessions.len(),
+            ds.samples[0].sessions.len()
+        );
     }
 
     // -- Conversion tests --
@@ -1393,11 +1403,26 @@ mod tests {
         let eval = ds.to_eval_dataset_with_granularity(DocumentGranularity::Turn);
 
         let doc = &eval.documents[0];
-        assert_eq!(doc.metadata.get("speaker").and_then(|v| v.as_str()), Some("Alice"));
-        assert_eq!(doc.metadata.get("dia_id").and_then(|v| v.as_str()), Some("D1:1"));
-        assert_eq!(doc.metadata.get("session").and_then(|v| v.as_str()), Some("session_1"));
-        assert_eq!(doc.metadata.get("source").and_then(|v| v.as_str()), Some("locomo"));
-        assert_eq!(doc.metadata.get("sample_id").and_then(|v| v.as_str()), Some("test_001"));
+        assert_eq!(
+            doc.metadata.get("speaker").and_then(|v| v.as_str()),
+            Some("Alice")
+        );
+        assert_eq!(
+            doc.metadata.get("dia_id").and_then(|v| v.as_str()),
+            Some("D1:1")
+        );
+        assert_eq!(
+            doc.metadata.get("session").and_then(|v| v.as_str()),
+            Some("session_1")
+        );
+        assert_eq!(
+            doc.metadata.get("source").and_then(|v| v.as_str()),
+            Some("locomo")
+        );
+        assert_eq!(
+            doc.metadata.get("sample_id").and_then(|v| v.as_str()),
+            Some("test_001")
+        );
     }
 
     #[test]
@@ -1406,8 +1431,14 @@ mod tests {
         let eval = ds.to_eval_dataset_with_granularity(DocumentGranularity::Session);
 
         let doc = &eval.documents[0];
-        assert_eq!(doc.metadata.get("source").and_then(|v| v.as_str()), Some("locomo"));
-        assert_eq!(doc.metadata.get("num_turns").and_then(|v| v.as_u64()), Some(3));
+        assert_eq!(
+            doc.metadata.get("source").and_then(|v| v.as_str()),
+            Some("locomo")
+        );
+        assert_eq!(
+            doc.metadata.get("num_turns").and_then(|v| v.as_u64()),
+            Some(3)
+        );
         assert_eq!(
             doc.metadata.get("date").and_then(|v| v.as_str()),
             Some("1:56 pm on 8 May, 2023")
@@ -1420,8 +1451,14 @@ mod tests {
         let eval = ds.to_eval_dataset_with_granularity(DocumentGranularity::Turn);
 
         let q = &eval.queries[0];
-        assert_eq!(q.metadata.get("answer").and_then(|v| v.as_str()), Some("About two weeks before 8 May 2023"));
-        assert_eq!(q.metadata.get("category_id").and_then(|v| v.as_u64()), Some(1));
+        assert_eq!(
+            q.metadata.get("answer").and_then(|v| v.as_str()),
+            Some("About two weeks before 8 May 2023")
+        );
+        assert_eq!(
+            q.metadata.get("category_id").and_then(|v| v.as_u64()),
+            Some(1)
+        );
         assert!(q.metadata.contains_key("evidence"));
 
         // Category label
@@ -1594,10 +1631,8 @@ mod tests {
             ..Default::default()
         };
 
-        let report = run_benchmark_from_dataset(&ds, DocumentGranularity::Turn, config, |_| {
-            vec![]
-        })
-        .unwrap();
+        let report =
+            run_benchmark_from_dataset(&ds, DocumentGranularity::Turn, config, |_| vec![]).unwrap();
 
         let md = report.to_markdown();
         assert!(md.contains("# LoCoMo Benchmark Results"));
@@ -1618,10 +1653,8 @@ mod tests {
             ..Default::default()
         };
 
-        let report = run_benchmark_from_dataset(&ds, DocumentGranularity::Turn, config, |_| {
-            vec![]
-        })
-        .unwrap();
+        let report =
+            run_benchmark_from_dataset(&ds, DocumentGranularity::Turn, config, |_| vec![]).unwrap();
 
         let json = report.to_json().unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();

@@ -207,9 +207,7 @@ impl<'a> CrossModalSearch<'a> {
         let mut metrics = CrossModalSearchMetrics::default();
 
         let results = match query {
-            CrossModalQuery::Text { text } => {
-                self.search_text(text, &mut metrics)?
-            }
+            CrossModalQuery::Text { text } => self.search_text(text, &mut metrics)?,
             CrossModalQuery::TextToImage { text } => {
                 self.search_text_to_image(text, &mut metrics)?
             }
@@ -219,9 +217,7 @@ impl<'a> CrossModalSearch<'a> {
             CrossModalQuery::ImageToText { image_bytes } => {
                 self.search_image_to_text(image_bytes, &mut metrics)?
             }
-            CrossModalQuery::Audio { transcript } => {
-                self.search_audio(transcript, &mut metrics)?
-            }
+            CrossModalQuery::Audio { transcript } => self.search_audio(transcript, &mut metrics)?,
             CrossModalQuery::Video {
                 frame_embeddings,
                 transcript,
@@ -431,7 +427,8 @@ impl<'a> CrossModalSearch<'a> {
                 }
 
                 visual_results = frame_scores.into_iter().collect();
-                visual_results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                visual_results
+                    .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
                 visual_results.truncate(self.config.top_k);
 
                 metrics.visual_search_us = search_start.elapsed().as_micros() as u64;
@@ -492,8 +489,8 @@ impl<'a> CrossModalSearch<'a> {
                 let has_text = text_score > 0.0;
                 let has_visual = visual_score > 0.0;
 
-                let combined = text_score * self.config.text_weight
-                    + visual_score * self.config.visual_weight;
+                let combined =
+                    text_score * self.config.text_weight + visual_score * self.config.visual_weight;
 
                 let source = if has_text && has_visual {
                     ResultSource::Fused
@@ -511,7 +508,11 @@ impl<'a> CrossModalSearch<'a> {
             })
             .collect();
 
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         results.truncate(self.config.top_k);
         results
     }
@@ -550,7 +551,11 @@ impl<'a> CrossModalSearch<'a> {
     /// Temporarily overrides the configured `top_k` for this single query,
     /// then restores it. Useful when the caller needs a different result count
     /// than the default.
-    pub fn text_to_image_top_k(&self, query: &str, top_k: usize) -> Result<CrossModalSearchResponse> {
+    pub fn text_to_image_top_k(
+        &self,
+        query: &str,
+        top_k: usize,
+    ) -> Result<CrossModalSearchResponse> {
         let total_start = std::time::Instant::now();
         let mut metrics = CrossModalSearchMetrics::default();
 
@@ -765,9 +770,9 @@ pub fn image_to_text_search(
 mod tests {
     use super::*;
     use anyhow::Result;
-    use ucotron_core::backends::VisualVectorBackend;
     use std::collections::HashMap;
     use std::sync::Mutex;
+    use ucotron_core::backends::VisualVectorBackend;
 
     // --- Mock backends ---
 
@@ -974,12 +979,7 @@ mod tests {
         fn get_neighbors(&self, _id: NodeId, _hops: u8) -> Result<Vec<ucotron_core::Node>> {
             Ok(vec![])
         }
-        fn find_path(
-            &self,
-            _src: NodeId,
-            _tgt: NodeId,
-            _max: u32,
-        ) -> Result<Option<Vec<NodeId>>> {
+        fn find_path(&self, _src: NodeId, _tgt: NodeId, _max: u32) -> Result<Option<Vec<NodeId>>> {
             Ok(None)
         }
         fn get_community(&self, _id: NodeId) -> Result<Vec<NodeId>> {
@@ -999,7 +999,10 @@ mod tests {
         }
         fn store_community_assignments(
             &self,
-            _assignments: &std::collections::HashMap<ucotron_core::NodeId, ucotron_core::community::CommunityId>,
+            _assignments: &std::collections::HashMap<
+                ucotron_core::NodeId,
+                ucotron_core::community::CommunityId,
+            >,
         ) -> Result<()> {
             Ok(())
         }
@@ -1041,17 +1044,22 @@ mod tests {
             (3, normalized_vec(384, 2)),
         ]);
 
-        let embedder = MockTextEmbedder::new()
-            .with_embedding("hello world", normalized_vec(384, 0));
+        let embedder =
+            MockTextEmbedder::new().with_embedding("hello world", normalized_vec(384, 0));
 
         let searcher = CrossModalSearch::new(
             &registry,
             &embedder,
-            CrossModalSearchConfig { top_k: 2, ..Default::default() },
+            CrossModalSearchConfig {
+                top_k: 2,
+                ..Default::default()
+            },
         );
 
         let response = searcher
-            .search(&CrossModalQuery::Text { text: "hello world" })
+            .search(&CrossModalQuery::Text {
+                text: "hello world",
+            })
             .unwrap();
 
         assert_eq!(response.results.len(), 2);
@@ -1065,10 +1073,7 @@ mod tests {
     fn test_text_to_image_search() {
         let registry = build_registry_dual(
             vec![(1, normalized_vec(384, 0))],
-            vec![
-                (10, normalized_vec(512, 0)),
-                (11, normalized_vec(512, 1)),
-            ],
+            vec![(10, normalized_vec(512, 0)), (11, normalized_vec(512, 1))],
         );
 
         let embedder = MockTextEmbedder::new();
@@ -1077,7 +1082,10 @@ mod tests {
         let searcher = CrossModalSearch::new(
             &registry,
             &embedder,
-            CrossModalSearchConfig { top_k: 5, ..Default::default() },
+            CrossModalSearchConfig {
+                top_k: 5,
+                ..Default::default()
+            },
         )
         .with_clip_text_encoder(&clip_encoder);
 
@@ -1095,21 +1103,15 @@ mod tests {
     fn test_image_search_visual_index() {
         let registry = build_registry_dual(
             vec![],
-            vec![
-                (20, normalized_vec(512, 0)),
-                (21, normalized_vec(512, 3)),
-            ],
+            vec![(20, normalized_vec(512, 0)), (21, normalized_vec(512, 3))],
         );
 
         let embedder = MockTextEmbedder::new();
         let image_embedder = MockImageEmbedder::new(normalized_vec(512, 0));
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_image_embedder(&image_embedder);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_image_embedder(&image_embedder);
 
         let response = searcher
             .search(&CrossModalQuery::Image {
@@ -1133,13 +1135,10 @@ mod tests {
         let image_embedder = MockImageEmbedder::new(vec![0.1; 512]);
         let projection = MockProjection::new(normalized_vec(384, 0));
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_image_embedder(&image_embedder)
-        .with_projection(&projection);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_image_embedder(&image_embedder)
+                .with_projection(&projection);
 
         let response = searcher
             .search(&CrossModalQuery::ImageToText {
@@ -1165,7 +1164,10 @@ mod tests {
         let searcher = CrossModalSearch::new(
             &registry,
             &embedder,
-            CrossModalSearchConfig { top_k: 1, ..Default::default() },
+            CrossModalSearchConfig {
+                top_k: 1,
+                ..Default::default()
+            },
         );
 
         let response = searcher
@@ -1182,18 +1184,15 @@ mod tests {
     #[test]
     fn test_video_search_dual_fusion() {
         let registry = build_registry_dual(
-            vec![
-                (1, normalized_vec(384, 0)),
-                (2, normalized_vec(384, 1)),
-            ],
+            vec![(1, normalized_vec(384, 0)), (2, normalized_vec(384, 1))],
             vec![
                 (1, normalized_vec(512, 0)), // Same node in both indices
                 (3, normalized_vec(512, 2)), // Only in visual index
             ],
         );
 
-        let embedder = MockTextEmbedder::new()
-            .with_embedding("video transcript", normalized_vec(384, 0));
+        let embedder =
+            MockTextEmbedder::new().with_embedding("video transcript", normalized_vec(384, 0));
 
         let searcher = CrossModalSearch::new(
             &registry,
@@ -1234,11 +1233,8 @@ mod tests {
 
         let embedder = MockTextEmbedder::new();
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        );
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default());
 
         let frame_embs = vec![normalized_vec(512, 0)];
 
@@ -1259,16 +1255,16 @@ mod tests {
         let registry = build_registry_dual(vec![], vec![(1, vec![1.0; 512])]);
         let embedder = MockTextEmbedder::new();
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        );
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default());
         // No clip text encoder set
 
         let result = searcher.search(&CrossModalQuery::TextToImage { text: "test" });
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("CLIP text encoder required"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("CLIP text encoder required"));
     }
 
     #[test]
@@ -1276,18 +1272,18 @@ mod tests {
         let registry = build_registry_dual(vec![], vec![(1, vec![1.0; 512])]);
         let embedder = MockTextEmbedder::new();
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        );
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default());
         // No image embedder set
 
         let result = searcher.search(&CrossModalQuery::Image {
             image_bytes: b"fake",
         });
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("CLIP image embedder required"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("CLIP image embedder required"));
     }
 
     #[test]
@@ -1296,19 +1292,19 @@ mod tests {
         let embedder = MockTextEmbedder::new();
         let image_embedder = MockImageEmbedder::new(vec![0.1; 512]);
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_image_embedder(&image_embedder);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_image_embedder(&image_embedder);
         // No projection layer set
 
         let result = searcher.search(&CrossModalQuery::ImageToText {
             image_bytes: b"fake",
         });
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Projection layer required"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Projection layer required"));
     }
 
     #[test]
@@ -1318,8 +1314,7 @@ mod tests {
             (2, vec![0.01; 384]), // Low similarity
         ]);
 
-        let embedder = MockTextEmbedder::new()
-            .with_embedding("test", normalized_vec(384, 0));
+        let embedder = MockTextEmbedder::new().with_embedding("test", normalized_vec(384, 0));
 
         let searcher = CrossModalSearch::new(
             &registry,
@@ -1345,11 +1340,8 @@ mod tests {
         let registry = build_registry_text_only(vec![(1, normalized_vec(384, 0))]);
         let embedder = MockTextEmbedder::new();
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        );
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default());
 
         let response = searcher
             .search(&CrossModalQuery::Text { text: "hello" })
@@ -1364,11 +1356,8 @@ mod tests {
         let registry = build_registry_text_only(vec![(1, normalized_vec(384, 0))]);
         let embedder = MockTextEmbedder::new();
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        );
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default());
 
         let response = searcher
             .search(&CrossModalQuery::Video {
@@ -1470,8 +1459,8 @@ mod tests {
         let registry = build_registry_dual(
             vec![],
             vec![
-                (10, normalized_vec(512, 0)),    // Will have score 1.0
-                (11, vec![0.001; 512]),           // Will have very low similarity
+                (10, normalized_vec(512, 0)), // Will have score 1.0
+                (11, vec![0.001; 512]),       // Will have very low similarity
             ],
         );
 
@@ -1507,12 +1496,9 @@ mod tests {
         let embedder = MockTextEmbedder::new();
         let clip_encoder = MockClipTextEncoder::new(normalized_vec(512, 0));
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_clip_text_encoder(&clip_encoder);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_clip_text_encoder(&clip_encoder);
 
         let response = searcher.text_to_image("no images here").unwrap();
         assert!(response.results.is_empty());
@@ -1526,14 +1512,14 @@ mod tests {
         let registry = build_registry_dual(
             vec![],
             vec![
-                (10, normalized_vec(512, 0)),  // score = 1.0 (exact match)
-                (11, normalized_vec(512, 1)),  // score = 0.0 (orthogonal)
+                (10, normalized_vec(512, 0)), // score = 1.0 (exact match)
+                (11, normalized_vec(512, 1)), // score = 0.0 (orthogonal)
                 (12, {
                     let mut v = vec![0.0; 512];
                     v[0] = 0.7;
                     v[1] = 0.7;
                     v
-                }),  // score ≈ 0.7 (partial match)
+                }), // score ≈ 0.7 (partial match)
             ],
         );
 
@@ -1565,21 +1551,15 @@ mod tests {
     fn test_text_to_image_all_results_from_visual_index() {
         let registry = build_registry_dual(
             vec![(1, normalized_vec(384, 0))], // Text index has data
-            vec![
-                (10, normalized_vec(512, 0)),
-                (11, normalized_vec(512, 1)),
-            ],
+            vec![(10, normalized_vec(512, 0)), (11, normalized_vec(512, 1))],
         );
 
         let embedder = MockTextEmbedder::new();
         let clip_encoder = MockClipTextEncoder::new(normalized_vec(512, 0));
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_clip_text_encoder(&clip_encoder);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_clip_text_encoder(&clip_encoder);
 
         let response = searcher.text_to_image("test").unwrap();
 
@@ -1593,20 +1573,14 @@ mod tests {
 
     #[test]
     fn test_text_to_image_metrics_complete() {
-        let registry = build_registry_dual(
-            vec![],
-            vec![(10, normalized_vec(512, 0))],
-        );
+        let registry = build_registry_dual(vec![], vec![(10, normalized_vec(512, 0))]);
 
         let embedder = MockTextEmbedder::new();
         let clip_encoder = MockClipTextEncoder::new(normalized_vec(512, 0));
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_clip_text_encoder(&clip_encoder);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_clip_text_encoder(&clip_encoder);
 
         let response = searcher.text_to_image("metrics test").unwrap();
 
@@ -1621,18 +1595,12 @@ mod tests {
 
     #[test]
     fn test_text_to_image_convenience_without_encoder_fails() {
-        let registry = build_registry_dual(
-            vec![],
-            vec![(10, normalized_vec(512, 0))],
-        );
+        let registry = build_registry_dual(vec![], vec![(10, normalized_vec(512, 0))]);
 
         let embedder = MockTextEmbedder::new();
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        );
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default());
         // No CLIP text encoder set
 
         let result = searcher.text_to_image("should fail");
@@ -1651,12 +1619,9 @@ mod tests {
         let embedder = MockTextEmbedder::new();
         let clip_encoder = MockClipTextEncoder::new(normalized_vec(512, 0));
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_clip_text_encoder(&clip_encoder);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_clip_text_encoder(&clip_encoder);
 
         let result = searcher.text_to_image("no visual backend");
         assert!(result.is_err());
@@ -1670,10 +1635,7 @@ mod tests {
     fn test_standalone_text_to_image_search_function() {
         let registry = build_registry_dual(
             vec![(1, normalized_vec(384, 0))],
-            vec![
-                (10, normalized_vec(512, 0)),
-                (11, normalized_vec(512, 1)),
-            ],
+            vec![(10, normalized_vec(512, 0)), (11, normalized_vec(512, 1))],
         );
 
         let embedder = MockTextEmbedder::new();
@@ -1699,8 +1661,8 @@ mod tests {
         let registry = build_registry_dual(
             vec![],
             vec![
-                (10, normalized_vec(512, 0)),   // Will have score 1.0
-                (11, vec![0.001; 512]),          // Very low similarity
+                (10, normalized_vec(512, 0)), // Will have score 1.0
+                (11, vec![0.001; 512]),       // Very low similarity
             ],
         );
 
@@ -1757,21 +1719,15 @@ mod tests {
         // All queries go through the same mock encoder, so results should be identical
         let registry = build_registry_dual(
             vec![],
-            vec![
-                (10, normalized_vec(512, 0)),
-                (11, normalized_vec(512, 1)),
-            ],
+            vec![(10, normalized_vec(512, 0)), (11, normalized_vec(512, 1))],
         );
 
         let embedder = MockTextEmbedder::new();
         let clip_encoder = MockClipTextEncoder::new(normalized_vec(512, 0));
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_clip_text_encoder(&clip_encoder);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_clip_text_encoder(&clip_encoder);
 
         let response1 = searcher.text_to_image("query one").unwrap();
         let response2 = searcher.text_to_image("query two").unwrap();
@@ -1851,8 +1807,8 @@ mod tests {
     #[test]
     fn test_image_to_text_with_min_similarity_filter() {
         let registry = build_registry_text_only(vec![
-            (1, normalized_vec(384, 0)),    // Will have score 1.0 via projection
-            (2, vec![0.001; 384]),           // Very low similarity
+            (1, normalized_vec(384, 0)), // Will have score 1.0 via projection
+            (2, vec![0.001; 384]),       // Very low similarity
         ]);
 
         let embedder = MockTextEmbedder::new();
@@ -1887,13 +1843,10 @@ mod tests {
         let image_embedder = MockImageEmbedder::new(vec![0.1; 512]);
         let projection = MockProjection::new(normalized_vec(384, 0));
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_image_embedder(&image_embedder)
-        .with_projection(&projection);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_image_embedder(&image_embedder)
+                .with_projection(&projection);
 
         let response = searcher.image_to_text(b"no_text_here").unwrap();
         assert!(response.results.is_empty());
@@ -1904,14 +1857,14 @@ mod tests {
     #[test]
     fn test_image_to_text_results_sorted_by_similarity() {
         let registry = build_registry_text_only(vec![
-            (1, normalized_vec(384, 0)),  // score = 1.0 (exact match with projection output)
-            (2, normalized_vec(384, 1)),  // score = 0.0 (orthogonal)
+            (1, normalized_vec(384, 0)), // score = 1.0 (exact match with projection output)
+            (2, normalized_vec(384, 1)), // score = 0.0 (orthogonal)
             (3, {
                 let mut v = vec![0.0; 384];
                 v[0] = 0.7;
                 v[1] = 0.7;
                 v
-            }),  // score ≈ 0.7 (partial match)
+            }), // score ≈ 0.7 (partial match)
         ]);
 
         let embedder = MockTextEmbedder::new();
@@ -1942,10 +1895,7 @@ mod tests {
     #[test]
     fn test_image_to_text_all_results_from_text_index() {
         let registry = build_registry_dual(
-            vec![
-                (1, normalized_vec(384, 0)),
-                (2, normalized_vec(384, 1)),
-            ],
+            vec![(1, normalized_vec(384, 0)), (2, normalized_vec(384, 1))],
             vec![(10, normalized_vec(512, 0))], // Visual index has data too
         );
 
@@ -1953,13 +1903,10 @@ mod tests {
         let image_embedder = MockImageEmbedder::new(vec![0.1; 512]);
         let projection = MockProjection::new(normalized_vec(384, 0));
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_image_embedder(&image_embedder)
-        .with_projection(&projection);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_image_embedder(&image_embedder)
+                .with_projection(&projection);
 
         let response = searcher.image_to_text(b"test").unwrap();
 
@@ -1979,13 +1926,10 @@ mod tests {
         let image_embedder = MockImageEmbedder::new(vec![0.1; 512]);
         let projection = MockProjection::new(normalized_vec(384, 0));
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_image_embedder(&image_embedder)
-        .with_projection(&projection);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_image_embedder(&image_embedder)
+                .with_projection(&projection);
 
         let response = searcher.image_to_text(b"metrics_test").unwrap();
 
@@ -2004,12 +1948,9 @@ mod tests {
         let embedder = MockTextEmbedder::new();
         let projection = MockProjection::new(normalized_vec(384, 0));
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_projection(&projection);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_projection(&projection);
         // No CLIP image embedder set
 
         let result = searcher.image_to_text(b"should_fail");
@@ -2026,12 +1967,9 @@ mod tests {
         let embedder = MockTextEmbedder::new();
         let image_embedder = MockImageEmbedder::new(vec![0.1; 512]);
 
-        let searcher = CrossModalSearch::new(
-            &registry,
-            &embedder,
-            CrossModalSearchConfig::default(),
-        )
-        .with_image_embedder(&image_embedder);
+        let searcher =
+            CrossModalSearch::new(&registry, &embedder, CrossModalSearchConfig::default())
+                .with_image_embedder(&image_embedder);
         // No projection layer set
 
         let result = searcher.image_to_text(b"no_projection");
@@ -2072,8 +2010,8 @@ mod tests {
     #[test]
     fn test_standalone_image_to_text_with_min_similarity() {
         let registry = build_registry_text_only(vec![
-            (1, normalized_vec(384, 0)),   // Will have score 1.0
-            (2, vec![0.001; 384]),          // Very low similarity
+            (1, normalized_vec(384, 0)), // Will have score 1.0
+            (2, vec![0.001; 384]),       // Very low similarity
         ]);
 
         let embedder = MockTextEmbedder::new();
@@ -2148,6 +2086,7 @@ mod tests {
         seed.hash(&mut hasher);
         cluster_idx.hash(&mut hasher);
         let h = hasher.finish();
+        #[allow(clippy::needless_range_loop)]
         for i in 0..dim {
             let noise_seed = h.wrapping_add(i as u64);
             let noise = ((noise_seed % 1000) as f32 / 1000.0 - 0.5) * 0.1;
@@ -2170,9 +2109,7 @@ mod tests {
         }
         let hits: usize = results
             .iter()
-            .filter(|(gt_id, top_k_ids)| {
-                top_k_ids.iter().take(k).any(|id| id == gt_id)
-            })
+            .filter(|(gt_id, top_k_ids)| top_k_ids.iter().take(k).any(|id| id == gt_id))
             .count();
         hits as f64 / results.len() as f64
     }
@@ -2184,12 +2121,12 @@ mod tests {
         }
         let sum: f64 = results
             .iter()
-            .map(|(gt_id, top_k_ids)| {
-                match top_k_ids.iter().position(|id| id == gt_id) {
+            .map(
+                |(gt_id, top_k_ids)| match top_k_ids.iter().position(|id| id == gt_id) {
                     Some(rank) => 1.0 / (rank as f64 + 1.0),
                     None => 0.0,
-                }
-            })
+                },
+            )
             .sum();
         sum / results.len() as f64
     }
@@ -2464,16 +2401,24 @@ mod tests {
         // Latency stats
         t2i_latencies.sort_unstable();
         i2t_latencies.sort_unstable();
-        let t2i_p50 = if t2i_latencies.is_empty() { 0 } else {
+        let t2i_p50 = if t2i_latencies.is_empty() {
+            0
+        } else {
             t2i_latencies[t2i_latencies.len() / 2]
         };
-        let t2i_p95 = if t2i_latencies.is_empty() { 0 } else {
+        let t2i_p95 = if t2i_latencies.is_empty() {
+            0
+        } else {
             t2i_latencies[(t2i_latencies.len() as f64 * 0.95) as usize]
         };
-        let i2t_p50 = if i2t_latencies.is_empty() { 0 } else {
+        let i2t_p50 = if i2t_latencies.is_empty() {
+            0
+        } else {
             i2t_latencies[i2t_latencies.len() / 2]
         };
-        let i2t_p95 = if i2t_latencies.is_empty() { 0 } else {
+        let i2t_p95 = if i2t_latencies.is_empty() {
+            0
+        } else {
             i2t_latencies[(i2t_latencies.len() as f64 * 0.95) as usize]
         };
 
@@ -2483,8 +2428,10 @@ mod tests {
         println!();
         println!("=== US-33.21: Cross-Modal Retrieval Accuracy Benchmark ===");
         println!();
-        println!("Dataset: {} text-image pairs, {} clusters × {} items/cluster",
-            total_items, num_clusters, items_per_cluster);
+        println!(
+            "Dataset: {} text-image pairs, {} clusters × {} items/cluster",
+            total_items, num_clusters, items_per_cluster
+        );
         println!("Top-k: {}", top_k);
         println!();
         println!("### Text→Image Retrieval");
@@ -2541,9 +2488,9 @@ mod tests {
     fn test_recall_at_k_metric() {
         // 3 queries, ground truth = first element, results = second element
         let results = vec![
-            (1_u64, vec![1_u64, 2, 3]),   // Hit at rank 0
-            (4, vec![2, 3, 4]),             // Hit at rank 2
-            (7, vec![1, 2, 3]),             // Miss
+            (1_u64, vec![1_u64, 2, 3]), // Hit at rank 0
+            (4, vec![2, 3, 4]),         // Hit at rank 2
+            (7, vec![1, 2, 3]),         // Miss
         ];
         assert!((recall_at_k(&results, 1) - 1.0 / 3.0).abs() < 1e-6);
         assert!((recall_at_k(&results, 3) - 2.0 / 3.0).abs() < 1e-6);
@@ -2553,9 +2500,9 @@ mod tests {
     #[test]
     fn test_mrr_metric() {
         let results = vec![
-            (1_u64, vec![1_u64, 2, 3]),   // RR = 1/1 = 1.0
-            (4, vec![2, 3, 4]),             // RR = 1/3
-            (7, vec![1, 2, 3]),             // RR = 0
+            (1_u64, vec![1_u64, 2, 3]), // RR = 1/1 = 1.0
+            (4, vec![2, 3, 4]),         // RR = 1/3
+            (7, vec![1, 2, 3]),         // RR = 0
         ];
         let expected = (1.0 + 1.0 / 3.0 + 0.0) / 3.0;
         assert!((mrr(&results) - expected).abs() < 1e-6);
@@ -2564,9 +2511,9 @@ mod tests {
     #[test]
     fn test_ndcg_at_k_metric() {
         let results = vec![
-            (1_u64, vec![1_u64, 2, 3]),   // DCG = 1/log2(2) = 1.0, NDCG = 1.0
-            (2, vec![3, 2, 1]),             // DCG = 1/log2(3) ≈ 0.631, NDCG ≈ 0.631
-            (7, vec![1, 2, 3]),             // DCG = 0, NDCG = 0
+            (1_u64, vec![1_u64, 2, 3]), // DCG = 1/log2(2) = 1.0, NDCG = 1.0
+            (2, vec![3, 2, 1]),         // DCG = 1/log2(3) ≈ 0.631, NDCG ≈ 0.631
+            (7, vec![1, 2, 3]),         // DCG = 0, NDCG = 0
         ];
         let expected = (1.0 + 1.0 / 3.0_f64.log2() + 0.0) / 3.0;
         assert!((ndcg_at_k(&results, 10) - expected).abs() < 1e-3);

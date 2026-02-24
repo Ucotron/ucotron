@@ -47,16 +47,15 @@ pub use ucotron_core;
 use anyhow::{Context, Result};
 use heed::types::SerdeBincode;
 use heed::{Database, Env, EnvOpenOptions};
-use ucotron_core::{
-    Agent, AgentShare,
-    Config, Edge, EdgeType, GraphBackend, InsertStats, Node, NodeId, NodeType, StorageEngine,
-    VectorBackend, VisualVectorBackend,
-};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use std::fs;
 use std::path::Path;
 use std::time::Instant;
+use ucotron_core::{
+    Agent, AgentShare, Config, Edge, EdgeType, GraphBackend, InsertStats, Node, NodeId, NodeType,
+    StorageEngine, VectorBackend, VisualVectorBackend,
+};
 
 /// Composite key for the edges database: (source, target, edge_type discriminant).
 type EdgeKey = (u64, u64, u32);
@@ -286,18 +285,12 @@ impl StorageEngine for HelixEngine {
                 self.edges_db.put(&mut wtxn, &key, edge)?;
 
                 // Update outgoing adjacency list for source
-                let mut out_list = self
-                    .adj_out
-                    .get(&wtxn, &edge.source)?
-                    .unwrap_or_default();
+                let mut out_list = self.adj_out.get(&wtxn, &edge.source)?.unwrap_or_default();
                 out_list.push((edge.target, et));
                 self.adj_out.put(&mut wtxn, &edge.source, &out_list)?;
 
                 // Update incoming adjacency list for target
-                let mut in_list = self
-                    .adj_in
-                    .get(&wtxn, &edge.target)?
-                    .unwrap_or_default();
+                let mut in_list = self.adj_in.get(&wtxn, &edge.target)?.unwrap_or_default();
                 in_list.push((edge.source, et));
                 self.adj_in.put(&mut wtxn, &edge.target, &in_list)?;
             }
@@ -390,8 +383,7 @@ impl StorageEngine for HelixEngine {
         }
 
         // Drain heap into sorted Vec (highest similarity first)
-        let mut results: Vec<(NodeId, f32)> =
-            heap.into_iter().map(|ms| (ms.1, ms.0)).collect();
+        let mut results: Vec<(NodeId, f32)> = heap.into_iter().map(|ms| (ms.1, ms.0)).collect();
         results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
 
         Ok(results)
@@ -506,22 +498,19 @@ impl VectorBackend for HelixVectorBackend {
         let mut wtxn = self.env.write_txn()?;
         for (id, embedding) in items {
             // Read existing node or create a minimal placeholder
-            let mut node = self
-                .nodes_db
-                .get(&wtxn, id)?
-                .unwrap_or_else(|| Node {
-                    id: *id,
-                    content: String::new(),
-                    embedding: Vec::new(),
-                    metadata: HashMap::new(),
-                    node_type: NodeType::Entity,
-                    timestamp: 0,
-                    media_type: None,
-                    media_uri: None,
-                    embedding_visual: None,
-                    timestamp_range: None,
-                    parent_video_id: None,
-                });
+            let mut node = self.nodes_db.get(&wtxn, id)?.unwrap_or_else(|| Node {
+                id: *id,
+                content: String::new(),
+                embedding: Vec::new(),
+                metadata: HashMap::new(),
+                node_type: NodeType::Entity,
+                timestamp: 0,
+                media_type: None,
+                media_uri: None,
+                embedding_visual: None,
+                timestamp_range: None,
+                parent_video_id: None,
+            });
             node.embedding = embedding.clone();
             self.nodes_db.put(&mut wtxn, id, &node)?;
         }
@@ -552,8 +541,7 @@ impl VectorBackend for HelixVectorBackend {
             }
         }
 
-        let mut results: Vec<(NodeId, f32)> =
-            heap.into_iter().map(|ms| (ms.1, ms.0)).collect();
+        let mut results: Vec<(NodeId, f32)> = heap.into_iter().map(|ms| (ms.1, ms.0)).collect();
         results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
         Ok(results)
     }
@@ -783,7 +771,10 @@ impl HelixGraphBackend {
                 }
                 // Apply node_type filter
                 if let Some(ref types) = filter.node_types {
-                    if !types.iter().any(|t| std::mem::discriminant(t) == std::mem::discriminant(&n.node_type)) {
+                    if !types
+                        .iter()
+                        .any(|t| std::mem::discriminant(t) == std::mem::discriminant(&n.node_type))
+                    {
                         return false;
                     }
                 }
@@ -830,9 +821,9 @@ impl HelixGraphBackend {
                     content: n.content.clone(),
                     embedding: n.embedding.clone(),
                     metadata,
-                    node_type: n.node_type.clone(),
+                    node_type: n.node_type,
                     timestamp: n.timestamp,
-                    media_type: n.media_type.clone(),
+                    media_type: n.media_type,
                     media_uri: n.media_uri.clone(),
                     embedding_visual: n.embedding_visual.clone(),
                     timestamp_range: n.timestamp_range,
@@ -945,9 +936,9 @@ impl HelixGraphBackend {
                     content: node.content.clone(),
                     embedding: node.embedding.clone(),
                     metadata,
-                    node_type: node.node_type.clone(),
+                    node_type: node.node_type,
                     timestamp: node.timestamp,
-                    media_type: node.media_type.clone(),
+                    media_type: node.media_type,
                     media_uri: node.media_uri.clone(),
                     embedding_visual: node.embedding_visual.clone(),
                     timestamp_range: node.timestamp_range,
@@ -1031,16 +1022,10 @@ impl HelixGraphBackend {
                 let et = edge_type_to_u32(&edge.edge_type);
                 let key: EdgeKey = (edge.source, edge.target, et);
                 self.edges_db.put(&mut wtxn, &key, edge)?;
-                let mut out_list = self
-                    .adj_out
-                    .get(&wtxn, &edge.source)?
-                    .unwrap_or_default();
+                let mut out_list = self.adj_out.get(&wtxn, &edge.source)?.unwrap_or_default();
                 out_list.push((edge.target, et));
                 self.adj_out.put(&mut wtxn, &edge.source, &out_list)?;
-                let mut in_list = self
-                    .adj_in
-                    .get(&wtxn, &edge.target)?
-                    .unwrap_or_default();
+                let mut in_list = self.adj_in.get(&wtxn, &edge.target)?.unwrap_or_default();
                 in_list.push((edge.source, et));
                 self.adj_in.put(&mut wtxn, &edge.target, &in_list)?;
             }
@@ -1096,18 +1081,12 @@ impl GraphBackend for HelixGraphBackend {
                 self.edges_db.put(&mut wtxn, &key, edge)?;
 
                 // Update outgoing adjacency
-                let mut out_list = self
-                    .adj_out
-                    .get(&wtxn, &edge.source)?
-                    .unwrap_or_default();
+                let mut out_list = self.adj_out.get(&wtxn, &edge.source)?.unwrap_or_default();
                 out_list.push((edge.target, et));
                 self.adj_out.put(&mut wtxn, &edge.source, &out_list)?;
 
                 // Update incoming adjacency
-                let mut in_list = self
-                    .adj_in
-                    .get(&wtxn, &edge.target)?
-                    .unwrap_or_default();
+                let mut in_list = self.adj_in.get(&wtxn, &edge.target)?.unwrap_or_default();
                 in_list.push((edge.source, et));
                 self.adj_in.put(&mut wtxn, &edge.target, &in_list)?;
             }
@@ -1181,9 +1160,7 @@ impl GraphBackend for HelixGraphBackend {
                     if let std::collections::hash_map::Entry::Vacant(e) = parent.entry(neighbor) {
                         e.insert(current);
                         if neighbor == target {
-                            return Ok(Some(Self::reconstruct_path_bfs(
-                                &parent, source, target,
-                            )));
+                            return Ok(Some(Self::reconstruct_path_bfs(&parent, source, target)));
                         }
                         queue.push_back((neighbor, depth + 1));
                     }
@@ -1194,9 +1171,7 @@ impl GraphBackend for HelixGraphBackend {
                     if let std::collections::hash_map::Entry::Vacant(e) = parent.entry(neighbor) {
                         e.insert(current);
                         if neighbor == target {
-                            return Ok(Some(Self::reconstruct_path_bfs(
-                                &parent, source, target,
-                            )));
+                            return Ok(Some(Self::reconstruct_path_bfs(&parent, source, target)));
                         }
                         queue.push_back((neighbor, depth + 1));
                     }
@@ -1530,7 +1505,9 @@ impl HnswVectorBackend {
             let maybe_blob: Option<BlobValue> = hnsw_index_db.get(&rtxn, &HNSW_INDEX_KEY)?;
             match maybe_blob {
                 Some(blob) => {
-                    match bincode::deserialize::<instant_distance::HnswMap<HnswPoint, NodeId>>(blob.data.as_slice()) {
+                    match bincode::deserialize::<instant_distance::HnswMap<HnswPoint, NodeId>>(
+                        blob.data.as_slice(),
+                    ) {
                         Ok(hnsw) => Some(HnswIndex { hnsw }),
                         Err(_) => None, // corrupted index; will be rebuilt on next upsert
                     }
@@ -1573,7 +1550,10 @@ impl HnswVectorBackend {
 
         if points.is_empty() {
             // Clear index
-            let mut guard = self.index.write().map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
+            let mut guard = self
+                .index
+                .write()
+                .map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
             *guard = None;
 
             let mut wtxn = self.env.write_txn()?;
@@ -1590,8 +1570,7 @@ impl HnswVectorBackend {
             .build(points, values);
 
         // Serialize and persist
-        let bytes = bincode::serialize(&hnsw)
-            .with_context(|| "Failed to serialize HNSW index")?;
+        let bytes = bincode::serialize(&hnsw).with_context(|| "Failed to serialize HNSW index")?;
 
         let blob = BlobValue { data: bytes };
         let mut wtxn = self.env.write_txn()?;
@@ -1599,7 +1578,10 @@ impl HnswVectorBackend {
         wtxn.commit()?;
 
         // Update in-memory index
-        let mut guard = self.index.write().map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
+        let mut guard = self
+            .index
+            .write()
+            .map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
         *guard = Some(HnswIndex { hnsw });
 
         Ok(())
@@ -1611,22 +1593,19 @@ impl VectorBackend for HnswVectorBackend {
         // Store embeddings in LMDB (source of truth)
         let mut wtxn = self.env.write_txn()?;
         for (id, embedding) in items {
-            let mut node = self
-                .nodes_db
-                .get(&wtxn, id)?
-                .unwrap_or_else(|| Node {
-                    id: *id,
-                    content: String::new(),
-                    embedding: Vec::new(),
-                    metadata: HashMap::new(),
-                    node_type: NodeType::Entity,
-                    timestamp: 0,
-                    media_type: None,
-                    media_uri: None,
-                    embedding_visual: None,
-                    timestamp_range: None,
-                    parent_video_id: None,
-                });
+            let mut node = self.nodes_db.get(&wtxn, id)?.unwrap_or_else(|| Node {
+                id: *id,
+                content: String::new(),
+                embedding: Vec::new(),
+                metadata: HashMap::new(),
+                node_type: NodeType::Entity,
+                timestamp: 0,
+                media_type: None,
+                media_uri: None,
+                embedding_visual: None,
+                timestamp_range: None,
+                parent_video_id: None,
+            });
             node.embedding = embedding.clone();
             self.nodes_db.put(&mut wtxn, id, &node)?;
         }
@@ -1643,7 +1622,10 @@ impl VectorBackend for HnswVectorBackend {
             return Ok(Vec::new());
         }
 
-        let guard = self.index.read().map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
+        let guard = self
+            .index
+            .read()
+            .map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
 
         if let Some(ref idx) = *guard {
             // HNSW search
@@ -1683,8 +1665,7 @@ impl VectorBackend for HnswVectorBackend {
                     }
                 }
             }
-            let mut results: Vec<(NodeId, f32)> =
-                heap.into_iter().map(|ms| (ms.1, ms.0)).collect();
+            let mut results: Vec<(NodeId, f32)> = heap.into_iter().map(|ms| (ms.1, ms.0)).collect();
             results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
             Ok(results)
         }
@@ -1757,8 +1738,7 @@ impl HelixVisualVectorBackend {
 
         let mut wtxn = env.write_txn()?;
         let visual_nodes_db = env.create_database(&mut wtxn, Some("visual_nodes"))?;
-        let visual_hnsw_index_db =
-            env.create_database(&mut wtxn, Some("visual_hnsw_index"))?;
+        let visual_hnsw_index_db = env.create_database(&mut wtxn, Some("visual_hnsw_index"))?;
         wtxn.commit()?;
 
         // Try to load persisted index
@@ -1904,8 +1884,7 @@ impl VisualVectorBackend for HelixVisualVectorBackend {
                     }
                 }
             }
-            let mut results: Vec<(NodeId, f32)> =
-                heap.into_iter().map(|ms| (ms.1, ms.0)).collect();
+            let mut results: Vec<(NodeId, f32)> = heap.into_iter().map(|ms| (ms.1, ms.0)).collect();
             results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
             Ok(results)
         }
@@ -2003,8 +1982,8 @@ pub fn create_helix_backends_with_visual(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ucotron_core::Value;
     use std::collections::HashMap;
+    use ucotron_core::Value;
 
     fn test_engine() -> (HelixEngine, tempfile::TempDir) {
         let dir = tempfile::tempdir().expect("create temp dir");
@@ -2374,7 +2353,7 @@ mod tests {
                 emb[0] = val;
                 let norm = val; // single non-zero component
                 emb[0] /= norm; // normalize to unit length — all become 1.0 in dim 0
-                // Actually let's give different directions to get varying similarities
+                                // Actually let's give different directions to get varying similarities
                 emb[0] = (i as f32 * 0.1).cos();
                 emb[1] = (i as f32 * 0.1).sin();
                 let norm = (emb[0] * emb[0] + emb[1] * emb[1]).sqrt();
@@ -2447,7 +2426,10 @@ mod tests {
         ];
         engine.insert_edges(&edges).expect("insert edges");
 
-        let path = engine.find_path(0, 3, 100).expect("find_path").expect("path exists");
+        let path = engine
+            .find_path(0, 3, 100)
+            .expect("find_path")
+            .expect("path exists");
         assert_eq!(path.first(), Some(&0), "Path should start at source");
         assert_eq!(path.last(), Some(&3), "Path should end at target");
         assert_eq!(path.len(), 4, "Shortest path is 4 nodes long");
@@ -2474,7 +2456,10 @@ mod tests {
         let nodes = vec![make_node(0, "A", NodeType::Entity)];
         engine.insert_nodes(&nodes).expect("insert");
 
-        let path = engine.find_path(0, 0, 100).expect("find_path").expect("path exists");
+        let path = engine
+            .find_path(0, 0, 100)
+            .expect("find_path")
+            .expect("path exists");
         assert_eq!(path, vec![0], "Source == target gives single-element path");
     }
 
@@ -2533,11 +2518,8 @@ mod tests {
     #[test]
     fn test_helix_vector_backend_upsert_and_search() {
         let dir = tempfile::tempdir().expect("create temp dir");
-        let backend = HelixVectorBackend::open(
-            &dir.path().to_string_lossy(),
-            100 * 1024 * 1024,
-        )
-        .expect("open vector backend");
+        let backend = HelixVectorBackend::open(&dir.path().to_string_lossy(), 100 * 1024 * 1024)
+            .expect("open vector backend");
 
         // First insert nodes via a graph backend (since embeddings are stored on nodes)
         // For the vector backend, upsert_embeddings creates placeholder nodes
@@ -2558,11 +2540,8 @@ mod tests {
     #[test]
     fn test_helix_vector_backend_delete() {
         let dir = tempfile::tempdir().expect("create temp dir");
-        let backend = HelixVectorBackend::open(
-            &dir.path().to_string_lossy(),
-            100 * 1024 * 1024,
-        )
-        .expect("open vector backend");
+        let backend = HelixVectorBackend::open(&dir.path().to_string_lossy(), 100 * 1024 * 1024)
+            .expect("open vector backend");
 
         let mut emb = vec![0.0f32; 384];
         emb[0] = 1.0;
@@ -2576,7 +2555,10 @@ mod tests {
         let results = backend.search(&emb, 10).expect("search");
         // Node 1 still exists but embedding is empty (won't match 384-dim query)
         let ids: Vec<NodeId> = results.iter().map(|r| r.0).collect();
-        assert!(!ids.contains(&1), "Deleted embedding should not appear in results");
+        assert!(
+            !ids.contains(&1),
+            "Deleted embedding should not appear in results"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -2586,12 +2568,9 @@ mod tests {
     #[test]
     fn test_helix_graph_backend_nodes_and_edges() {
         let dir = tempfile::tempdir().expect("create temp dir");
-        let backend = HelixGraphBackend::open(
-            &dir.path().to_string_lossy(),
-            100 * 1024 * 1024,
-            100,
-        )
-        .expect("open graph backend");
+        let backend =
+            HelixGraphBackend::open(&dir.path().to_string_lossy(), 100 * 1024 * 1024, 100)
+                .expect("open graph backend");
 
         let nodes = vec![
             make_node(0, "A", NodeType::Entity),
@@ -2619,12 +2598,9 @@ mod tests {
     #[test]
     fn test_helix_graph_backend_find_path() {
         let dir = tempfile::tempdir().expect("create temp dir");
-        let backend = HelixGraphBackend::open(
-            &dir.path().to_string_lossy(),
-            100 * 1024 * 1024,
-            100,
-        )
-        .expect("open graph backend");
+        let backend =
+            HelixGraphBackend::open(&dir.path().to_string_lossy(), 100 * 1024 * 1024, 100)
+                .expect("open graph backend");
 
         let nodes: Vec<Node> = (0..5)
             .map(|i| make_node(i, &format!("N{}", i), NodeType::Entity))
@@ -2646,12 +2622,9 @@ mod tests {
     #[test]
     fn test_helix_graph_backend_community_stub() {
         let dir = tempfile::tempdir().expect("create temp dir");
-        let backend = HelixGraphBackend::open(
-            &dir.path().to_string_lossy(),
-            100 * 1024 * 1024,
-            100,
-        )
-        .expect("open graph backend");
+        let backend =
+            HelixGraphBackend::open(&dir.path().to_string_lossy(), 100 * 1024 * 1024, 100)
+                .expect("open graph backend");
 
         let community = backend.get_community(1).expect("get_community");
         assert!(community.is_empty(), "No communities assigned yet");
@@ -2663,12 +2636,9 @@ mod tests {
         use ucotron_core::GraphBackend;
 
         let dir = tempfile::tempdir().expect("create temp dir");
-        let backend = HelixGraphBackend::open(
-            &dir.path().to_string_lossy(),
-            100 * 1024 * 1024,
-            100,
-        )
-        .expect("open graph backend");
+        let backend =
+            HelixGraphBackend::open(&dir.path().to_string_lossy(), 100 * 1024 * 1024, 100)
+                .expect("open graph backend");
 
         // Create two well-separated clusters with a weak bridge
         let nodes: Vec<Node> = (1..=8)
@@ -2719,7 +2689,10 @@ mod tests {
         let config = CommunityConfig::default();
         let result = detect_communities(&all_edges, &config).expect("detect communities");
 
-        assert!(result.num_communities() >= 2, "Should detect >= 2 communities");
+        assert!(
+            result.num_communities() >= 2,
+            "Should detect >= 2 communities"
+        );
         assert_eq!(result.num_nodes(), 8);
 
         // Store community assignments
@@ -2729,27 +2702,33 @@ mod tests {
 
         // Now get_community should return members
         let community_of_1 = backend.get_community(1).expect("get_community");
-        assert!(!community_of_1.is_empty(), "Node 1 should have community members");
+        assert!(
+            !community_of_1.is_empty(),
+            "Node 1 should have community members"
+        );
         assert!(community_of_1.contains(&1));
 
         // Nodes in same cluster should be in same community
         let community_of_2 = backend.get_community(2).expect("get_community");
-        assert_eq!(community_of_1, community_of_2, "Nodes 1 and 2 should share community");
+        assert_eq!(
+            community_of_1, community_of_2,
+            "Nodes 1 and 2 should share community"
+        );
 
         // Nodes in different clusters should have different communities
         let community_of_5 = backend.get_community(5).expect("get_community");
-        assert_ne!(community_of_1, community_of_5, "Nodes 1 and 5 should be in different communities");
+        assert_ne!(
+            community_of_1, community_of_5,
+            "Nodes 1 and 5 should be in different communities"
+        );
     }
 
     #[test]
     fn test_helix_graph_backend_get_all_edges() {
         let dir = tempfile::tempdir().expect("create temp dir");
-        let backend = HelixGraphBackend::open(
-            &dir.path().to_string_lossy(),
-            100 * 1024 * 1024,
-            100,
-        )
-        .expect("open graph backend");
+        let backend =
+            HelixGraphBackend::open(&dir.path().to_string_lossy(), 100 * 1024 * 1024, 100)
+                .expect("open graph backend");
 
         let nodes = vec![
             make_node(1, "A", NodeType::Entity),
@@ -2801,7 +2780,10 @@ mod tests {
             data_dir: dir.path().to_string_lossy().to_string(),
             max_db_size: 100 * 1024 * 1024,
             url: None,
-            hnsw: ucotron_config::HnswConfig { enabled: false, ..Default::default() },
+            hnsw: ucotron_config::HnswConfig {
+                enabled: false,
+                ..Default::default()
+            },
         };
         let backend = create_helix_vector_backend(&config).expect("create from config");
         let mut emb = vec![0.0f32; 384];
@@ -2850,8 +2832,7 @@ mod tests {
             create_helix_backends(&vec_config, &graph_config).expect("create backends");
 
         // Use via BackendRegistry
-        let registry =
-            ucotron_core::BackendRegistry::new(vec_backend, graph_backend);
+        let registry = ucotron_core::BackendRegistry::new(vec_backend, graph_backend);
 
         let node = make_node(1, "registry test", NodeType::Entity);
         registry.graph().upsert_nodes(&[node]).expect("upsert");
@@ -2904,7 +2885,10 @@ mod tests {
         let results = backend.search(&emb_a, 2).expect("search");
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].0, 1, "Exact match should be first");
-        assert!(results[0].1 > results[1].1, "First result should have higher similarity");
+        assert!(
+            results[0].1 > results[1].1,
+            "First result should have higher similarity"
+        );
     }
 
     #[test]
@@ -2989,12 +2973,9 @@ mod tests {
 
         // Create and populate
         {
-            let backend = HnswVectorBackend::open(
-                &data_dir,
-                100 * 1024 * 1024,
-                default_hnsw_config(),
-            )
-            .expect("open hnsw backend");
+            let backend =
+                HnswVectorBackend::open(&data_dir, 100 * 1024 * 1024, default_hnsw_config())
+                    .expect("open hnsw backend");
 
             let mut emb_a = vec![0.0f32; 384];
             emb_a[0] = 1.0;
@@ -3008,19 +2989,19 @@ mod tests {
 
         // Reopen and verify index was loaded from LMDB
         {
-            let backend = HnswVectorBackend::open(
-                &data_dir,
-                100 * 1024 * 1024,
-                default_hnsw_config(),
-            )
-            .expect("reopen hnsw backend");
+            let backend =
+                HnswVectorBackend::open(&data_dir, 100 * 1024 * 1024, default_hnsw_config())
+                    .expect("reopen hnsw backend");
 
             let mut query = vec![0.0f32; 384];
             query[0] = 1.0;
 
             let results = backend.search(&query, 2).expect("search after reopen");
             assert_eq!(results.len(), 2, "Should find both nodes after reopen");
-            assert_eq!(results[0].0, 1, "Node 1 should be most similar to dim-0 query");
+            assert_eq!(
+                results[0].0, 1,
+                "Node 1 should be most similar to dim-0 query"
+            );
         }
     }
 
@@ -3037,12 +3018,16 @@ mod tests {
         // First batch
         let mut emb_a = vec![0.0f32; 384];
         emb_a[0] = 1.0;
-        backend.upsert_embeddings(&[(1, emb_a.clone())]).expect("first upsert");
+        backend
+            .upsert_embeddings(&[(1, emb_a.clone())])
+            .expect("first upsert");
 
         // Second batch (incremental)
         let mut emb_b = vec![0.0f32; 384];
         emb_b[1] = 1.0;
-        backend.upsert_embeddings(&[(2, emb_b)]).expect("second upsert");
+        backend
+            .upsert_embeddings(&[(2, emb_b)])
+            .expect("second upsert");
 
         // Both should be searchable
         let results = backend.search(&emb_a, 2).expect("search");
@@ -3064,7 +3049,10 @@ mod tests {
 
         let query = vec![0.0f32; 384];
         let results = backend.search(&query, 10).expect("search empty");
-        assert!(results.is_empty(), "Empty index should return empty results");
+        assert!(
+            results.is_empty(),
+            "Empty index should return empty results"
+        );
     }
 
     #[test]
@@ -3085,12 +3073,17 @@ mod tests {
 
         let mut emb = vec![0.0f32; 384];
         emb[0] = 1.0;
-        backend.upsert_embeddings(&[(1, emb.clone())]).expect("upsert");
+        backend
+            .upsert_embeddings(&[(1, emb.clone())])
+            .expect("upsert");
 
         let results = backend.search(&emb, 1).expect("search");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, 1);
-        assert!((results[0].1 - 1.0).abs() < 0.01, "Exact match should have ~1.0 similarity");
+        assert!(
+            (results[0].1 - 1.0).abs() < 0.01,
+            "Exact match should have ~1.0 similarity"
+        );
     }
 
     #[test]
@@ -3124,7 +3117,9 @@ mod tests {
         // Verify it works as a VectorBackend
         let mut emb = vec![0.0f32; 384];
         emb[0] = 1.0;
-        vec_backend.upsert_embeddings(&[(1, emb.clone())]).expect("upsert");
+        vec_backend
+            .upsert_embeddings(&[(1, emb.clone())])
+            .expect("upsert");
         let results = vec_backend.search(&emb, 1).expect("search");
         assert_eq!(results.len(), 1);
     }
@@ -3136,12 +3131,9 @@ mod tests {
     #[test]
     fn test_graph_backend_upsert_node_overwrites() {
         let dir = tempfile::tempdir().expect("create temp dir");
-        let backend = HelixGraphBackend::open(
-            &dir.path().to_string_lossy(),
-            100 * 1024 * 1024,
-            100,
-        )
-        .expect("open");
+        let backend =
+            HelixGraphBackend::open(&dir.path().to_string_lossy(), 100 * 1024 * 1024, 100)
+                .expect("open");
 
         let node_v1 = Node {
             id: 1,
@@ -3181,11 +3173,8 @@ mod tests {
     #[test]
     fn test_vector_backend_search_empty() {
         let dir = tempfile::tempdir().expect("create temp dir");
-        let backend = HelixVectorBackend::open(
-            &dir.path().to_string_lossy(),
-            100 * 1024 * 1024,
-        )
-        .expect("open");
+        let backend = HelixVectorBackend::open(&dir.path().to_string_lossy(), 100 * 1024 * 1024)
+            .expect("open");
 
         let query = vec![1.0f32; 384];
         let results = backend.search(&query, 10).expect("search");
@@ -3295,12 +3284,9 @@ mod tests {
 
         // Insert and drop
         {
-            let backend = HelixVisualVectorBackend::open(
-                &dir_str,
-                100 * 1024 * 1024,
-                HnswConfig::default(),
-            )
-            .expect("open");
+            let backend =
+                HelixVisualVectorBackend::open(&dir_str, 100 * 1024 * 1024, HnswConfig::default())
+                    .expect("open");
 
             backend
                 .upsert_visual_embeddings(&[(1, emb.clone())])
@@ -3309,12 +3295,9 @@ mod tests {
 
         // Reopen and verify
         {
-            let backend = HelixVisualVectorBackend::open(
-                &dir_str,
-                100 * 1024 * 1024,
-                HnswConfig::default(),
-            )
-            .expect("reopen");
+            let backend =
+                HelixVisualVectorBackend::open(&dir_str, 100 * 1024 * 1024, HnswConfig::default())
+                    .expect("reopen");
 
             let results = backend.search_visual(&emb, 1).expect("search");
             assert_eq!(results.len(), 1, "Persisted data should survive reopen");
@@ -3361,7 +3344,9 @@ mod tests {
         assert_eq!(text_results[0].0, 1);
 
         // Visual search: finds node 2 only
-        let vis_results = vis_backend.search_visual(&vis_emb, 10).expect("visual search");
+        let vis_results = vis_backend
+            .search_visual(&vis_emb, 10)
+            .expect("visual search");
         assert_eq!(vis_results.len(), 1);
         assert_eq!(vis_results[0].0, 2);
     }
@@ -3425,12 +3410,9 @@ mod tests {
 
     fn open_graph_backend() -> (tempfile::TempDir, HelixGraphBackend) {
         let dir = tempfile::tempdir().expect("create temp dir");
-        let backend = HelixGraphBackend::open(
-            &dir.path().to_string_lossy(),
-            100 * 1024 * 1024,
-            1000,
-        )
-        .expect("open graph backend");
+        let backend =
+            HelixGraphBackend::open(&dir.path().to_string_lossy(), 100 * 1024 * 1024, 1000)
+                .expect("open graph backend");
         (dir, backend)
     }
 
@@ -3586,16 +3568,14 @@ mod tests {
 
         // Create agent in first session
         {
-            let backend = HelixGraphBackend::open(&path, 100 * 1024 * 1024, 1000)
-                .expect("open");
+            let backend = HelixGraphBackend::open(&path, 100 * 1024 * 1024, 1000).expect("open");
             let agent = Agent::new("bot-1", "Persistent Bot", "owner", 1000);
             backend.create_agent(&agent).expect("create");
         }
 
         // Reopen and verify agent persists
         {
-            let backend = HelixGraphBackend::open(&path, 100 * 1024 * 1024, 1000)
-                .expect("reopen");
+            let backend = HelixGraphBackend::open(&path, 100 * 1024 * 1024, 1000).expect("reopen");
             let agent = backend.get_agent("bot-1").expect("get").unwrap();
             assert_eq!(agent.name, "Persistent Bot");
         }
@@ -3615,8 +3595,8 @@ mod tests {
 #[cfg(test)]
 mod dup_sort_eval {
     use super::*;
-    use heed::DatabaseFlags;
     use heed::types::SerdeBincode;
+    use heed::DatabaseFlags;
     use std::time::Instant;
 
     /// Adjacency backend using Vec<AdjEntry> per node (current production approach).
@@ -3640,7 +3620,11 @@ mod dup_sort_eval {
             let adj_out = env.create_database(&mut wtxn, Some("vec_adj_out"))?;
             let adj_in = env.create_database(&mut wtxn, Some("vec_adj_in"))?;
             wtxn.commit()?;
-            Ok(Self { env, adj_out, adj_in })
+            Ok(Self {
+                env,
+                adj_out,
+                adj_in,
+            })
         }
 
         fn insert_edges(&self, edges: &[(u64, u64, u32)]) -> Result<()> {
@@ -3730,7 +3714,11 @@ mod dup_sort_eval {
                 .name("dup_adj_in")
                 .create(&mut wtxn)?;
             wtxn.commit()?;
-            Ok(Self { env, adj_out, adj_in })
+            Ok(Self {
+                env,
+                adj_out,
+                adj_in,
+            })
         }
 
         fn insert_edges(&self, edges: &[(u64, u64, u32)]) -> Result<()> {
@@ -3831,10 +3819,7 @@ mod dup_sort_eval {
     }
 
     /// Run the full DUP_SORT vs Vec benchmark and return structured results.
-    pub fn run_benchmark(
-        node_count: u64,
-        edge_count: usize,
-    ) -> Result<DupSortEvalResult> {
+    pub fn run_benchmark(node_count: u64, edge_count: usize) -> Result<DupSortEvalResult> {
         let edges = generate_bench_edges(node_count, edge_count, 42);
 
         // --- Vec-based benchmark ---
@@ -3899,7 +3884,11 @@ mod dup_sort_eval {
             vec_neighbors.sort();
             vec_neighbors.dedup();
             dup_neighbors.sort();
-            assert_eq!(vec_neighbors, dup_neighbors, "Mismatch for node {}", node_id);
+            assert_eq!(
+                vec_neighbors, dup_neighbors,
+                "Mismatch for node {}",
+                node_id
+            );
         }
 
         Ok(DupSortEvalResult {
@@ -3920,9 +3909,9 @@ mod dup_sort_eval {
         let mut size = 0u64;
         if let Ok(entries) = fs::read_dir(path) {
             for entry in entries.flatten() {
-                let meta = entry.metadata().unwrap_or_else(|_| {
-                    fs::metadata(entry.path()).expect("metadata")
-                });
+                let meta = entry
+                    .metadata()
+                    .unwrap_or_else(|_| fs::metadata(entry.path()).expect("metadata"));
                 if meta.is_file() {
                     size += meta.len();
                 } else if meta.is_dir() {
@@ -3935,6 +3924,7 @@ mod dup_sort_eval {
 
     /// Results of the DUP_SORT evaluation benchmark.
     #[derive(Debug)]
+    #[allow(dead_code)]
     pub struct DupSortEvalResult {
         pub node_count: u64,
         pub edge_count: usize,
@@ -4041,8 +4031,7 @@ mod dup_sort_eval {
     fn test_dup_sort_correctness_vs_vec() {
         let dir_vec = tempfile::tempdir().expect("create vec dir");
         let dir_dup = tempfile::tempdir().expect("create dup dir");
-        let vec_backend =
-            VecAdjBackend::open(&dir_vec.path().to_string_lossy()).expect("open vec");
+        let vec_backend = VecAdjBackend::open(&dir_vec.path().to_string_lossy()).expect("open vec");
         let dup_backend =
             DupSortAdjBackend::open(&dir_dup.path().to_string_lossy()).expect("open dup");
 
@@ -4082,8 +4071,7 @@ mod dup_sort_eval {
     fn test_dup_sort_high_degree_node() {
         let dir_vec = tempfile::tempdir().expect("create vec dir");
         let dir_dup = tempfile::tempdir().expect("create dup dir");
-        let vec_backend =
-            VecAdjBackend::open(&dir_vec.path().to_string_lossy()).expect("open vec");
+        let vec_backend = VecAdjBackend::open(&dir_vec.path().to_string_lossy()).expect("open vec");
         let dup_backend =
             DupSortAdjBackend::open(&dir_dup.path().to_string_lossy()).expect("open dup");
 

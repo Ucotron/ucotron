@@ -17,16 +17,16 @@ use tower::ServiceExt;
 
 use ucotron_config::{ApiKeyEntry, UcotronConfig};
 use ucotron_core::{BackendRegistry, Edge, EdgeType, Node, NodeId, NodeType};
-use ucotron_extraction::DocumentOcrPipeline;
-use ucotron_extraction::EmbeddingPipeline;
-use ucotron_extraction::ImageEmbeddingPipeline;
-use ucotron_extraction::TranscriptionPipeline;
-use ucotron_extraction::VideoPipeline;
 use ucotron_extraction::audio::{AudioMetadata, ChunkTranscription, TranscriptionResult};
 use ucotron_extraction::ocr::{
     DocumentExtractionResult, DocumentFormat, DocumentMetadata, PageExtraction,
 };
 use ucotron_extraction::video::{ExtractedFrame, FrameExtractionResult};
+use ucotron_extraction::DocumentOcrPipeline;
+use ucotron_extraction::EmbeddingPipeline;
+use ucotron_extraction::ImageEmbeddingPipeline;
+use ucotron_extraction::TranscriptionPipeline;
+use ucotron_extraction::VideoPipeline;
 use ucotron_server::handlers;
 use ucotron_server::state::AppState;
 
@@ -68,10 +68,7 @@ impl EmbeddingPipeline for MockEmbedder {
 struct MockTranscriber;
 
 impl TranscriptionPipeline for MockTranscriber {
-    fn transcribe_file(
-        &self,
-        path: &std::path::Path,
-    ) -> anyhow::Result<TranscriptionResult> {
+    fn transcribe_file(&self, path: &std::path::Path) -> anyhow::Result<TranscriptionResult> {
         // Read WAV to get duration (verify it's a real WAV)
         let reader = hound::WavReader::open(path)?;
         let spec = reader.spec();
@@ -144,11 +141,11 @@ impl DocumentOcrPipeline for MockDocumentOcrPipeline {
         })
     }
 
-    fn process_file(
-        &self,
-        path: &std::path::Path,
-    ) -> anyhow::Result<DocumentExtractionResult> {
-        let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("doc.pdf");
+    fn process_file(&self, path: &std::path::Path) -> anyhow::Result<DocumentExtractionResult> {
+        let filename = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("doc.pdf");
         self.process_document(&[], filename)
     }
 }
@@ -182,10 +179,7 @@ impl ucotron_extraction::ImageEmbeddingPipeline for MockImageEmbedder {
 struct MockVideoPipeline;
 
 impl VideoPipeline for MockVideoPipeline {
-    fn extract_frames(
-        &self,
-        _path: &std::path::Path,
-    ) -> anyhow::Result<FrameExtractionResult> {
+    fn extract_frames(&self, _path: &std::path::Path) -> anyhow::Result<FrameExtractionResult> {
         // Generate 3 fake frames at 0ms, 5000ms, 12000ms to create 2+ segments.
         let make_frame = |ts_ms: u64, score: f64, kf: bool| ExtractedFrame {
             timestamp_ms: ts_ms,
@@ -333,7 +327,10 @@ impl ucotron_core::GraphBackend for MockGraphBackend {
 
     fn get_all_edges(&self) -> anyhow::Result<Vec<(NodeId, NodeId, f32)>> {
         let store = self.edges.lock().unwrap();
-        Ok(store.iter().map(|e| (e.source, e.target, e.weight)).collect())
+        Ok(store
+            .iter()
+            .map(|e| (e.source, e.target, e.weight))
+            .collect())
     }
 
     fn get_all_edges_full(&self) -> anyhow::Result<Vec<Edge>> {
@@ -443,7 +440,10 @@ impl ucotron_core::GraphBackend for MockGraphBackend {
                     return false;
                 }
                 if let Some(ref types) = filter.node_types {
-                    if !types.iter().any(|t| mem::discriminant(t) == mem::discriminant(&n.node_type)) {
+                    if !types
+                        .iter()
+                        .any(|t| mem::discriminant(t) == mem::discriminant(&n.node_type))
+                    {
                         return false;
                     }
                 }
@@ -479,15 +479,18 @@ impl ucotron_core::GraphBackend for MockGraphBackend {
             .map(|n| {
                 let new_id = id_map[&n.id];
                 let mut metadata = n.metadata.clone();
-                metadata.insert("_namespace".into(), ucotron_core::Value::String(dst_ns.to_string()));
+                metadata.insert(
+                    "_namespace".into(),
+                    ucotron_core::Value::String(dst_ns.to_string()),
+                );
                 Node {
                     id: new_id,
                     content: n.content.clone(),
                     embedding: n.embedding.clone(),
                     metadata,
-                    node_type: n.node_type.clone(),
+                    node_type: n.node_type,
                     timestamp: n.timestamp,
-                    media_type: n.media_type.clone(),
+                    media_type: n.media_type,
                     media_uri: n.media_uri.clone(),
                     embedding_visual: n.embedding_visual.clone(),
                     timestamp_range: n.timestamp_range,
@@ -499,14 +502,15 @@ impl ucotron_core::GraphBackend for MockGraphBackend {
         let nodes_copied = cloned_nodes.len();
 
         // Clone edges between cloned nodes
-        let old_id_set: std::collections::HashSet<NodeId> = src_nodes.iter().map(|n| n.id).collect();
+        let old_id_set: std::collections::HashSet<NodeId> =
+            src_nodes.iter().map(|n| n.id).collect();
         let cloned_edges: Vec<Edge> = edges_store
             .iter()
             .filter(|e| old_id_set.contains(&e.source) && old_id_set.contains(&e.target))
             .map(|e| Edge {
                 source: id_map[&e.source],
                 target: id_map[&e.target],
-                edge_type: e.edge_type.clone(),
+                edge_type: e.edge_type,
                 weight: e.weight,
                 metadata: e.metadata.clone(),
             })
@@ -586,15 +590,18 @@ impl ucotron_core::GraphBackend for MockGraphBackend {
                 ids_remapped += 1;
 
                 let mut metadata = node.metadata.clone();
-                metadata.insert("_namespace".into(), ucotron_core::Value::String(dst_ns.to_string()));
+                metadata.insert(
+                    "_namespace".into(),
+                    ucotron_core::Value::String(dst_ns.to_string()),
+                );
                 new_nodes.push(Node {
                     id: new_id,
                     content: node.content.clone(),
                     embedding: node.embedding.clone(),
                     metadata,
-                    node_type: node.node_type.clone(),
+                    node_type: node.node_type,
                     timestamp: node.timestamp,
-                    media_type: node.media_type.clone(),
+                    media_type: node.media_type,
                     media_uri: node.media_uri.clone(),
                     embedding_visual: node.embedding_visual.clone(),
                     timestamp_range: node.timestamp_range,
@@ -607,14 +614,15 @@ impl ucotron_core::GraphBackend for MockGraphBackend {
         let nodes_copied = new_nodes.len();
 
         // Copy edges from source, remapping IDs
-        let old_id_set: std::collections::HashSet<NodeId> = src_nodes.iter().map(|n| n.id).collect();
+        let old_id_set: std::collections::HashSet<NodeId> =
+            src_nodes.iter().map(|n| n.id).collect();
         let merged_edges: Vec<Edge> = edges_store
             .iter()
             .filter(|e| old_id_set.contains(&e.source) && old_id_set.contains(&e.target))
             .map(|e| Edge {
                 source: id_map[&e.source],
                 target: id_map[&e.target],
-                edge_type: e.edge_type.clone(),
+                edge_type: e.edge_type,
                 weight: e.weight,
                 metadata: e.metadata.clone(),
             })
@@ -653,7 +661,7 @@ fn build_app() -> (Router, Arc<AppState>) {
     ));
     let embedder: Arc<dyn EmbeddingPipeline> = Arc::new(MockEmbedder);
     let config = UcotronConfig::default();
-    let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     let app = Router::new()
         .route("/api/v1/health", get(handlers::health_handler))
@@ -661,15 +669,36 @@ fn build_app() -> (Router, Arc<AppState>) {
         .route("/api/v1/memories", post(handlers::create_memory_handler))
         .route("/api/v1/memories", get(handlers::list_memories_handler))
         .route("/api/v1/memories/{id}", get(handlers::get_memory_handler))
-        .route("/api/v1/memories/{id}", put(handlers::update_memory_handler))
-        .route("/api/v1/memories/{id}", delete(handlers::delete_memory_handler))
-        .route("/api/v1/memories/text", post(handlers::create_text_memory_handler))
-        .route("/api/v1/memories/audio", post(handlers::create_audio_memory_handler))
-        .route("/api/v1/memories/image", post(handlers::create_image_memory_handler))
-        .route("/api/v1/memories/video", post(handlers::create_video_memory_handler))
+        .route(
+            "/api/v1/memories/{id}",
+            put(handlers::update_memory_handler),
+        )
+        .route(
+            "/api/v1/memories/{id}",
+            delete(handlers::delete_memory_handler),
+        )
+        .route(
+            "/api/v1/memories/text",
+            post(handlers::create_text_memory_handler),
+        )
+        .route(
+            "/api/v1/memories/audio",
+            post(handlers::create_audio_memory_handler),
+        )
+        .route(
+            "/api/v1/memories/image",
+            post(handlers::create_image_memory_handler),
+        )
+        .route(
+            "/api/v1/memories/video",
+            post(handlers::create_video_memory_handler),
+        )
         .route("/api/v1/memories/search", post(handlers::search_handler))
         .route("/api/v1/media/{id}", get(handlers::get_media_handler))
-        .route("/api/v1/videos/{parent_id}/segments", get(handlers::get_video_segments_handler))
+        .route(
+            "/api/v1/videos/{parent_id}/segments",
+            get(handlers::get_video_segments_handler),
+        )
         .route("/api/v1/entities", get(handlers::list_entities_handler))
         .route("/api/v1/entities/{id}", get(handlers::get_entity_handler))
         .route("/api/v1/graph", get(handlers::graph_handler))
@@ -681,24 +710,57 @@ fn build_app() -> (Router, Arc<AppState>) {
         .route("/api/v1/import/zep", post(handlers::zep_import_handler))
         .route("/api/v1/transcribe", post(handlers::transcribe_handler))
         .route("/api/v1/ocr", post(handlers::ocr_handler))
-        .route("/api/v1/admin/namespaces", get(handlers::list_namespaces_handler))
-        .route("/api/v1/admin/namespaces", post(handlers::create_namespace_handler))
-        .route("/api/v1/admin/namespaces/{name}", get(handlers::get_namespace_handler))
-        .route("/api/v1/admin/namespaces/{name}", delete(handlers::delete_namespace_handler))
+        .route(
+            "/api/v1/admin/namespaces",
+            get(handlers::list_namespaces_handler),
+        )
+        .route(
+            "/api/v1/admin/namespaces",
+            post(handlers::create_namespace_handler),
+        )
+        .route(
+            "/api/v1/admin/namespaces/{name}",
+            get(handlers::get_namespace_handler),
+        )
+        .route(
+            "/api/v1/admin/namespaces/{name}",
+            delete(handlers::delete_namespace_handler),
+        )
         .route("/api/v1/admin/config", get(handlers::admin_config_handler))
         .route("/api/v1/admin/system", get(handlers::admin_system_handler))
         .route("/api/v1/gdpr/forget", delete(handlers::gdpr_forget_handler))
         .route("/api/v1/gdpr/export", get(handlers::gdpr_export_handler))
-        .route("/api/v1/gdpr/retention", get(handlers::gdpr_retention_status_handler))
-        .route("/api/v1/gdpr/retention/sweep", post(handlers::gdpr_retention_sweep_handler))
+        .route(
+            "/api/v1/gdpr/retention",
+            get(handlers::gdpr_retention_status_handler),
+        )
+        .route(
+            "/api/v1/gdpr/retention/sweep",
+            post(handlers::gdpr_retention_sweep_handler),
+        )
         .route("/api/v1/agents", post(handlers::create_agent_handler))
         .route("/api/v1/agents", get(handlers::list_agents_handler))
         .route("/api/v1/agents/{id}", get(handlers::get_agent_handler))
-        .route("/api/v1/agents/{id}", delete(handlers::delete_agent_handler))
-        .route("/api/v1/agents/{id}/clone", post(handlers::clone_agent_handler))
-        .route("/api/v1/agents/{id}/merge", post(handlers::merge_agent_handler))
-        .route("/api/v1/agents/{id}/share", post(handlers::create_share_handler).get(handlers::list_shares_handler))
-        .route("/api/v1/agents/{id}/share/{target}", delete(handlers::delete_share_handler))
+        .route(
+            "/api/v1/agents/{id}",
+            delete(handlers::delete_agent_handler),
+        )
+        .route(
+            "/api/v1/agents/{id}/clone",
+            post(handlers::clone_agent_handler),
+        )
+        .route(
+            "/api/v1/agents/{id}/merge",
+            post(handlers::merge_agent_handler),
+        )
+        .route(
+            "/api/v1/agents/{id}/share",
+            post(handlers::create_share_handler).get(handlers::list_shares_handler),
+        )
+        .route(
+            "/api/v1/agents/{id}/share/{target}",
+            delete(handlers::delete_share_handler),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             ucotron_server::auth::auth_middleware,
@@ -717,7 +779,12 @@ fn build_app_with_transcriber() -> (Router, Arc<AppState>) {
     let transcriber: Arc<dyn TranscriptionPipeline> = Arc::new(MockTranscriber);
     let config = UcotronConfig::default();
     let state = Arc::new(AppState::with_transcriber(
-        registry, embedder, None, None, Some(transcriber), config, None, None, None, None,
+        registry,
+        embedder,
+        None,
+        None,
+        Some(transcriber),
+        config,
     ));
 
     let app = Router::new()
@@ -726,13 +793,28 @@ fn build_app_with_transcriber() -> (Router, Arc<AppState>) {
         .route("/api/v1/memories", post(handlers::create_memory_handler))
         .route("/api/v1/memories", get(handlers::list_memories_handler))
         .route("/api/v1/memories/{id}", get(handlers::get_memory_handler))
-        .route("/api/v1/memories/{id}", put(handlers::update_memory_handler))
-        .route("/api/v1/memories/{id}", delete(handlers::delete_memory_handler))
-        .route("/api/v1/memories/audio", post(handlers::create_audio_memory_handler))
-        .route("/api/v1/memories/image", post(handlers::create_image_memory_handler))
+        .route(
+            "/api/v1/memories/{id}",
+            put(handlers::update_memory_handler),
+        )
+        .route(
+            "/api/v1/memories/{id}",
+            delete(handlers::delete_memory_handler),
+        )
+        .route(
+            "/api/v1/memories/audio",
+            post(handlers::create_audio_memory_handler),
+        )
+        .route(
+            "/api/v1/memories/image",
+            post(handlers::create_image_memory_handler),
+        )
         .route("/api/v1/memories/search", post(handlers::search_handler))
         .route("/api/v1/media/{id}", get(handlers::get_media_handler))
-        .route("/api/v1/videos/{parent_id}/segments", get(handlers::get_video_segments_handler))
+        .route(
+            "/api/v1/videos/{parent_id}/segments",
+            get(handlers::get_video_segments_handler),
+        )
         .route("/api/v1/entities", get(handlers::list_entities_handler))
         .route("/api/v1/entities/{id}", get(handlers::get_entity_handler))
         .route("/api/v1/graph", get(handlers::graph_handler))
@@ -744,10 +826,22 @@ fn build_app_with_transcriber() -> (Router, Arc<AppState>) {
         .route("/api/v1/import/zep", post(handlers::zep_import_handler))
         .route("/api/v1/transcribe", post(handlers::transcribe_handler))
         .route("/api/v1/ocr", post(handlers::ocr_handler))
-        .route("/api/v1/admin/namespaces", get(handlers::list_namespaces_handler))
-        .route("/api/v1/admin/namespaces", post(handlers::create_namespace_handler))
-        .route("/api/v1/admin/namespaces/{name}", get(handlers::get_namespace_handler))
-        .route("/api/v1/admin/namespaces/{name}", delete(handlers::delete_namespace_handler))
+        .route(
+            "/api/v1/admin/namespaces",
+            get(handlers::list_namespaces_handler),
+        )
+        .route(
+            "/api/v1/admin/namespaces",
+            post(handlers::create_namespace_handler),
+        )
+        .route(
+            "/api/v1/admin/namespaces/{name}",
+            get(handlers::get_namespace_handler),
+        )
+        .route(
+            "/api/v1/admin/namespaces/{name}",
+            delete(handlers::delete_namespace_handler),
+        )
         .route("/api/v1/admin/config", get(handlers::admin_config_handler))
         .route("/api/v1/admin/system", get(handlers::admin_system_handler))
         .layer(middleware::from_fn_with_state(
@@ -793,7 +887,11 @@ fn insert_test_node(state: &AppState, id: NodeId, content: &str, node_type: Node
         parent_video_id: None,
     };
     state.registry.graph().upsert_nodes(&[node]).unwrap();
-    state.registry.vector().upsert_embeddings(&[(id, embedding)]).unwrap();
+    state
+        .registry
+        .vector()
+        .upsert_embeddings(&[(id, embedding)])
+        .unwrap();
 }
 
 async fn body_to_json(body: Body) -> serde_json::Value {
@@ -813,9 +911,7 @@ async fn body_to_json_array(body: Body) -> Vec<serde_json::Value> {
 #[tokio::test]
 async fn test_health_endpoint() {
     let (app, _) = build_app();
-    let req = Request::get("/api/v1/health")
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::get("/api/v1/health").body(Body::empty()).unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body = body_to_json(resp.into_body()).await;
@@ -826,9 +922,7 @@ async fn test_health_endpoint() {
 #[tokio::test]
 async fn test_metrics_endpoint() {
     let (app, _) = build_app();
-    let req = Request::get("/api/v1/metrics")
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::get("/api/v1/metrics").body(Body::empty()).unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body = body_to_json(resp.into_body()).await;
@@ -1044,7 +1138,7 @@ fn build_reader_app() -> (Router, Arc<AppState>) {
     let mut config = UcotronConfig::default();
     config.instance.role = "reader".to_string();
     config.instance.instance_id = "reader-test-1".to_string();
-    let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     let app = Router::new()
         .route("/api/v1/health", get(handlers::health_handler))
@@ -1052,11 +1146,20 @@ fn build_reader_app() -> (Router, Arc<AppState>) {
         .route("/api/v1/memories", post(handlers::create_memory_handler))
         .route("/api/v1/memories", get(handlers::list_memories_handler))
         .route("/api/v1/memories/{id}", get(handlers::get_memory_handler))
-        .route("/api/v1/memories/{id}", put(handlers::update_memory_handler))
-        .route("/api/v1/memories/{id}", delete(handlers::delete_memory_handler))
+        .route(
+            "/api/v1/memories/{id}",
+            put(handlers::update_memory_handler),
+        )
+        .route(
+            "/api/v1/memories/{id}",
+            delete(handlers::delete_memory_handler),
+        )
         .route("/api/v1/memories/search", post(handlers::search_handler))
         .route("/api/v1/media/{id}", get(handlers::get_media_handler))
-        .route("/api/v1/videos/{parent_id}/segments", get(handlers::get_video_segments_handler))
+        .route(
+            "/api/v1/videos/{parent_id}/segments",
+            get(handlers::get_video_segments_handler),
+        )
         .route("/api/v1/entities", get(handlers::list_entities_handler))
         .route("/api/v1/entities/{id}", get(handlers::get_entity_handler))
         .route("/api/v1/graph", get(handlers::graph_handler))
@@ -1082,7 +1185,7 @@ fn build_writer_app() -> (Router, Arc<AppState>) {
     config.instance.instance_id = "writer-test-1".to_string();
     config.instance.id_range_start = 5_000_000;
     config.instance.id_range_size = 100;
-    let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     let app = Router::new()
         .route("/api/v1/health", get(handlers::health_handler))
@@ -1090,11 +1193,20 @@ fn build_writer_app() -> (Router, Arc<AppState>) {
         .route("/api/v1/memories", post(handlers::create_memory_handler))
         .route("/api/v1/memories", get(handlers::list_memories_handler))
         .route("/api/v1/memories/{id}", get(handlers::get_memory_handler))
-        .route("/api/v1/memories/{id}", put(handlers::update_memory_handler))
-        .route("/api/v1/memories/{id}", delete(handlers::delete_memory_handler))
+        .route(
+            "/api/v1/memories/{id}",
+            put(handlers::update_memory_handler),
+        )
+        .route(
+            "/api/v1/memories/{id}",
+            delete(handlers::delete_memory_handler),
+        )
         .route("/api/v1/memories/search", post(handlers::search_handler))
         .route("/api/v1/media/{id}", get(handlers::get_media_handler))
-        .route("/api/v1/videos/{parent_id}/segments", get(handlers::get_video_segments_handler))
+        .route(
+            "/api/v1/videos/{parent_id}/segments",
+            get(handlers::get_video_segments_handler),
+        )
         .route("/api/v1/entities", get(handlers::list_entities_handler))
         .route("/api/v1/entities/{id}", get(handlers::get_entity_handler))
         .route("/api/v1/graph", get(handlers::graph_handler))
@@ -1116,9 +1228,7 @@ fn build_writer_app() -> (Router, Arc<AppState>) {
 #[tokio::test]
 async fn test_health_reports_instance_info() {
     let (app, _) = build_writer_app();
-    let req = Request::get("/api/v1/health")
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::get("/api/v1/health").body(Body::empty()).unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body = body_to_json(resp.into_body()).await;
@@ -1134,9 +1244,7 @@ async fn test_health_reports_instance_info() {
 #[tokio::test]
 async fn test_metrics_reports_instance_id() {
     let (app, _) = build_writer_app();
-    let req = Request::get("/api/v1/metrics")
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::get("/api/v1/metrics").body(Body::empty()).unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body = body_to_json(resp.into_body()).await;
@@ -1255,9 +1363,7 @@ async fn test_writer_id_range_allocation() {
 #[tokio::test]
 async fn test_reader_health_reports_reader_role() {
     let (app, _) = build_reader_app();
-    let req = Request::get("/api/v1/health")
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::get("/api/v1/health").body(Body::empty()).unwrap();
     let resp = app.oneshot(req).await.unwrap();
     let body = body_to_json(resp.into_body()).await;
     assert_eq!(body["instance_id"], "reader-test-1");
@@ -1304,10 +1410,6 @@ fn build_shared_instances() -> (Router, Arc<AppState>, Router, Arc<AppState>) {
         None,
         None,
         writer_config,
-        None,
-        None,
-        None,
-        None,
     ));
 
     // Reader instance
@@ -1324,10 +1426,6 @@ fn build_shared_instances() -> (Router, Arc<AppState>, Router, Arc<AppState>) {
         None,
         None,
         reader_config,
-        None,
-        None,
-        None,
-        None,
     ));
 
     let make_router = |state: Arc<AppState>| {
@@ -1345,10 +1443,7 @@ fn build_shared_instances() -> (Router, Arc<AppState>, Router, Arc<AppState>) {
                 "/api/v1/memories/{id}",
                 delete(handlers::delete_memory_handler),
             )
-            .route(
-                "/api/v1/memories/search",
-                post(handlers::search_handler),
-            )
+            .route("/api/v1/memories/search", post(handlers::search_handler))
             .route("/api/v1/entities", get(handlers::list_entities_handler))
             .route("/api/v1/entities/{id}", get(handlers::get_entity_handler))
             .route("/api/v1/augment", post(handlers::augment_handler))
@@ -1424,9 +1519,7 @@ async fn test_shared_health_reports_shared_mode() {
     let (writer_app, _writer_state, reader_app, _reader_state) = build_shared_instances();
 
     // Writer health reports shared mode.
-    let req = Request::get("/api/v1/health")
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::get("/api/v1/health").body(Body::empty()).unwrap();
     let resp = writer_app.oneshot(req).await.unwrap();
     let body = body_to_json(resp.into_body()).await;
     assert_eq!(body["storage_mode"], "shared");
@@ -1434,9 +1527,7 @@ async fn test_shared_health_reports_shared_mode() {
     assert_eq!(body["instance_id"], "shared-writer-1");
 
     // Reader health reports shared mode.
-    let req2 = Request::get("/api/v1/health")
-        .body(Body::empty())
-        .unwrap();
+    let req2 = Request::get("/api/v1/health").body(Body::empty()).unwrap();
     let resp2 = reader_app.oneshot(req2).await.unwrap();
     let body2 = body_to_json(resp2.into_body()).await;
     assert_eq!(body2["storage_mode"], "shared");
@@ -1500,7 +1591,10 @@ async fn test_e2e_ingest_then_search_finds_data() {
     assert_eq!(resp.status(), StatusCode::CREATED);
     let ingest_body = body_to_json(resp.into_body()).await;
     let chunk_ids = ingest_body["chunk_node_ids"].as_array().unwrap();
-    assert!(!chunk_ids.is_empty(), "Should create at least one chunk node");
+    assert!(
+        !chunk_ids.is_empty(),
+        "Should create at least one chunk node"
+    );
 
     // Step 2: Search for the ingested data.
     let app2 = with_auth(
@@ -1534,12 +1628,24 @@ async fn test_e2e_augment_returns_relevant_context() {
     let (app, state) = build_app();
 
     // Insert relevant data directly.
-    insert_test_node(&state, 300, "Berlin is the capital of Germany", NodeType::Event);
-    insert_test_node(&state, 301, "Munich is known for Oktoberfest", NodeType::Event);
+    insert_test_node(
+        &state,
+        300,
+        "Berlin is the capital of Germany",
+        NodeType::Event,
+    );
+    insert_test_node(
+        &state,
+        301,
+        "Munich is known for Oktoberfest",
+        NodeType::Event,
+    );
 
     let req = Request::post("/api/v1/augment")
         .header("Content-Type", "application/json")
-        .body(Body::from(r#"{"context":"Tell me about German cities","limit":5}"#))
+        .body(Body::from(
+            r#"{"context":"Tell me about German cities","limit":5}"#,
+        ))
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -1580,13 +1686,18 @@ async fn test_e2e_learn_stores_and_is_searchable() {
 
     let req2 = Request::post("/api/v1/memories/search")
         .header("Content-Type", "application/json")
-        .body(Body::from(r#"{"query":"dark mode preferences","limit":10}"#))
+        .body(Body::from(
+            r#"{"query":"dark mode preferences","limit":10}"#,
+        ))
         .unwrap();
     let resp2 = app2.oneshot(req2).await.unwrap();
     assert_eq!(resp2.status(), StatusCode::OK);
     let search_body = body_to_json(resp2.into_body()).await;
     let results = search_body["results"].as_array().unwrap();
-    assert!(!results.is_empty(), "Search should find the learned memories");
+    assert!(
+        !results.is_empty(),
+        "Search should find the learned memories"
+    );
 }
 
 /// POST /memories → GET /memories → GET /memories/:id → PUT → DELETE — full CRUD cycle.
@@ -1601,7 +1712,9 @@ async fn test_e2e_full_crud_cycle() {
     );
     let req1 = Request::post("/api/v1/memories")
         .header("Content-Type", "application/json")
-        .body(Body::from(r#"{"text":"CRUD test memory about quantum computing."}"#))
+        .body(Body::from(
+            r#"{"text":"CRUD test memory about quantum computing."}"#,
+        ))
         .unwrap();
     let resp1 = app1.oneshot(req1).await.unwrap();
     assert_eq!(resp1.status(), StatusCode::CREATED);
@@ -1623,12 +1736,17 @@ async fn test_e2e_full_crud_cycle() {
 
     // Update the memory.
     let app3 = with_auth(
-        Router::new().route("/api/v1/memories/{id}", put(handlers::update_memory_handler)),
+        Router::new().route(
+            "/api/v1/memories/{id}",
+            put(handlers::update_memory_handler),
+        ),
         &state,
     );
     let req3 = Request::put(format!("/api/v1/memories/{}", chunk_id))
         .header("Content-Type", "application/json")
-        .body(Body::from(r#"{"content":"Updated quantum content","metadata":{"updated":true}}"#))
+        .body(Body::from(
+            r#"{"content":"Updated quantum content","metadata":{"updated":true}}"#,
+        ))
         .unwrap();
     let resp3 = app3.oneshot(req3).await.unwrap();
     assert_eq!(resp3.status(), StatusCode::OK);
@@ -1638,7 +1756,10 @@ async fn test_e2e_full_crud_cycle() {
 
     // Delete the memory.
     let app4 = with_auth(
-        Router::new().route("/api/v1/memories/{id}", delete(handlers::delete_memory_handler)),
+        Router::new().route(
+            "/api/v1/memories/{id}",
+            delete(handlers::delete_memory_handler),
+        ),
         &state,
     );
     let req4 = Request::delete(format!("/api/v1/memories/{}", chunk_id))
@@ -1669,7 +1790,9 @@ async fn test_multitenant_namespace_isolation() {
     let req1 = Request::post("/api/v1/memories")
         .header("Content-Type", "application/json")
         .header("X-Ucotron-Namespace", "org-alpha")
-        .body(Body::from(r#"{"text":"Alpha secret project about rockets."}"#))
+        .body(Body::from(
+            r#"{"text":"Alpha secret project about rockets."}"#,
+        ))
         .unwrap();
     let resp1 = app1.oneshot(req1).await.unwrap();
     assert_eq!(resp1.status(), StatusCode::CREATED);
@@ -1682,7 +1805,9 @@ async fn test_multitenant_namespace_isolation() {
     let req2 = Request::post("/api/v1/memories")
         .header("Content-Type", "application/json")
         .header("X-Ucotron-Namespace", "org-beta")
-        .body(Body::from(r#"{"text":"Beta confidential data about submarines."}"#))
+        .body(Body::from(
+            r#"{"text":"Beta confidential data about submarines."}"#,
+        ))
         .unwrap();
     let resp2 = app2.oneshot(req2).await.unwrap();
     assert_eq!(resp2.status(), StatusCode::CREATED);
@@ -1942,9 +2067,7 @@ async fn test_concurrent_mixed_operations() {
                 Router::new().route("/api/v1/health", get(handlers::health_handler)),
                 &st,
             );
-            let req = Request::get("/api/v1/health")
-                .body(Body::empty())
-                .unwrap();
+            let req = Request::get("/api/v1/health").body(Body::empty()).unwrap();
             let resp = app.oneshot(req).await.unwrap();
             assert_eq!(resp.status(), StatusCode::OK);
         }));
@@ -1982,14 +2105,19 @@ async fn test_e2e_ingest_then_augment() {
     );
     let req2 = Request::post("/api/v1/augment")
         .header("Content-Type", "application/json")
-        .body(Body::from(r#"{"context":"Japanese cities population","limit":10}"#))
+        .body(Body::from(
+            r#"{"context":"Japanese cities population","limit":10}"#,
+        ))
         .unwrap();
     let resp2 = app2.oneshot(req2).await.unwrap();
     assert_eq!(resp2.status(), StatusCode::OK);
     let body2 = body_to_json(resp2.into_body()).await;
     // Should have some memories returned.
     let memories = body2["memories"].as_array().unwrap();
-    assert!(!memories.is_empty(), "Augment should return relevant memories after ingestion");
+    assert!(
+        !memories.is_empty(),
+        "Augment should return relevant memories after ingestion"
+    );
 }
 
 /// Verify metrics counters increment correctly through multiple operations.
@@ -2036,9 +2164,7 @@ async fn test_e2e_metrics_increment_through_operations() {
         Router::new().route("/api/v1/metrics", get(handlers::metrics_handler)),
         &state,
     );
-    let req4 = Request::get("/api/v1/metrics")
-        .body(Body::empty())
-        .unwrap();
+    let req4 = Request::get("/api/v1/metrics").body(Body::empty()).unwrap();
     let resp4 = app4.oneshot(req4).await.unwrap();
     let body4 = body_to_json(resp4.into_body()).await;
 
@@ -2213,9 +2339,7 @@ fn insert_test_edge(state: &AppState, source: NodeId, target: NodeId, edge_type:
 #[tokio::test]
 async fn test_export_empty_graph() {
     let (app, _state) = build_app();
-    let req = Request::get("/api/v1/export")
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::get("/api/v1/export").body(Body::empty()).unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body = body_to_json(resp.into_body()).await;
@@ -2235,9 +2359,7 @@ async fn test_export_with_data() {
     insert_test_node_with_namespace(&state, 2, "Bob", NodeType::Entity, "default");
     insert_test_edge(&state, 1, 2, EdgeType::RelatesTo);
 
-    let req = Request::get("/api/v1/export")
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::get("/api/v1/export").body(Body::empty()).unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body = body_to_json(resp.into_body()).await;
@@ -2395,9 +2517,7 @@ async fn test_export_then_import_roundtrip() {
     insert_test_node_with_namespace(&state1, 2, "Bob", NodeType::Entity, "default");
     insert_test_edge(&state1, 1, 2, EdgeType::RelatesTo);
 
-    let req = Request::get("/api/v1/export")
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::get("/api/v1/export").body(Body::empty()).unwrap();
     let resp = app1.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let export_body = body_to_json(resp.into_body()).await;
@@ -2436,7 +2556,9 @@ async fn test_transcribe_no_transcriber_returns_501() {
     let wav_bytes = create_test_wav_bytes();
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"test.wav\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"test.wav\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: audio/wav\r\n\r\n");
     body_bytes.extend_from_slice(&wav_bytes);
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -2462,7 +2584,9 @@ async fn test_transcribe_with_mock_transcriber() {
     let wav_bytes = create_test_wav_bytes();
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"test.wav\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"test.wav\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: audio/wav\r\n\r\n");
     body_bytes.extend_from_slice(&wav_bytes);
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -2496,7 +2620,9 @@ async fn test_transcribe_no_ingest() {
     let mut body_bytes = Vec::new();
     // File field
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"test.wav\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"test.wav\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: audio/wav\r\n\r\n");
     body_bytes.extend_from_slice(&wav_bytes);
     body_bytes.extend_from_slice(b"\r\n");
@@ -2527,9 +2653,7 @@ async fn test_transcribe_no_ingest() {
 #[tokio::test]
 async fn test_transcribe_health_reports_transcriber() {
     let (app, _state) = build_app_with_transcriber();
-    let req = Request::get("/api/v1/health")
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::get("/api/v1/health").body(Body::empty()).unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body = body_to_json(resp.into_body()).await;
@@ -2597,7 +2721,10 @@ async fn test_admin_delete_namespace() {
 
     // First create a node in a namespace.
     let mut metadata = HashMap::new();
-    metadata.insert("_namespace".into(), ucotron_core::Value::String("to-delete".into()));
+    metadata.insert(
+        "_namespace".into(),
+        ucotron_core::Value::String("to-delete".into()),
+    );
     let node = Node {
         id: 999,
         content: "test".into(),
@@ -2640,13 +2767,20 @@ async fn test_admin_get_namespace() {
     // Insert nodes in a namespace.
     for i in 0u64..3 {
         let mut metadata = HashMap::new();
-        metadata.insert("_namespace".into(), ucotron_core::Value::String("stats-ns".into()));
+        metadata.insert(
+            "_namespace".into(),
+            ucotron_core::Value::String("stats-ns".into()),
+        );
         let node = Node {
             id: 500 + i,
             content: format!("node {}", i),
             embedding: vec![0.0; 384],
             metadata,
-            node_type: if i == 0 { NodeType::Entity } else { NodeType::Event },
+            node_type: if i == 0 {
+                NodeType::Entity
+            } else {
+                NodeType::Event
+            },
             timestamp: 2000 + i,
             media_type: None,
             media_uri: None,
@@ -2739,11 +2873,6 @@ fn build_app_with_ocr() -> (Router, Arc<AppState>) {
         None,
         Some(ocr),
         config,
-        None,
-        None,
-        None,
-        None,
-        None,
     ));
 
     let app = Router::new()
@@ -2765,8 +2894,9 @@ async fn test_ocr_501_when_not_loaded() {
     let boundary = "----TestBoundaryOcr1";
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes
-        .extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"doc.pdf\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"doc.pdf\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: application/pdf\r\n\r\n");
     body_bytes.extend_from_slice(b"fake pdf data");
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -2789,8 +2919,9 @@ async fn test_ocr_mock_pdf() {
     let boundary = "----TestBoundaryOcr2";
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes
-        .extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"doc.pdf\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"doc.pdf\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: application/pdf\r\n\r\n");
     body_bytes.extend_from_slice(b"fake pdf content");
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -2821,15 +2952,15 @@ async fn test_ocr_no_ingest() {
     let mut body_bytes = Vec::new();
     // File field
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes
-        .extend_from_slice(b"Content-Disposition: form-data; name=\"document\"; filename=\"scan.png\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"document\"; filename=\"scan.png\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: image/png\r\n\r\n");
     body_bytes.extend_from_slice(b"fake image data");
     body_bytes.extend_from_slice(b"\r\n");
     // Ingest field = false
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes
-        .extend_from_slice(b"Content-Disposition: form-data; name=\"ingest\"\r\n\r\n");
+    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"ingest\"\r\n\r\n");
     body_bytes.extend_from_slice(b"false");
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
 
@@ -2852,9 +2983,7 @@ async fn test_ocr_no_ingest() {
 #[tokio::test]
 async fn test_ocr_health_reports_pipeline() {
     let (app, _state) = build_app_with_ocr();
-    let req = Request::get("/api/v1/health")
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::get("/api/v1/health").body(Body::empty()).unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body = body_to_json(resp.into_body()).await;
@@ -3336,7 +3465,12 @@ async fn test_gdpr_forget_deletes_all_user_data() {
     let remaining = state.registry.graph().get_all_nodes().unwrap();
     let non_audit: Vec<_> = remaining
         .iter()
-        .filter(|n| !matches!(n.metadata.get("_gdpr_audit"), Some(ucotron_core::Value::Bool(true))))
+        .filter(|n| {
+            !matches!(
+                n.metadata.get("_gdpr_audit"),
+                Some(ucotron_core::Value::Bool(true))
+            )
+        })
         .collect();
     assert_eq!(non_audit.len(), 1);
     assert_eq!(non_audit[0].id, 3);
@@ -3511,7 +3645,7 @@ fn build_app_with_auth() -> (Router, Arc<AppState>) {
         },
     ];
 
-    let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     let app = Router::new()
         .route("/api/v1/health", get(handlers::health_handler))
@@ -3519,11 +3653,20 @@ fn build_app_with_auth() -> (Router, Arc<AppState>) {
         .route("/api/v1/memories", post(handlers::create_memory_handler))
         .route("/api/v1/memories", get(handlers::list_memories_handler))
         .route("/api/v1/memories/{id}", get(handlers::get_memory_handler))
-        .route("/api/v1/memories/{id}", put(handlers::update_memory_handler))
-        .route("/api/v1/memories/{id}", delete(handlers::delete_memory_handler))
+        .route(
+            "/api/v1/memories/{id}",
+            put(handlers::update_memory_handler),
+        )
+        .route(
+            "/api/v1/memories/{id}",
+            delete(handlers::delete_memory_handler),
+        )
         .route("/api/v1/memories/search", post(handlers::search_handler))
         .route("/api/v1/media/{id}", get(handlers::get_media_handler))
-        .route("/api/v1/videos/{parent_id}/segments", get(handlers::get_video_segments_handler))
+        .route(
+            "/api/v1/videos/{parent_id}/segments",
+            get(handlers::get_video_segments_handler),
+        )
         .route("/api/v1/entities", get(handlers::list_entities_handler))
         .route("/api/v1/entities/{id}", get(handlers::get_entity_handler))
         .route("/api/v1/graph", get(handlers::graph_handler))
@@ -3531,20 +3674,41 @@ fn build_app_with_auth() -> (Router, Arc<AppState>) {
         .route("/api/v1/learn", post(handlers::learn_handler))
         .route("/api/v1/export", get(handlers::export_handler))
         .route("/api/v1/import", post(handlers::import_handler))
-        .route("/api/v1/admin/namespaces", get(handlers::list_namespaces_handler))
-        .route("/api/v1/admin/namespaces", post(handlers::create_namespace_handler))
-        .route("/api/v1/admin/namespaces/{name}", get(handlers::get_namespace_handler))
-        .route("/api/v1/admin/namespaces/{name}", delete(handlers::delete_namespace_handler))
+        .route(
+            "/api/v1/admin/namespaces",
+            get(handlers::list_namespaces_handler),
+        )
+        .route(
+            "/api/v1/admin/namespaces",
+            post(handlers::create_namespace_handler),
+        )
+        .route(
+            "/api/v1/admin/namespaces/{name}",
+            get(handlers::get_namespace_handler),
+        )
+        .route(
+            "/api/v1/admin/namespaces/{name}",
+            delete(handlers::delete_namespace_handler),
+        )
         .route("/api/v1/admin/config", get(handlers::admin_config_handler))
         .route("/api/v1/admin/system", get(handlers::admin_system_handler))
         .route("/api/v1/auth/whoami", get(handlers::whoami_handler))
         .route("/api/v1/auth/keys", get(handlers::list_api_keys_handler))
         .route("/api/v1/auth/keys", post(handlers::create_api_key_handler))
-        .route("/api/v1/auth/keys/{name}", delete(handlers::revoke_api_key_handler))
+        .route(
+            "/api/v1/auth/keys/{name}",
+            delete(handlers::revoke_api_key_handler),
+        )
         .route("/api/v1/gdpr/forget", delete(handlers::gdpr_forget_handler))
         .route("/api/v1/gdpr/export", get(handlers::gdpr_export_handler))
-        .route("/api/v1/gdpr/retention", get(handlers::gdpr_retention_status_handler))
-        .route("/api/v1/gdpr/retention/sweep", post(handlers::gdpr_retention_sweep_handler))
+        .route(
+            "/api/v1/gdpr/retention",
+            get(handlers::gdpr_retention_status_handler),
+        )
+        .route(
+            "/api/v1/gdpr/retention/sweep",
+            post(handlers::gdpr_retention_sweep_handler),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             ucotron_server::auth::auth_middleware,
@@ -3597,9 +3761,7 @@ async fn test_rbac_revoked_key_returns_401() {
 #[tokio::test]
 async fn test_rbac_health_bypasses_auth() {
     let (app, _) = build_app_with_auth();
-    let req = Request::get("/api/v1/health")
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::get("/api/v1/health").body(Body::empty()).unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
@@ -3845,7 +4007,7 @@ fn build_app_with_audit() -> (Router, Arc<AppState>) {
         },
     ];
 
-    let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     let app = Router::new()
         .route("/api/v1/health", get(handlers::health_handler))
@@ -4177,7 +4339,7 @@ async fn test_audit_max_entries_eviction() {
     config.audit.max_entries = 5; // Very small limit.
     config.audit.retention_secs = 0;
 
-    let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     // Append 10 entries.
     for i in 0..10u64 {
@@ -4281,7 +4443,10 @@ async fn test_audit_namespace_captured_from_header() {
 
     // The audit log should have captured namespace = "tenant-xyz" from the header.
     let entries = state.audit_log.export_all();
-    assert!(!entries.is_empty(), "audit log should have at least one entry");
+    assert!(
+        !entries.is_empty(),
+        "audit log should have at least one entry"
+    );
     let mem_entry = entries
         .iter()
         .find(|e| e.action == "memories.list")
@@ -4316,7 +4481,7 @@ async fn test_audit_namespace_falls_back_to_key_scope() {
     }];
 
     let state = Arc::new(ucotron_server::state::AppState::new(
-        registry, embedder, None, None, config, None, None, None, None,
+        registry, embedder, None, None, config,
     ));
 
     let app = Router::new()
@@ -4375,10 +4540,7 @@ async fn test_create_agent() {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert!(json["id"].as_str().unwrap().contains("mytestagent"));
     assert_eq!(json["name"], "My Test Agent");
-    assert!(json["namespace"]
-        .as_str()
-        .unwrap()
-        .starts_with("agent_"));
+    assert!(json["namespace"].as_str().unwrap().starts_with("agent_"));
     assert!(json["created_at"].as_u64().unwrap() > 0);
 }
 
@@ -4802,7 +4964,9 @@ async fn test_create_audio_memory_no_transcriber_returns_501() {
     let wav_bytes = create_test_wav_bytes();
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"test.wav\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"test.wav\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: audio/wav\r\n\r\n");
     body_bytes.extend_from_slice(&wav_bytes);
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -4826,7 +4990,9 @@ async fn test_create_audio_memory_success() {
     let wav_bytes = create_test_wav_bytes();
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"test.wav\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"test.wav\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: audio/wav\r\n\r\n");
     body_bytes.extend_from_slice(&wav_bytes);
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -4881,7 +5047,9 @@ async fn test_create_audio_memory_with_namespace() {
     let wav_bytes = create_test_wav_bytes();
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"audio\"; filename=\"speech.wav\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"audio\"; filename=\"speech.wav\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: audio/wav\r\n\r\n");
     body_bytes.extend_from_slice(&wav_bytes);
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -4924,7 +5092,8 @@ fn create_test_png_bytes() -> Vec<u8> {
         0, // interlace = 0
     ];
     let ihdr_crc = crc32(&b"IHDR"[..], &ihdr_data);
-    buf.write_all(&(ihdr_data.len() as u32).to_be_bytes()).unwrap();
+    buf.write_all(&(ihdr_data.len() as u32).to_be_bytes())
+        .unwrap();
     buf.write_all(b"IHDR").unwrap();
     buf.write_all(&ihdr_data).unwrap();
     buf.write_all(&ihdr_crc.to_be_bytes()).unwrap();
@@ -4935,7 +5104,8 @@ fn create_test_png_bytes() -> Vec<u8> {
     let raw_scanline = [0u8, 255, 0, 0]; // filter_none + R,G,B
     let compressed = miniz_compress(&raw_scanline);
     let idat_crc = crc32(b"IDAT", &compressed);
-    buf.write_all(&(compressed.len() as u32).to_be_bytes()).unwrap();
+    buf.write_all(&(compressed.len() as u32).to_be_bytes())
+        .unwrap();
     buf.write_all(b"IDAT").unwrap();
     buf.write_all(&compressed).unwrap();
     buf.write_all(&idat_crc.to_be_bytes()).unwrap();
@@ -5012,17 +5182,15 @@ fn build_app_with_image_embedder() -> (Router, Arc<AppState>) {
         Some(image_embedder),
         None,
         config,
-        None,
-        None,
-        None,
-        None,
-        None,
     ));
 
     let app = Router::new()
         .route("/api/v1/health", get(handlers::health_handler))
         .route("/api/v1/memories", post(handlers::create_memory_handler))
-        .route("/api/v1/memories/image", post(handlers::create_image_memory_handler))
+        .route(
+            "/api/v1/memories/image",
+            post(handlers::create_image_memory_handler),
+        )
         .route("/api/v1/memories/search", post(handlers::search_handler))
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -5041,7 +5209,9 @@ async fn test_create_image_memory_no_embedder_returns_501() {
     let png_bytes = create_test_png_bytes();
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"test.png\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"test.png\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: image/png\r\n\r\n");
     body_bytes.extend_from_slice(&png_bytes);
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -5065,7 +5235,9 @@ async fn test_create_image_memory_success() {
     let png_bytes = create_test_png_bytes();
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"test.png\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"test.png\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: image/png\r\n\r\n");
     body_bytes.extend_from_slice(&png_bytes);
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -5121,7 +5293,9 @@ async fn test_create_image_memory_with_description() {
     let mut body_bytes = Vec::new();
     // Image field
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"image\"; filename=\"photo.png\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"image\"; filename=\"photo.png\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: image/png\r\n\r\n");
     body_bytes.extend_from_slice(&png_bytes);
     body_bytes.extend_from_slice(b"\r\n");
@@ -5155,7 +5329,9 @@ async fn test_create_image_memory_with_namespace() {
     let png_bytes = create_test_png_bytes();
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"ns_test.png\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"ns_test.png\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: image/png\r\n\r\n");
     body_bytes.extend_from_slice(&png_bytes);
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -5181,10 +5357,11 @@ async fn test_create_image_memory_with_namespace() {
 /// Create a minimal MP4-like test payload (doesn't need to be valid video
 /// since MockVideoPipeline ignores the file content).
 fn create_test_video_bytes() -> Vec<u8> {
-    vec![0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70, // ftyp box
-         0x69, 0x73, 0x6F, 0x6D, 0x00, 0x00, 0x02, 0x00,
-         0x69, 0x73, 0x6F, 0x6D, 0x69, 0x73, 0x6F, 0x32,
-         0x61, 0x76, 0x63, 0x31]
+    vec![
+        0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70, // ftyp box
+        0x69, 0x73, 0x6F, 0x6D, 0x00, 0x00, 0x02, 0x00, 0x69, 0x73, 0x6F, 0x6D, 0x69, 0x73, 0x6F,
+        0x32, 0x61, 0x76, 0x63, 0x31,
+    ]
 }
 
 fn build_app_with_video_pipeline() -> (Router, Arc<AppState>) {
@@ -5207,16 +5384,14 @@ fn build_app_with_video_pipeline() -> (Router, Arc<AppState>) {
         None,
         Some(video_pipeline),
         config,
-        None,
-        None,
-        None,
-        None,
-        None,
     ));
 
     let app = Router::new()
         .route("/api/v1/health", get(handlers::health_handler))
-        .route("/api/v1/memories/video", post(handlers::create_video_memory_handler))
+        .route(
+            "/api/v1/memories/video",
+            post(handlers::create_video_memory_handler),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             ucotron_server::auth::auth_middleware,
@@ -5234,7 +5409,9 @@ async fn test_create_video_memory_no_pipeline_returns_501() {
     let video_bytes = create_test_video_bytes();
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"test.mp4\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"test.mp4\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: video/mp4\r\n\r\n");
     body_bytes.extend_from_slice(&video_bytes);
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -5258,7 +5435,9 @@ async fn test_create_video_memory_success() {
     let video_bytes = create_test_video_bytes();
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"test.mp4\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"test.mp4\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: video/mp4\r\n\r\n");
     body_bytes.extend_from_slice(&video_bytes);
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -5320,7 +5499,9 @@ async fn test_create_video_memory_empty_file() {
     let boundary = "----VideoMemBoundary4";
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"video\"; filename=\"empty.mp4\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"video\"; filename=\"empty.mp4\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: video/mp4\r\n\r\n");
     // No actual bytes — empty file.
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -5344,7 +5525,9 @@ async fn test_create_video_memory_with_namespace() {
     let video_bytes = create_test_video_bytes();
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"video\"; filename=\"test.mp4\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"video\"; filename=\"test.mp4\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: video/mp4\r\n\r\n");
     body_bytes.extend_from_slice(&video_bytes);
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -5371,7 +5554,9 @@ async fn test_create_video_memory_segments_linked_to_parent() {
     let video_bytes = create_test_video_bytes();
     let mut body_bytes = Vec::new();
     body_bytes.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-    body_bytes.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"test.mp4\"\r\n");
+    body_bytes.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"test.mp4\"\r\n",
+    );
     body_bytes.extend_from_slice(b"Content-Type: video/mp4\r\n\r\n");
     body_bytes.extend_from_slice(&video_bytes);
     body_bytes.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
@@ -5399,13 +5584,19 @@ async fn test_create_video_memory_segments_linked_to_parent() {
     let parent_node = state.registry.graph().get_node(parent_id).unwrap();
     assert!(parent_node.is_some());
     let parent = parent_node.unwrap();
-    assert_eq!(parent.media_type, Some(ucotron_core::MediaType::VideoSegment));
+    assert_eq!(
+        parent.media_type,
+        Some(ucotron_core::MediaType::VideoSegment)
+    );
 
     // Verify each segment node has parent_video_id set.
     for seg_id in &seg_ids {
         let seg_node = state.registry.graph().get_node(*seg_id).unwrap().unwrap();
         assert_eq!(seg_node.parent_video_id, Some(parent_id));
-        assert_eq!(seg_node.media_type, Some(ucotron_core::MediaType::VideoSegment));
+        assert_eq!(
+            seg_node.media_type,
+            Some(ucotron_core::MediaType::VideoSegment)
+        );
         assert!(seg_node.timestamp_range.is_some());
         assert!(seg_node.embedding_visual.is_some());
     }
@@ -5444,7 +5635,10 @@ async fn test_delete_agent_cascade_deletes_namespace_data() {
 
     // 4. Delete the agent via the API
     let app = Router::new()
-        .route("/api/v1/agents/{id}", delete(handlers::delete_agent_handler))
+        .route(
+            "/api/v1/agents/{id}",
+            delete(handlers::delete_agent_handler),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             ucotron_server::auth::auth_middleware,
@@ -5462,7 +5656,12 @@ async fn test_delete_agent_cascade_deletes_namespace_data() {
     assert_eq!(body["nodes_deleted"], 3);
 
     // 5. Verify agent record is gone
-    assert!(state.registry.graph().get_agent("cascade-bot").unwrap().is_none());
+    assert!(state
+        .registry
+        .graph()
+        .get_agent("cascade-bot")
+        .unwrap()
+        .is_none());
 
     // 6. Verify namespace nodes are deleted from graph
     assert!(state.registry.graph().get_node(500).unwrap().is_none());
@@ -5490,14 +5689,17 @@ async fn test_delete_agent_requires_admin_role() {
         namespace: None,
         active: true,
     }];
-    let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     // Create agent directly in the backend
     let agent = ucotron_core::Agent::new("auth-bot", "Auth Bot", "owner", 1000);
     state.registry.graph().create_agent(&agent).unwrap();
 
     let app = Router::new()
-        .route("/api/v1/agents/{id}", delete(handlers::delete_agent_handler))
+        .route(
+            "/api/v1/agents/{id}",
+            delete(handlers::delete_agent_handler),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             ucotron_server::auth::auth_middleware,
@@ -5518,7 +5720,10 @@ async fn test_delete_nonexistent_agent_returns_404() {
     let (_app, state) = build_app();
 
     let app = Router::new()
-        .route("/api/v1/agents/{id}", delete(handlers::delete_agent_handler))
+        .route(
+            "/api/v1/agents/{id}",
+            delete(handlers::delete_agent_handler),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             ucotron_server::auth::auth_middleware,
@@ -5541,7 +5746,10 @@ async fn test_delete_agent_with_no_data_succeeds() {
     state.registry.graph().create_agent(&agent).unwrap();
 
     let app = Router::new()
-        .route("/api/v1/agents/{id}", delete(handlers::delete_agent_handler))
+        .route(
+            "/api/v1/agents/{id}",
+            delete(handlers::delete_agent_handler),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             ucotron_server::auth::auth_middleware,
@@ -5559,7 +5767,12 @@ async fn test_delete_agent_with_no_data_succeeds() {
     assert_eq!(body["nodes_deleted"], 0);
 
     // Agent should be gone
-    assert!(state.registry.graph().get_agent("empty-bot").unwrap().is_none());
+    assert!(state
+        .registry
+        .graph()
+        .get_agent("empty-bot")
+        .unwrap()
+        .is_none());
 }
 
 // ===========================================================================
@@ -5576,7 +5789,10 @@ async fn test_clone_agent_graph_basic() {
 
     // Add nodes in the agent's namespace
     let mut meta1 = HashMap::new();
-    meta1.insert("_namespace".into(), ucotron_core::Value::String("agent_src-bot".into()));
+    meta1.insert(
+        "_namespace".into(),
+        ucotron_core::Value::String("agent_src-bot".into()),
+    );
     let meta2 = meta1.clone();
 
     let nodes = vec![
@@ -5587,8 +5803,11 @@ async fn test_clone_agent_graph_basic() {
             metadata: meta1,
             node_type: ucotron_core::NodeType::Entity,
             timestamp: 1000,
-            media_type: None, media_uri: None, embedding_visual: None,
-            timestamp_range: None, parent_video_id: None,
+            media_type: None,
+            media_uri: None,
+            embedding_visual: None,
+            timestamp_range: None,
+            parent_video_id: None,
         },
         Node {
             id: 101,
@@ -5597,21 +5816,36 @@ async fn test_clone_agent_graph_basic() {
             metadata: meta2,
             node_type: ucotron_core::NodeType::Event,
             timestamp: 2000,
-            media_type: None, media_uri: None, embedding_visual: None,
-            timestamp_range: None, parent_video_id: None,
+            media_type: None,
+            media_uri: None,
+            embedding_visual: None,
+            timestamp_range: None,
+            parent_video_id: None,
         },
     ];
     state.registry.graph().upsert_nodes(&nodes).unwrap();
-    state.registry.graph().upsert_edges(&[Edge {
-        source: 100, target: 101,
-        edge_type: ucotron_core::EdgeType::RelatesTo,
-        weight: 0.9, metadata: HashMap::new(),
-    }]).unwrap();
+    state
+        .registry
+        .graph()
+        .upsert_edges(&[Edge {
+            source: 100,
+            target: 101,
+            edge_type: ucotron_core::EdgeType::RelatesTo,
+            weight: 0.9,
+            metadata: HashMap::new(),
+        }])
+        .unwrap();
 
     // Clone via API
     let app = Router::new()
-        .route("/api/v1/agents/{id}/clone", post(handlers::clone_agent_handler))
-        .layer(middleware::from_fn_with_state(state.clone(), ucotron_server::auth::auth_middleware))
+        .route(
+            "/api/v1/agents/{id}/clone",
+            post(handlers::clone_agent_handler),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            ucotron_server::auth::auth_middleware,
+        ))
         .with_state(state.clone());
 
     let req = Request::post("/api/v1/agents/src-bot/clone")
@@ -5638,38 +5872,70 @@ async fn test_clone_agent_with_node_type_filter() {
     state.registry.graph().create_agent(&agent).unwrap();
 
     let mut meta = HashMap::new();
-    meta.insert("_namespace".into(), ucotron_core::Value::String("agent_filter-bot".into()));
+    meta.insert(
+        "_namespace".into(),
+        ucotron_core::Value::String("agent_filter-bot".into()),
+    );
 
     let nodes = vec![
         Node {
-            id: 200, content: "Entity node".into(), embedding: vec![1.0],
-            metadata: meta.clone(), node_type: ucotron_core::NodeType::Entity,
-            timestamp: 1000, media_type: None, media_uri: None,
-            embedding_visual: None, timestamp_range: None, parent_video_id: None,
+            id: 200,
+            content: "Entity node".into(),
+            embedding: vec![1.0],
+            metadata: meta.clone(),
+            node_type: ucotron_core::NodeType::Entity,
+            timestamp: 1000,
+            media_type: None,
+            media_uri: None,
+            embedding_visual: None,
+            timestamp_range: None,
+            parent_video_id: None,
         },
         Node {
-            id: 201, content: "Event node".into(), embedding: vec![0.5],
-            metadata: meta.clone(), node_type: ucotron_core::NodeType::Event,
-            timestamp: 2000, media_type: None, media_uri: None,
-            embedding_visual: None, timestamp_range: None, parent_video_id: None,
+            id: 201,
+            content: "Event node".into(),
+            embedding: vec![0.5],
+            metadata: meta.clone(),
+            node_type: ucotron_core::NodeType::Event,
+            timestamp: 2000,
+            media_type: None,
+            media_uri: None,
+            embedding_visual: None,
+            timestamp_range: None,
+            parent_video_id: None,
         },
         Node {
-            id: 202, content: "Fact node".into(), embedding: vec![0.3],
-            metadata: meta.clone(), node_type: ucotron_core::NodeType::Fact,
-            timestamp: 3000, media_type: None, media_uri: None,
-            embedding_visual: None, timestamp_range: None, parent_video_id: None,
+            id: 202,
+            content: "Fact node".into(),
+            embedding: vec![0.3],
+            metadata: meta.clone(),
+            node_type: ucotron_core::NodeType::Fact,
+            timestamp: 3000,
+            media_type: None,
+            media_uri: None,
+            embedding_visual: None,
+            timestamp_range: None,
+            parent_video_id: None,
         },
     ];
     state.registry.graph().upsert_nodes(&nodes).unwrap();
 
     let app = Router::new()
-        .route("/api/v1/agents/{id}/clone", post(handlers::clone_agent_handler))
-        .layer(middleware::from_fn_with_state(state.clone(), ucotron_server::auth::auth_middleware))
+        .route(
+            "/api/v1/agents/{id}/clone",
+            post(handlers::clone_agent_handler),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            ucotron_server::auth::auth_middleware,
+        ))
         .with_state(state.clone());
 
     let req = Request::post("/api/v1/agents/filter-bot/clone")
         .header("Content-Type", "application/json")
-        .body(Body::from(r#"{"target_namespace": "entities-only", "node_types": ["Entity"]}"#))
+        .body(Body::from(
+            r#"{"target_namespace": "entities-only", "node_types": ["Entity"]}"#,
+        ))
         .unwrap();
 
     let resp = app.oneshot(req).await.unwrap();
@@ -5687,32 +5953,57 @@ async fn test_clone_agent_with_time_range_filter() {
     state.registry.graph().create_agent(&agent).unwrap();
 
     let mut meta = HashMap::new();
-    meta.insert("_namespace".into(), ucotron_core::Value::String("agent_time-bot".into()));
+    meta.insert(
+        "_namespace".into(),
+        ucotron_core::Value::String("agent_time-bot".into()),
+    );
 
     let nodes = vec![
         Node {
-            id: 300, content: "Old node".into(), embedding: vec![1.0],
-            metadata: meta.clone(), node_type: ucotron_core::NodeType::Entity,
-            timestamp: 1000, media_type: None, media_uri: None,
-            embedding_visual: None, timestamp_range: None, parent_video_id: None,
+            id: 300,
+            content: "Old node".into(),
+            embedding: vec![1.0],
+            metadata: meta.clone(),
+            node_type: ucotron_core::NodeType::Entity,
+            timestamp: 1000,
+            media_type: None,
+            media_uri: None,
+            embedding_visual: None,
+            timestamp_range: None,
+            parent_video_id: None,
         },
         Node {
-            id: 301, content: "Recent node".into(), embedding: vec![0.5],
-            metadata: meta.clone(), node_type: ucotron_core::NodeType::Entity,
-            timestamp: 5000, media_type: None, media_uri: None,
-            embedding_visual: None, timestamp_range: None, parent_video_id: None,
+            id: 301,
+            content: "Recent node".into(),
+            embedding: vec![0.5],
+            metadata: meta.clone(),
+            node_type: ucotron_core::NodeType::Entity,
+            timestamp: 5000,
+            media_type: None,
+            media_uri: None,
+            embedding_visual: None,
+            timestamp_range: None,
+            parent_video_id: None,
         },
     ];
     state.registry.graph().upsert_nodes(&nodes).unwrap();
 
     let app = Router::new()
-        .route("/api/v1/agents/{id}/clone", post(handlers::clone_agent_handler))
-        .layer(middleware::from_fn_with_state(state.clone(), ucotron_server::auth::auth_middleware))
+        .route(
+            "/api/v1/agents/{id}/clone",
+            post(handlers::clone_agent_handler),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            ucotron_server::auth::auth_middleware,
+        ))
         .with_state(state.clone());
 
     let req = Request::post("/api/v1/agents/time-bot/clone")
         .header("Content-Type", "application/json")
-        .body(Body::from(r#"{"target_namespace": "recent-only", "time_range_start": 3000}"#))
+        .body(Body::from(
+            r#"{"target_namespace": "recent-only", "time_range_start": 3000}"#,
+        ))
         .unwrap();
 
     let resp = app.oneshot(req).await.unwrap();
@@ -5727,8 +6018,14 @@ async fn test_clone_nonexistent_agent_returns_404() {
     let (_app, state) = build_app();
 
     let app = Router::new()
-        .route("/api/v1/agents/{id}/clone", post(handlers::clone_agent_handler))
-        .layer(middleware::from_fn_with_state(state.clone(), ucotron_server::auth::auth_middleware))
+        .route(
+            "/api/v1/agents/{id}/clone",
+            post(handlers::clone_agent_handler),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            ucotron_server::auth::auth_middleware,
+        ))
         .with_state(state.clone());
 
     let req = Request::post("/api/v1/agents/nonexistent/clone")
@@ -5748,8 +6045,14 @@ async fn test_clone_empty_agent_returns_zero_counts() {
     state.registry.graph().create_agent(&agent).unwrap();
 
     let app = Router::new()
-        .route("/api/v1/agents/{id}/clone", post(handlers::clone_agent_handler))
-        .layer(middleware::from_fn_with_state(state.clone(), ucotron_server::auth::auth_middleware))
+        .route(
+            "/api/v1/agents/{id}/clone",
+            post(handlers::clone_agent_handler),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            ucotron_server::auth::auth_middleware,
+        ))
         .with_state(state.clone());
 
     let req = Request::post("/api/v1/agents/empty-bot/clone")
@@ -5819,8 +6122,14 @@ async fn test_merge_agent_basic() {
     state.registry.graph().upsert_edges(&src_edges).unwrap();
 
     let app = Router::new()
-        .route("/api/v1/agents/{id}/merge", post(handlers::merge_agent_handler))
-        .layer(middleware::from_fn_with_state(state.clone(), ucotron_server::auth::auth_middleware))
+        .route(
+            "/api/v1/agents/{id}/merge",
+            post(handlers::merge_agent_handler),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            ucotron_server::auth::auth_middleware,
+        ))
         .with_state(state.clone());
 
     let req = Request::post("/api/v1/agents/dst-agent/merge")
@@ -5864,8 +6173,14 @@ async fn test_merge_agent_with_deduplication() {
     state.registry.graph().upsert_nodes(&src_nodes).unwrap();
 
     let app = Router::new()
-        .route("/api/v1/agents/{id}/merge", post(handlers::merge_agent_handler))
-        .layer(middleware::from_fn_with_state(state.clone(), ucotron_server::auth::auth_middleware))
+        .route(
+            "/api/v1/agents/{id}/merge",
+            post(handlers::merge_agent_handler),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            ucotron_server::auth::auth_middleware,
+        ))
         .with_state(state.clone());
 
     let req = Request::post("/api/v1/agents/merge-dst/merge")
@@ -5888,8 +6203,14 @@ async fn test_merge_nonexistent_target_agent_returns_404() {
     let (_, state) = build_app();
 
     let app = Router::new()
-        .route("/api/v1/agents/{id}/merge", post(handlers::merge_agent_handler))
-        .layer(middleware::from_fn_with_state(state.clone(), ucotron_server::auth::auth_middleware))
+        .route(
+            "/api/v1/agents/{id}/merge",
+            post(handlers::merge_agent_handler),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            ucotron_server::auth::auth_middleware,
+        ))
         .with_state(state.clone());
 
     let req = Request::post("/api/v1/agents/nonexistent/merge")
@@ -5909,8 +6230,14 @@ async fn test_merge_nonexistent_source_agent_returns_404() {
     state.registry.graph().create_agent(&dst_agent).unwrap();
 
     let app = Router::new()
-        .route("/api/v1/agents/{id}/merge", post(handlers::merge_agent_handler))
-        .layer(middleware::from_fn_with_state(state.clone(), ucotron_server::auth::auth_middleware))
+        .route(
+            "/api/v1/agents/{id}/merge",
+            post(handlers::merge_agent_handler),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            ucotron_server::auth::auth_middleware,
+        ))
         .with_state(state.clone());
 
     let req = Request::post("/api/v1/agents/merge-tgt/merge")
@@ -5932,8 +6259,14 @@ async fn test_merge_empty_source_returns_zero_counts() {
     state.registry.graph().create_agent(&dst_agent).unwrap();
 
     let app = Router::new()
-        .route("/api/v1/agents/{id}/merge", post(handlers::merge_agent_handler))
-        .layer(middleware::from_fn_with_state(state.clone(), ucotron_server::auth::auth_middleware))
+        .route(
+            "/api/v1/agents/{id}/merge",
+            post(handlers::merge_agent_handler),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            ucotron_server::auth::auth_middleware,
+        ))
         .with_state(state.clone());
 
     let req = Request::post("/api/v1/agents/empty-dst/merge")
@@ -6038,11 +6371,6 @@ fn build_multimodal_app() -> (Router, Arc<AppState>) {
         Some(image_embedder),
         Some(cross_modal_encoder),
         config,
-        None,
-        None,
-        None,
-        None,
-        None,
     ));
 
     let app = Router::new()
@@ -6147,7 +6475,13 @@ async fn test_multimodal_search_text_query() {
 #[tokio::test]
 async fn test_multimodal_search_text_to_image_query() {
     let (app, state) = build_multimodal_app();
-    insert_multimodal_node(&state, 10, "Sunset photo", "image", Some("/media/sunset.jpg"));
+    insert_multimodal_node(
+        &state,
+        10,
+        "Sunset photo",
+        "image",
+        Some("/media/sunset.jpg"),
+    );
     insert_multimodal_node(&state, 11, "Cat image", "image", Some("/media/cat.png"));
 
     let req = Request::post("/api/v1/search/multimodal")
@@ -6203,7 +6537,13 @@ async fn test_multimodal_search_audio_query() {
 async fn test_multimodal_search_media_filter() {
     let (app, state) = build_multimodal_app();
     insert_multimodal_node(&state, 30, "Text note", "text", None);
-    insert_multimodal_node(&state, 31, "Photo memory", "image", Some("/media/photo.jpg"));
+    insert_multimodal_node(
+        &state,
+        31,
+        "Photo memory",
+        "image",
+        Some("/media/photo.jpg"),
+    );
 
     let req = Request::post("/api/v1/search/multimodal")
         .header("Content-Type", "application/json")
@@ -6313,7 +6653,13 @@ async fn test_multimodal_search_metrics_present() {
 async fn test_multimodal_search_media_filter_array() {
     let (app, state) = build_multimodal_app();
     insert_multimodal_node(&state, 50, "Text note", "text", None);
-    insert_multimodal_node(&state, 51, "Photo memory", "image", Some("/media/photo.jpg"));
+    insert_multimodal_node(
+        &state,
+        51,
+        "Photo memory",
+        "image",
+        Some("/media/photo.jpg"),
+    );
     insert_multimodal_node(&state, 52, "Audio clip", "audio", Some("/media/clip.wav"));
 
     // Filter for image AND audio — should exclude text.
@@ -6336,7 +6682,11 @@ async fn test_multimodal_search_media_filter_array() {
     let body = body_to_json(resp.into_body()).await;
     for result in body["results"].as_array().unwrap() {
         let mt = result["media_type"].as_str().unwrap();
-        assert!(mt == "image" || mt == "audio", "unexpected media_type: {}", mt);
+        assert!(
+            mt == "image" || mt == "audio",
+            "unexpected media_type: {}",
+            mt
+        );
     }
 }
 
@@ -6345,7 +6695,13 @@ async fn test_multimodal_search_video_filter_matches_video_segment() {
     let (app, state) = build_multimodal_app();
     insert_multimodal_node(&state, 60, "Text note", "text", None);
     // video_segment nodes stored with "_media_type" = "video_segment"
-    insert_multimodal_node(&state, 61, "Video clip segment", "video_segment", Some("/media/clip.mp4"));
+    insert_multimodal_node(
+        &state,
+        61,
+        "Video clip segment",
+        "video_segment",
+        Some("/media/clip.mp4"),
+    );
 
     // Filter by "video" should match "video_segment" nodes.
     let req = Request::post("/api/v1/search/multimodal")
@@ -6444,7 +6800,10 @@ async fn test_multimodal_search_time_range_filter() {
     // Node 70 (ts=1000) should be filtered out
     for result in body["results"].as_array().unwrap() {
         let nid = result["node_id"].as_u64().unwrap();
-        assert!(nid != 70, "node 70 with ts=1000 should be filtered out by time_range [1500, 3500]");
+        assert!(
+            nid != 70,
+            "node 70 with ts=1000 should be filtered out by time_range [1500, 3500]"
+        );
     }
 }
 
@@ -6480,7 +6839,10 @@ async fn test_multimodal_search_combined_media_and_time_filters() {
         let nid = result["node_id"].as_u64().unwrap();
         let mt = result["media_type"].as_str().unwrap();
         assert_eq!(mt, "image", "only image results should pass media_filter");
-        assert!(nid != 80, "node 80 (ts=1000) should be filtered by time_range");
+        assert!(
+            nid != 80,
+            "node 80 (ts=1000) should be filtered by time_range"
+        );
     }
 }
 
@@ -6491,7 +6853,7 @@ async fn test_multimodal_search_combined_media_and_time_filters() {
 /// Helper: create an agent and return its ID.
 async fn create_test_agent(state: &Arc<AppState>, name: &str) -> String {
     let agent = ucotron_core::Agent::new(
-        &format!("agent_{}", name.to_lowercase().replace(' ', "")),
+        format!("agent_{}", name.to_lowercase().replace(' ', "")),
         name,
         "admin",
         1000,
@@ -6699,30 +7061,19 @@ async fn test_delete_share() {
     state.registry.graph().create_share(&share).unwrap();
 
     // Verify share exists
-    let existing = state
-        .registry
-        .graph()
-        .get_share(&src_id, &tgt_id)
-        .unwrap();
+    let existing = state.registry.graph().get_share(&src_id, &tgt_id).unwrap();
     assert!(existing.is_some());
 
     // Delete the share
-    let req = Request::delete(format!(
-        "/api/v1/agents/{}/share/{}",
-        src_id, tgt_id
-    ))
-    .body(Body::empty())
-    .unwrap();
+    let req = Request::delete(format!("/api/v1/agents/{}/share/{}", src_id, tgt_id))
+        .body(Body::empty())
+        .unwrap();
 
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::NO_CONTENT);
 
     // Verify share is gone
-    let deleted = state
-        .registry
-        .graph()
-        .get_share(&src_id, &tgt_id)
-        .unwrap();
+    let deleted = state.registry.graph().get_share(&src_id, &tgt_id).unwrap();
     assert!(deleted.is_none());
 }
 
@@ -6731,12 +7082,9 @@ async fn test_delete_share_not_found() {
     let (app, state) = build_app();
     let src_id = create_test_agent(&state, "DNFSrc").await;
 
-    let req = Request::delete(format!(
-        "/api/v1/agents/{}/share/nonexistent",
-        src_id
-    ))
-    .body(Body::empty())
-    .unwrap();
+    let req = Request::delete(format!("/api/v1/agents/{}/share/nonexistent", src_id))
+        .body(Body::empty())
+        .unwrap();
 
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -6787,7 +7135,7 @@ async fn test_get_media_serves_file_with_correct_content_type() {
         Box::new(MockGraphBackend::new()),
     ));
     let embedder: Arc<dyn EmbeddingPipeline> = Arc::new(MockEmbedder);
-    let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     // Insert a node with media_uri set.
     let node = Node {
@@ -6811,7 +7159,10 @@ async fn test_get_media_serves_file_with_correct_content_type() {
 
     let app = Router::new()
         .route("/api/v1/media/{id}", get(handlers::get_media_handler))
-        .route("/api/v1/videos/{parent_id}/segments", get(handlers::get_video_segments_handler))
+        .route(
+            "/api/v1/videos/{parent_id}/segments",
+            get(handlers::get_video_segments_handler),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             ucotron_server::auth::auth_middleware,
@@ -6825,11 +7176,19 @@ async fn test_get_media_serves_file_with_correct_content_type() {
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(
-        resp.headers().get("content-type").unwrap().to_str().unwrap(),
+        resp.headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "image/png"
     );
     assert_eq!(
-        resp.headers().get("accept-ranges").unwrap().to_str().unwrap(),
+        resp.headers()
+            .get("accept-ranges")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "bytes"
     );
 
@@ -6890,7 +7249,7 @@ async fn test_get_media_range_request() {
         Box::new(MockGraphBackend::new()),
     ));
     let embedder: Arc<dyn EmbeddingPipeline> = Arc::new(MockEmbedder);
-    let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     // Insert a node with media_uri.
     let node = Node {
@@ -6914,7 +7273,10 @@ async fn test_get_media_range_request() {
 
     let app = Router::new()
         .route("/api/v1/media/{id}", get(handlers::get_media_handler))
-        .route("/api/v1/videos/{parent_id}/segments", get(handlers::get_video_segments_handler))
+        .route(
+            "/api/v1/videos/{parent_id}/segments",
+            get(handlers::get_video_segments_handler),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             ucotron_server::auth::auth_middleware,
@@ -6930,7 +7292,11 @@ async fn test_get_media_range_request() {
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::PARTIAL_CONTENT);
     assert_eq!(
-        resp.headers().get("content-type").unwrap().to_str().unwrap(),
+        resp.headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "video/mp4"
     );
     assert_eq!(
@@ -6959,7 +7325,7 @@ async fn test_get_media_audio_content_type() {
         Box::new(MockGraphBackend::new()),
     ));
     let embedder: Arc<dyn EmbeddingPipeline> = Arc::new(MockEmbedder);
-    let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     let node = Node {
         id: 77,
@@ -6982,7 +7348,10 @@ async fn test_get_media_audio_content_type() {
 
     let app = Router::new()
         .route("/api/v1/media/{id}", get(handlers::get_media_handler))
-        .route("/api/v1/videos/{parent_id}/segments", get(handlers::get_video_segments_handler))
+        .route(
+            "/api/v1/videos/{parent_id}/segments",
+            get(handlers::get_video_segments_handler),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             ucotron_server::auth::auth_middleware,
@@ -6996,7 +7365,11 @@ async fn test_get_media_audio_content_type() {
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(
-        resp.headers().get("content-type").unwrap().to_str().unwrap(),
+        resp.headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "audio/wav"
     );
 }
@@ -7136,11 +7509,7 @@ async fn test_video_segments_empty_when_no_segments() {
         timestamp_range: Some((0, 60_000)),
         parent_video_id: None,
     };
-    state
-        .registry
-        .graph()
-        .upsert_nodes(&[parent])
-        .unwrap();
+    state.registry.graph().upsert_nodes(&[parent]).unwrap();
 
     let req = Request::get("/api/v1/videos/200/segments")
         .body(Body::empty())
@@ -7196,7 +7565,10 @@ async fn test_search_includes_timestamp_range_for_video_segments() {
 
     // Find our segment in results.
     let seg_result = results.iter().find(|r| r["id"] == 300);
-    assert!(seg_result.is_some(), "Video segment should appear in results");
+    assert!(
+        seg_result.is_some(),
+        "Video segment should appear in results"
+    );
     let seg_result = seg_result.unwrap();
 
     // Verify timestamp_range and parent_video_id are included.
@@ -7247,6 +7619,10 @@ async fn test_search_omits_timestamp_fields_for_text_nodes() {
     let text_result = text_result.unwrap();
 
     // timestamp_range and parent_video_id should be absent (skip_serializing_if).
-    assert!(text_result.get("timestamp_range").is_none() || text_result["timestamp_range"].is_null());
-    assert!(text_result.get("parent_video_id").is_none() || text_result["parent_video_id"].is_null());
+    assert!(
+        text_result.get("timestamp_range").is_none() || text_result["timestamp_range"].is_null()
+    );
+    assert!(
+        text_result.get("parent_video_id").is_none() || text_result["parent_video_id"].is_null()
+    );
 }

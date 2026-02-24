@@ -18,14 +18,14 @@ use std::time::Instant;
 use anyhow::{Context, Result};
 use tracing::{debug, info, info_span, warn};
 
-use ucotron_core::{
-    BackendRegistry, Edge, EdgeType, Node, NodeId, NodeType, Value,
-};
 use ucotron_core::contradictions::{build_conflict_edges, detect_conflict, resolve_conflict};
 use ucotron_core::entity_resolution::structural_similarity;
 use ucotron_core::types::{ConflictConfig, Fact};
+use ucotron_core::{BackendRegistry, Edge, EdgeType, Node, NodeId, NodeType, Value};
 
-use crate::{EmbeddingPipeline, ExtractedEntity, ExtractedRelation, NerPipeline, RelationExtractor};
+use crate::{
+    EmbeddingPipeline, ExtractedEntity, ExtractedRelation, NerPipeline, RelationExtractor,
+};
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -224,7 +224,11 @@ impl<'a> IngestionOrchestrator<'a> {
             metrics.chunking_us = chunk_start.elapsed().as_micros() as u64;
 
             chunk_span.record("chunks", chunks.len());
-            debug!("Chunking: {} chunks from {} chars", chunks.len(), text.len());
+            debug!(
+                "Chunking: {} chunks from {} chars",
+                chunks.len(),
+                text.len()
+            );
             chunks
         };
 
@@ -266,7 +270,11 @@ impl<'a> IngestionOrchestrator<'a> {
 
             embed_span.record("vectors", embeddings.len());
             embed_span.record("duration_us", metrics.embedding_us);
-            debug!("Embedding: {} vectors in {}us", embeddings.len(), metrics.embedding_us);
+            debug!(
+                "Embedding: {} vectors in {}us",
+                embeddings.len(),
+                metrics.embedding_us
+            );
             embeddings
         };
 
@@ -311,21 +319,31 @@ impl<'a> IngestionOrchestrator<'a> {
                                     all_chunk_entities.push(ents);
                                     debug!(
                                         "NER batch [{}-{}]: chunk {} processed",
-                                        batch_start, batch_end, batch_start + j
+                                        batch_start,
+                                        batch_end,
+                                        batch_start + j
                                     );
                                 }
                             }
                             Err(e) => {
                                 // Batch failed — fall back to per-chunk for this batch
-                                warn!("NER batch [{}-{}] failed ({}), falling back to per-chunk", batch_start, batch_end, e);
-                                for (j, chunk) in chunks[batch_start..batch_end].iter().enumerate() {
+                                warn!(
+                                    "NER batch [{}-{}] failed ({}), falling back to per-chunk",
+                                    batch_start, batch_end, e
+                                );
+                                for (j, chunk) in chunks[batch_start..batch_end].iter().enumerate()
+                                {
                                     match ner.extract_entities(chunk, &labels) {
                                         Ok(ents) => {
                                             metrics.entities_extracted += ents.len();
                                             all_chunk_entities.push(ents);
                                         }
                                         Err(e2) => {
-                                            warn!("NER failed for chunk {}: {}", batch_start + j, e2);
+                                            warn!(
+                                                "NER failed for chunk {}: {}",
+                                                batch_start + j,
+                                                e2
+                                            );
                                             metrics.chunks_failed += 1;
                                             all_chunk_entities.push(Vec::new());
                                         }
@@ -403,13 +421,11 @@ impl<'a> IngestionOrchestrator<'a> {
             let _er_guard = er_span.enter();
 
             let er_start = Instant::now();
-            let entity_map = self.resolve_and_create_entities(&chunks, &embeddings, &all_chunk_entities)?;
+            let entity_map =
+                self.resolve_and_create_entities(&chunks, &embeddings, &all_chunk_entities)?;
             metrics.entity_resolution_us = er_start.elapsed().as_micros() as u64;
             metrics.entity_nodes_created = entity_map.len();
-            metrics.entity_merges = entity_map
-                .values()
-                .filter(|info| info.merged)
-                .count();
+            metrics.entity_merges = entity_map.values().filter(|info| info.merged).count();
 
             er_span.record("entities_created", metrics.entity_nodes_created);
             er_span.record("entity_merges", metrics.entity_merges);
@@ -434,7 +450,11 @@ impl<'a> IngestionOrchestrator<'a> {
 
             let cd_start = Instant::now();
             if self.config.enable_contradiction_detection {
-                conflict_edges = self.detect_contradictions(&all_chunk_entities, &all_chunk_relations, &entity_map);
+                conflict_edges = self.detect_contradictions(
+                    &all_chunk_entities,
+                    &all_chunk_relations,
+                    &entity_map,
+                );
                 metrics.contradictions_detected = conflict_edges.len() / 2; // CONFLICTS_WITH + SUPERSEDES = 2 edges per conflict
             }
             metrics.contradiction_detection_us = cd_start.elapsed().as_micros() as u64;
@@ -706,10 +726,7 @@ impl<'a> IngestionOrchestrator<'a> {
                     metadata: {
                         let mut m = HashMap::new();
                         m.insert("entity_label".into(), Value::String(entity.label.clone()));
-                        m.insert(
-                            "confidence".into(),
-                            Value::Float(entity.confidence as f64),
-                        );
+                        m.insert("confidence".into(), Value::Float(entity.confidence as f64));
                         m
                     },
                     node_type: NodeType::Entity,
@@ -899,9 +916,9 @@ fn predicate_to_edge_type(predicate: &str) -> EdgeType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ucotron_core::{BackendRegistry, Node, NodeId, VectorBackend, GraphBackend, Edge};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
+    use ucotron_core::{BackendRegistry, Edge, GraphBackend, Node, NodeId, VectorBackend};
 
     // ── Mock Embedding Pipeline ────────────────────────────────────────
 
@@ -1131,10 +1148,7 @@ mod tests {
     // ── Helper ─────────────────────────────────────────────────────────
 
     fn boxed_registry() -> BackendRegistry {
-        BackendRegistry::new(
-            Box::new(MockVec::new()),
-            Box::new(MockGraph::new()),
-        )
+        BackendRegistry::new(Box::new(MockVec::new()), Box::new(MockGraph::new()))
     }
 
     // ── chunk_text tests ───────────────────────────────────────────────
@@ -1183,13 +1197,34 @@ mod tests {
 
     #[test]
     fn test_predicate_to_edge_type() {
-        assert!(matches!(predicate_to_edge_type("lives_in"), EdgeType::RelatesTo));
-        assert!(matches!(predicate_to_edge_type("caused_by"), EdgeType::CausedBy));
-        assert!(matches!(predicate_to_edge_type("conflicts_with"), EdgeType::ConflictsWith));
-        assert!(matches!(predicate_to_edge_type("follows"), EdgeType::NextEpisode));
-        assert!(matches!(predicate_to_edge_type("has_property"), EdgeType::HasProperty));
-        assert!(matches!(predicate_to_edge_type("supersedes"), EdgeType::Supersedes));
-        assert!(matches!(predicate_to_edge_type("unknown_pred"), EdgeType::RelatesTo));
+        assert!(matches!(
+            predicate_to_edge_type("lives_in"),
+            EdgeType::RelatesTo
+        ));
+        assert!(matches!(
+            predicate_to_edge_type("caused_by"),
+            EdgeType::CausedBy
+        ));
+        assert!(matches!(
+            predicate_to_edge_type("conflicts_with"),
+            EdgeType::ConflictsWith
+        ));
+        assert!(matches!(
+            predicate_to_edge_type("follows"),
+            EdgeType::NextEpisode
+        ));
+        assert!(matches!(
+            predicate_to_edge_type("has_property"),
+            EdgeType::HasProperty
+        ));
+        assert!(matches!(
+            predicate_to_edge_type("supersedes"),
+            EdgeType::Supersedes
+        ));
+        assert!(matches!(
+            predicate_to_edge_type("unknown_pred"),
+            EdgeType::RelatesTo
+        ));
     }
 
     // ── Full pipeline tests ────────────────────────────────────────────
@@ -1229,8 +1264,7 @@ mod tests {
             ..Default::default()
         };
 
-        let mut orchestrator =
-            IngestionOrchestrator::new(&registry, &embedder, None, None, config);
+        let mut orchestrator = IngestionOrchestrator::new(&registry, &embedder, None, None, config);
 
         let result = orchestrator.ingest("").unwrap();
         assert_eq!(result.metrics.chunks_processed, 0);
@@ -1247,8 +1281,7 @@ mod tests {
             ..Default::default()
         };
 
-        let mut orchestrator =
-            IngestionOrchestrator::new(&registry, &embedder, None, None, config);
+        let mut orchestrator = IngestionOrchestrator::new(&registry, &embedder, None, None, config);
 
         let result = orchestrator
             .ingest("Some text with no NER extraction.")
@@ -1275,9 +1308,7 @@ mod tests {
         let mut orchestrator =
             IngestionOrchestrator::new(&registry, &embedder, Some(&ner), Some(&re), config);
 
-        let result = orchestrator
-            .ingest("Alice met Bob in London.")
-            .unwrap();
+        let result = orchestrator.ingest("Alice met Bob in London.").unwrap();
 
         assert!(result.metrics.relations_extracted > 0);
         assert!(!result.edges_created.is_empty());
@@ -1406,9 +1437,7 @@ mod tests {
         let mut orchestrator =
             IngestionOrchestrator::new(&registry, &embedder, Some(&ner), Some(&re), config);
 
-        let result = orchestrator
-            .ingest("Alice met Bob in London.")
-            .unwrap();
+        let result = orchestrator.ingest("Alice met Bob in London.").unwrap();
 
         // Relations disabled, so no relations should be extracted
         assert_eq!(result.metrics.relations_extracted, 0);
@@ -1454,12 +1483,9 @@ mod tests {
             ..Default::default()
         };
 
-        let mut orchestrator =
-            IngestionOrchestrator::new(&registry, &embedder, None, None, config);
+        let mut orchestrator = IngestionOrchestrator::new(&registry, &embedder, None, None, config);
 
-        let result = orchestrator
-            .ingest("First. Second. Third.")
-            .unwrap();
+        let result = orchestrator.ingest("First. Second. Third.").unwrap();
 
         assert_eq!(result.chunk_node_ids.len(), 3);
         // All IDs should be unique
@@ -1474,36 +1500,59 @@ mod tests {
     #[test]
     fn test_chunk_text_only_whitespace() {
         let chunks = chunk_text("   \t\n  ");
-        assert!(chunks.is_empty(), "Whitespace-only text should produce no chunks");
+        assert!(
+            chunks.is_empty(),
+            "Whitespace-only text should produce no chunks"
+        );
     }
 
     #[test]
     fn test_chunk_text_decimal_numbers_preserved() {
         let chunks = chunk_text("The price is $99.99 for this item.");
         assert_eq!(chunks.len(), 1);
-        assert!(chunks[0].contains("$99.99"), "Decimal price should not be split: {:?}", chunks);
+        assert!(
+            chunks[0].contains("$99.99"),
+            "Decimal price should not be split: {:?}",
+            chunks
+        );
     }
 
     #[test]
     fn test_chunk_text_version_numbers_preserved() {
         let chunks = chunk_text("Using version 2.0.1 of the library.");
         assert_eq!(chunks.len(), 1);
-        assert!(chunks[0].contains("2.0.1"), "Version number should not be split: {:?}", chunks);
+        assert!(
+            chunks[0].contains("2.0.1"),
+            "Version number should not be split: {:?}",
+            chunks
+        );
     }
 
     #[test]
     fn test_chunk_text_range_numbers_preserved() {
         let chunks = chunk_text("Growth from 8.2 to 6.5 percent.");
         assert_eq!(chunks.len(), 1);
-        assert!(chunks[0].contains("8.2"), "First number should be intact: {:?}", chunks);
-        assert!(chunks[0].contains("6.5"), "Second number should be intact: {:?}", chunks);
+        assert!(
+            chunks[0].contains("8.2"),
+            "First number should be intact: {:?}",
+            chunks
+        );
+        assert!(
+            chunks[0].contains("6.5"),
+            "Second number should be intact: {:?}",
+            chunks
+        );
     }
 
     #[test]
     fn test_chunk_text_percentage_preserved() {
         let chunks = chunk_text("Inflation was 15.5 percent last year. It may decrease.");
         assert_eq!(chunks.len(), 2);
-        assert!(chunks[0].contains("15.5"), "Percentage should not be split: {:?}", chunks);
+        assert!(
+            chunks[0].contains("15.5"),
+            "Percentage should not be split: {:?}",
+            chunks
+        );
     }
 
     #[test]
@@ -1511,7 +1560,11 @@ mod tests {
         let chunks = chunk_text("Hello!! World?? Yes...");
         // Should not produce empty chunks between consecutive punctuation
         for chunk in &chunks {
-            assert!(!chunk.trim().is_empty(), "Chunks should not be empty: {:?}", chunks);
+            assert!(
+                !chunk.trim().is_empty(),
+                "Chunks should not be empty: {:?}",
+                chunks
+            );
         }
     }
 
@@ -1523,11 +1576,14 @@ mod tests {
             enable_entity_resolution: false,
             ..Default::default()
         };
-        let mut orchestrator =
-            IngestionOrchestrator::new(&registry, &embedder, None, None, config);
+        let mut orchestrator = IngestionOrchestrator::new(&registry, &embedder, None, None, config);
 
         let result = orchestrator.ingest("   \n\t  ").unwrap();
-        assert_eq!(result.chunk_node_ids.len(), 0, "Whitespace text should produce no chunks");
+        assert_eq!(
+            result.chunk_node_ids.len(),
+            0,
+            "Whitespace text should produce no chunks"
+        );
         assert_eq!(result.metrics.chunks_processed, 0);
     }
 
@@ -1549,7 +1605,10 @@ mod tests {
             .unwrap();
         assert_eq!(result.chunk_node_ids.len(), 2);
         // MockNer extracts capitalized words, so should find entities
-        assert!(!result.entity_node_ids.is_empty(), "Should extract entities from Unicode text");
+        assert!(
+            !result.entity_node_ids.is_empty(),
+            "Should extract entities from Unicode text"
+        );
     }
 
     // ── Span instrumentation tests ────────────────────────────────────
@@ -1571,7 +1630,9 @@ mod tests {
 
         let handle = std::thread::spawn(move || {
             let layer_names = SpanRecorderLayer { names: names_clone };
-            let layer_fields = FieldRecorderLayer { fields: fields_clone };
+            let layer_fields = FieldRecorderLayer {
+                fields: fields_clone,
+            };
             let subscriber = tracing_subscriber::layer::SubscriberExt::with(
                 tracing_subscriber::layer::SubscriberExt::with(
                     tracing_subscriber::registry::Registry::default(),
@@ -1609,40 +1670,73 @@ mod tests {
 
         // Verify all expected spans were created
         let names = span_names.lock().unwrap();
-        assert!(names.contains(&"ucotron.ingest".to_string()), "Missing ucotron.ingest span. Got: {:?}", *names);
-        assert!(names.contains(&"ucotron.chunk".to_string()), "Missing ucotron.chunk span. Got: {:?}", *names);
-        assert!(names.contains(&"ucotron.embed".to_string()), "Missing ucotron.embed span. Got: {:?}", *names);
-        assert!(names.contains(&"ucotron.ner".to_string()), "Missing ucotron.ner span. Got: {:?}", *names);
-        assert!(names.contains(&"ucotron.relations".to_string()), "Missing ucotron.relations span. Got: {:?}", *names);
-        assert!(names.contains(&"ucotron.graph_update".to_string()), "Missing ucotron.graph_update span. Got: {:?}", *names);
+        assert!(
+            names.contains(&"ucotron.ingest".to_string()),
+            "Missing ucotron.ingest span. Got: {:?}",
+            *names
+        );
+        assert!(
+            names.contains(&"ucotron.chunk".to_string()),
+            "Missing ucotron.chunk span. Got: {:?}",
+            *names
+        );
+        assert!(
+            names.contains(&"ucotron.embed".to_string()),
+            "Missing ucotron.embed span. Got: {:?}",
+            *names
+        );
+        assert!(
+            names.contains(&"ucotron.ner".to_string()),
+            "Missing ucotron.ner span. Got: {:?}",
+            *names
+        );
+        assert!(
+            names.contains(&"ucotron.relations".to_string()),
+            "Missing ucotron.relations span. Got: {:?}",
+            *names
+        );
+        assert!(
+            names.contains(&"ucotron.graph_update".to_string()),
+            "Missing ucotron.graph_update span. Got: {:?}",
+            *names
+        );
 
         // Verify key span attributes were populated
         let recorded = fields.lock().unwrap();
 
-        let ingest_text_len = recorded.iter().any(|(span, field, _)| {
-            span == "ucotron.ingest" && field == "text_length"
-        });
-        assert!(ingest_text_len, "ucotron.ingest should have text_length attribute");
+        let ingest_text_len = recorded
+            .iter()
+            .any(|(span, field, _)| span == "ucotron.ingest" && field == "text_length");
+        assert!(
+            ingest_text_len,
+            "ucotron.ingest should have text_length attribute"
+        );
 
-        let chunk_count = recorded.iter().any(|(span, field, _)| {
-            span == "ucotron.chunk" && field == "chunks"
-        });
+        let chunk_count = recorded
+            .iter()
+            .any(|(span, field, _)| span == "ucotron.chunk" && field == "chunks");
         assert!(chunk_count, "ucotron.chunk should have chunks attribute");
 
-        let embed_vectors = recorded.iter().any(|(span, field, _)| {
-            span == "ucotron.embed" && field == "vectors"
-        });
+        let embed_vectors = recorded
+            .iter()
+            .any(|(span, field, _)| span == "ucotron.embed" && field == "vectors");
         assert!(embed_vectors, "ucotron.embed should have vectors attribute");
 
-        let ner_entities = recorded.iter().any(|(span, field, _)| {
-            span == "ucotron.ner" && field == "entities_found"
-        });
-        assert!(ner_entities, "ucotron.ner should have entities_found attribute");
+        let ner_entities = recorded
+            .iter()
+            .any(|(span, field, _)| span == "ucotron.ner" && field == "entities_found");
+        assert!(
+            ner_entities,
+            "ucotron.ner should have entities_found attribute"
+        );
 
-        let rel_count = recorded.iter().any(|(span, field, _)| {
-            span == "ucotron.relations" && field == "relations_count"
-        });
-        assert!(rel_count, "ucotron.relations should have relations_count attribute");
+        let rel_count = recorded
+            .iter()
+            .any(|(span, field, _)| span == "ucotron.relations" && field == "relations_count");
+        assert!(
+            rel_count,
+            "ucotron.relations should have relations_count attribute"
+        );
     }
 
     // ── Tracing test helpers ──────────────────────────────────────────
@@ -1652,7 +1746,10 @@ mod tests {
         names: Arc<Mutex<Vec<String>>>,
     }
 
-    impl<S: tracing::Subscriber + for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>> tracing_subscriber::Layer<S> for SpanRecorderLayer {
+    impl<
+            S: tracing::Subscriber + for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>,
+        > tracing_subscriber::Layer<S> for SpanRecorderLayer
+    {
         fn on_new_span(
             &self,
             attrs: &tracing::span::Attributes<'_>,
@@ -1669,7 +1766,10 @@ mod tests {
         fields: Arc<Mutex<Vec<(String, String, String)>>>,
     }
 
-    impl<S: tracing::Subscriber + for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>> tracing_subscriber::Layer<S> for FieldRecorderLayer {
+    impl<
+            S: tracing::Subscriber + for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>,
+        > tracing_subscriber::Layer<S> for FieldRecorderLayer
+    {
         fn on_new_span(
             &self,
             attrs: &tracing::span::Attributes<'_>,
@@ -1703,17 +1803,29 @@ mod tests {
     impl tracing::field::Visit for FieldVisitor {
         fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
             let mut fields = self.fields.lock().unwrap();
-            fields.push((self.span_name.clone(), field.name().to_string(), format!("{:?}", value)));
+            fields.push((
+                self.span_name.clone(),
+                field.name().to_string(),
+                format!("{:?}", value),
+            ));
         }
 
         fn record_u64(&mut self, field: &tracing::field::Field, value: u64) {
             let mut fields = self.fields.lock().unwrap();
-            fields.push((self.span_name.clone(), field.name().to_string(), value.to_string()));
+            fields.push((
+                self.span_name.clone(),
+                field.name().to_string(),
+                value.to_string(),
+            ));
         }
 
         fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
             let mut fields = self.fields.lock().unwrap();
-            fields.push((self.span_name.clone(), field.name().to_string(), value.to_string()));
+            fields.push((
+                self.span_name.clone(),
+                field.name().to_string(),
+                value.to_string(),
+            ));
         }
     }
 
@@ -1884,14 +1996,23 @@ mod tests {
             .unwrap();
 
         assert_eq!(result.metrics.chunks_processed, 2);
-        assert!(result.metrics.entities_extracted > 0, "Should still extract entities via fallback");
+        assert!(
+            result.metrics.entities_extracted > 0,
+            "Should still extract entities via fallback"
+        );
     }
 
     #[test]
     fn test_ingest_batch_size_config_default() {
         let config = IngestionConfig::default();
-        assert_eq!(config.ner_batch_size, 8, "Default NER batch size should be 8");
-        assert_eq!(config.embedding_batch_size, 32, "Default embedding batch size should be 32");
+        assert_eq!(
+            config.ner_batch_size, 8,
+            "Default NER batch size should be 8"
+        );
+        assert_eq!(
+            config.embedding_batch_size, 32,
+            "Default embedding batch size should be 32"
+        );
     }
 
     #[test]
@@ -1909,7 +2030,11 @@ mod tests {
                     *v = ((hash.wrapping_add(i as u32)) as f32).sin();
                 }
                 let norm: f32 = vec.iter().map(|x| x * x).sum::<f32>().sqrt();
-                if norm > 0.0 { for v in vec.iter_mut() { *v /= norm; } }
+                if norm > 0.0 {
+                    for v in vec.iter_mut() {
+                        *v /= norm;
+                    }
+                }
                 Ok(vec)
             }
 
@@ -1920,7 +2045,9 @@ mod tests {
         }
 
         let registry = boxed_registry();
-        let embedder = BatchCountingEmbedder { call_count: Mutex::new(0) };
+        let embedder = BatchCountingEmbedder {
+            call_count: Mutex::new(0),
+        };
 
         let config = IngestionConfig {
             enable_entity_resolution: false,
@@ -1929,8 +2056,7 @@ mod tests {
             ..Default::default()
         };
 
-        let mut orchestrator =
-            IngestionOrchestrator::new(&registry, &embedder, None, None, config);
+        let mut orchestrator = IngestionOrchestrator::new(&registry, &embedder, None, None, config);
 
         // 3 chunks with embedding_batch_size=2 → 2 embed_batch calls (batch of 2 + batch of 1)
         let result = orchestrator
@@ -1968,20 +2094,17 @@ mod tests {
 
         let text = "Alice lives in Paris. Bob works in Berlin.";
 
-        let mut orch1 = IngestionOrchestrator::new(
-            &registry, &embedder, Some(&ner), None, config_batch1,
-        );
+        let mut orch1 =
+            IngestionOrchestrator::new(&registry, &embedder, Some(&ner), None, config_batch1);
         let result1 = orch1.ingest(text).unwrap();
 
         let registry2 = boxed_registry();
-        let mut orch2 = IngestionOrchestrator::new(
-            &registry2, &embedder, Some(&ner), None, config_batch8,
-        );
+        let mut orch2 =
+            IngestionOrchestrator::new(&registry2, &embedder, Some(&ner), None, config_batch8);
         let result2 = orch2.ingest(text).unwrap();
 
         assert_eq!(
-            result1.metrics.entities_extracted,
-            result2.metrics.entities_extracted,
+            result1.metrics.entities_extracted, result2.metrics.entities_extracted,
             "Entity count should be same regardless of batch size"
         );
         assert_eq!(

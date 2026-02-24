@@ -46,7 +46,9 @@ impl NotionConnector {
     fn get_api_key(config: &ConnectorConfig) -> Result<&str> {
         match &config.auth {
             AuthConfig::ApiKey { key } => Ok(key.as_str()),
-            _ => bail!("Notion connector requires ApiKey authentication (internal integration token)"),
+            _ => bail!(
+                "Notion connector requires ApiKey authentication (internal integration token)"
+            ),
         }
     }
 
@@ -114,7 +116,10 @@ impl NotionConnector {
 
             let resp = self
                 .client
-                .post(format!("{}/databases/{}/query", NOTION_API_BASE, database_id))
+                .post(format!(
+                    "{}/databases/{}/query",
+                    NOTION_API_BASE, database_id
+                ))
                 .bearer_auth(api_key)
                 .header("Notion-Version", NOTION_API_VERSION)
                 .header("Content-Type", "application/json")
@@ -151,11 +156,7 @@ impl NotionConnector {
     }
 
     /// Fetches all blocks (content) from a Notion page.
-    async fn fetch_page_blocks(
-        &self,
-        api_key: &str,
-        page_id: &str,
-    ) -> Result<Vec<NotionBlock>> {
+    async fn fetch_page_blocks(&self, api_key: &str, page_id: &str) -> Result<Vec<NotionBlock>> {
         let mut all_blocks = Vec::new();
         let mut start_cursor: Option<String> = None;
 
@@ -271,9 +272,10 @@ impl NotionConnector {
             }
         }
 
-        let page_url = page.url.clone().unwrap_or_else(|| {
-            format!("https://notion.so/{}", page.id.replace('-', ""))
-        });
+        let page_url = page
+            .url
+            .clone()
+            .unwrap_or_else(|| format!("https://notion.so/{}", page.id.replace('-', "")));
 
         ContentItem {
             content,
@@ -429,7 +431,7 @@ impl Connector for NotionConnector {
                 // Track the most recent last_edited_time across all pages
                 if latest_edited
                     .as_ref()
-                    .map_or(true, |current| &page.last_edited_time > current)
+                    .is_none_or(|current| &page.last_edited_time > current)
                 {
                     latest_edited = Some(page.last_edited_time.clone());
                 }
@@ -521,7 +523,12 @@ impl Connector for NotionConnector {
         if !resp.status().is_success() {
             let status = resp.status();
             let body_text = resp.text().await.unwrap_or_default();
-            bail!("Notion API error fetching page {}: {} - {}", page_id, status, body_text);
+            bail!(
+                "Notion API error fetching page {}: {} - {}",
+                page_id,
+                status,
+                body_text
+            );
         }
 
         let page: NotionPage = resp
@@ -583,10 +590,7 @@ fn parse_notion_timestamp(ts: &str) -> Option<u64> {
     let (year, month, day) = (date_parts[0], date_parts[1], date_parts[2]);
 
     let (hour, min, sec) = if parts.len() == 2 {
-        let time_parts: Vec<u64> = parts[1]
-            .split(':')
-            .filter_map(|s| s.parse().ok())
-            .collect();
+        let time_parts: Vec<u64> = parts[1].split(':').filter_map(|s| s.parse().ok()).collect();
         if time_parts.len() != 3 {
             return None;
         }
@@ -614,7 +618,7 @@ fn parse_notion_timestamp(ts: &str) -> Option<u64> {
 }
 
 fn is_leap_year(year: u64) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 /// Extracts the page title from Notion properties.
@@ -750,9 +754,7 @@ fn block_to_text(block: &NotionBlock) -> Option<String> {
         "paragraph" => extract_rich_text_from_block(&block.paragraph),
         "heading_1" => extract_rich_text_from_block(&block.heading_1).map(|t| format!("# {}", t)),
         "heading_2" => extract_rich_text_from_block(&block.heading_2).map(|t| format!("## {}", t)),
-        "heading_3" => {
-            extract_rich_text_from_block(&block.heading_3).map(|t| format!("### {}", t))
-        }
+        "heading_3" => extract_rich_text_from_block(&block.heading_3).map(|t| format!("### {}", t)),
         "bulleted_list_item" => {
             extract_rich_text_from_block(&block.bulleted_list_item).map(|t| format!("- {}", t))
         }
@@ -770,9 +772,7 @@ fn block_to_text(block: &NotionBlock) -> Option<String> {
             extract_rich_text_from_block(&block.to_do).map(|t| format!("- {} {}", marker, t))
         }
         "toggle" => extract_rich_text_from_block(&block.toggle),
-        "quote" => {
-            extract_rich_text_from_block(&block.quote).map(|t| format!("> {}", t))
-        }
+        "quote" => extract_rich_text_from_block(&block.quote).map(|t| format!("> {}", t)),
         "callout" => extract_rich_text_from_block(&block.callout),
         "code" => {
             let lang = block
@@ -781,8 +781,7 @@ fn block_to_text(block: &NotionBlock) -> Option<String> {
                 .and_then(|c| c.get("language"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("text");
-            extract_rich_text_from_block(&block.code)
-                .map(|t| format!("```{}\n{}\n```", lang, t))
+            extract_rich_text_from_block(&block.code).map(|t| format!("```{}\n{}\n```", lang, t))
         }
         "divider" => Some("---".to_string()),
         "table_of_contents" | "breadcrumb" | "column_list" | "column" => None,
@@ -1090,10 +1089,7 @@ mod tests {
     #[test]
     fn test_validate_config_valid() {
         let connector = NotionConnector::new();
-        let config = make_config(
-            "secret_test123",
-            vec!["a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"],
-        );
+        let config = make_config("secret_test123", vec!["a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"]);
         assert!(connector.validate_config(&config).is_ok());
     }
 
@@ -1158,7 +1154,10 @@ mod tests {
         let config = make_config("secret_test123", vec!["not-a-valid-id"]);
         let err = connector.validate_config(&config);
         assert!(err.is_err());
-        assert!(err.unwrap_err().to_string().contains("Invalid Notion database ID"));
+        assert!(err
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid Notion database ID"));
     }
 
     #[test]
@@ -1197,7 +1196,10 @@ mod tests {
         assert!(item.content.contains("```rust"));
         assert!(item.content.contains("fn main() {}"));
         assert!(item.content.contains("Status: In Progress"));
-        assert!(item.content.contains("Tags: memory, rust") || item.content.contains("Tags: rust, memory"));
+        assert!(
+            item.content.contains("Tags: memory, rust")
+                || item.content.contains("Tags: rust, memory")
+        );
         assert_eq!(item.source.connector_type, "notion");
         assert_eq!(item.source.connector_id, "conn-1");
         assert_eq!(item.source.source_id, "page-123-abc");
@@ -1339,10 +1341,7 @@ mod tests {
             email: Some("test@example.com".to_string()),
             ..Default::default()
         };
-        assert_eq!(
-            property_to_text(&val),
-            Some("test@example.com".to_string())
-        );
+        assert_eq!(property_to_text(&val), Some("test@example.com".to_string()));
     }
 
     #[test]
@@ -1351,10 +1350,7 @@ mod tests {
             phone_number: Some("+1-555-0123".to_string()),
             ..Default::default()
         };
-        assert_eq!(
-            property_to_text(&val),
-            Some("+1-555-0123".to_string())
-        );
+        assert_eq!(property_to_text(&val), Some("+1-555-0123".to_string()));
     }
 
     #[test]
@@ -1432,10 +1428,7 @@ mod tests {
             callout: None,
             code: None,
         };
-        assert_eq!(
-            block_to_text(&block),
-            Some("> Be the change.".to_string())
-        );
+        assert_eq!(block_to_text(&block), Some("> Be the change.".to_string()));
     }
 
     #[test]

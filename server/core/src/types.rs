@@ -126,7 +126,6 @@ pub struct Node {
     pub timestamp: u64,
 
     // --- Multimodal fields (Phase 3.5) ---
-
     /// Media type classification. Defaults to `None` (treated as `Text`).
     #[serde(default)]
     pub media_type: Option<MediaType>,
@@ -461,12 +460,7 @@ pub trait StorageEngine: Sized {
     /// 1. Vector search for top-k similar nodes
     /// 2. Graph traversal of `hops` steps from each result
     /// 3. Deduplicate and rank by combined score (similarity * hop_decay)
-    fn hybrid_search(
-        &self,
-        query: &[f32],
-        top_k: usize,
-        hops: u8,
-    ) -> anyhow::Result<Vec<Node>>;
+    fn hybrid_search(&self, query: &[f32], top_k: usize, hops: u8) -> anyhow::Result<Vec<Node>>;
 
     /// Find a path from `source` to `target` in the graph.
     ///
@@ -495,7 +489,12 @@ mod tests {
 
     #[test]
     fn test_node_type_variants() {
-        let types = [NodeType::Entity, NodeType::Event, NodeType::Fact, NodeType::Skill];
+        let types = [
+            NodeType::Entity,
+            NodeType::Event,
+            NodeType::Fact,
+            NodeType::Skill,
+        ];
         assert_eq!(types.len(), 4);
     }
 
@@ -579,7 +578,11 @@ mod tests {
 
     #[test]
     fn test_mindset_tag_variants() {
-        let tags = [MindsetTag::Convergent, MindsetTag::Divergent, MindsetTag::Algorithmic];
+        let tags = [
+            MindsetTag::Convergent,
+            MindsetTag::Divergent,
+            MindsetTag::Algorithmic,
+        ];
         assert_eq!(tags.len(), 3);
     }
 
@@ -689,10 +692,13 @@ mod tests {
 
     #[test]
     fn test_mindset_tag_serialization() {
-        for tag in [MindsetTag::Convergent, MindsetTag::Divergent, MindsetTag::Algorithmic] {
+        for tag in [
+            MindsetTag::Convergent,
+            MindsetTag::Divergent,
+            MindsetTag::Algorithmic,
+        ] {
             let serialized = bincode::serialize(&tag).expect("serialize");
-            let deserialized: MindsetTag =
-                bincode::deserialize(&serialized).expect("deserialize");
+            let deserialized: MindsetTag = bincode::deserialize(&serialized).expect("deserialize");
             assert_eq!(deserialized, tag);
         }
     }
@@ -843,8 +849,7 @@ mod tests {
             MediaType::VideoSegment,
         ] {
             let serialized = bincode::serialize(&mt).expect("serialize");
-            let deserialized: MediaType =
-                bincode::deserialize(&serialized).expect("deserialize");
+            let deserialized: MediaType = bincode::deserialize(&serialized).expect("deserialize");
             assert_eq!(deserialized, mt);
         }
     }

@@ -34,12 +34,12 @@ use tokenizers::Tokenizer;
 use crate::{ExtractedEntity, NerPipeline};
 
 /// Special token IDs for GLiNER span-mode models (DeBERTa-based).
-const START_TOKEN_ID: i64 = 1;   // [CLS]
-const END_TOKEN_ID: i64 = 2;     // [SEP]
+const START_TOKEN_ID: i64 = 1; // [CLS]
+const END_TOKEN_ID: i64 = 2; // [SEP]
 #[allow(dead_code)]
 const PAD_TOKEN_ID: i64 = 0;
 const ENTITY_TOKEN_ID: i64 = 128002; // <<ENT>>
-const SEP_TOKEN_ID: i64 = 128003;    // <<SEP>>
+const SEP_TOKEN_ID: i64 = 128003; // <<SEP>>
 
 /// Default confidence threshold for entity extraction.
 const DEFAULT_THRESHOLD: f32 = 0.5;
@@ -109,11 +109,7 @@ impl GlinerNerPipeline {
     }
 
     /// Run inference on a single text with the given entity labels.
-    fn run_inference(
-        &self,
-        text: &str,
-        labels: &[&str],
-    ) -> Result<Vec<ExtractedEntity>> {
+    fn run_inference(&self, text: &str, labels: &[&str]) -> Result<Vec<ExtractedEntity>> {
         // Step 1: Split text into words (whitespace-based for simplicity)
         let words: Vec<&str> = text.split_whitespace().collect();
         if words.is_empty() {
@@ -157,7 +153,10 @@ impl GlinerNerPipeline {
                 val.try_extract_array::<f32>()
                     .context("Failed to extract logits tensor")?
             } else {
-                let first_key = outputs.keys().next().context("No outputs from GLiNER model")?;
+                let first_key = outputs
+                    .keys()
+                    .next()
+                    .context("No outputs from GLiNER model")?;
                 outputs[first_key]
                     .try_extract_array::<f32>()
                     .context("Failed to extract first output tensor")?
@@ -326,7 +325,10 @@ impl GlinerNerPipeline {
                 val.try_extract_array::<f32>()
                     .context("Failed to extract logits tensor")?
             } else {
-                let first_key = outputs.keys().next().context("No outputs from GLiNER model")?;
+                let first_key = outputs
+                    .keys()
+                    .next()
+                    .context("No outputs from GLiNER model")?;
                 outputs[first_key]
                     .try_extract_array::<f32>()
                     .context("Failed to extract first output tensor")?
@@ -374,7 +376,13 @@ impl GlinerNerPipeline {
         words: &[&str],
         labels: &[&str],
         original_text: &str,
-    ) -> Result<(Array2<i64>, Array2<i64>, Array2<i64>, Array2<i64>, Vec<(usize, usize)>)> {
+    ) -> Result<(
+        Array2<i64>,
+        Array2<i64>,
+        Array2<i64>,
+        Array2<i64>,
+        Vec<(usize, usize)>,
+    )> {
         // Tokenize entity labels
         let mut entity_token_ids: Vec<i64> = Vec::new();
         for label in labels {
@@ -449,7 +457,13 @@ impl GlinerNerPipeline {
         // Text lengths (number of words)
         let text_lengths = Array2::from_elem((1, 1), words.len() as i64);
 
-        Ok((input_ids, attention_mask, words_mask_arr, text_lengths, word_to_char))
+        Ok((
+            input_ids,
+            attention_mask,
+            words_mask_arr,
+            text_lengths,
+            word_to_char,
+        ))
     }
 
     /// Generate span index and mask tensors for candidate entity spans.
@@ -522,8 +536,10 @@ impl GlinerNerPipeline {
                             let score = sigmoid(logit);
                             if score >= threshold {
                                 let entity_text = words[start_word..=end_word].join(" ");
-                                let char_start = word_to_char.get(start_word).map(|&(s, _)| s).unwrap_or(0);
-                                let char_end = word_to_char.get(end_word).map(|&(_, e)| e).unwrap_or(0);
+                                let char_start =
+                                    word_to_char.get(start_word).map(|&(s, _)| s).unwrap_or(0);
+                                let char_end =
+                                    word_to_char.get(end_word).map(|&(_, e)| e).unwrap_or(0);
                                 entities.push(ExtractedEntity {
                                     text: entity_text,
                                     label: labels[label_idx].to_string(),
@@ -556,7 +572,8 @@ impl GlinerNerPipeline {
                         let score = sigmoid(logit);
                         if score >= threshold {
                             let entity_text = words[start_word..=end_word].join(" ");
-                            let char_start = word_to_char.get(start_word).map(|&(s, _)| s).unwrap_or(0);
+                            let char_start =
+                                word_to_char.get(start_word).map(|&(s, _)| s).unwrap_or(0);
                             let char_end = word_to_char.get(end_word).map(|&(_, e)| e).unwrap_or(0);
                             entities.push(ExtractedEntity {
                                 text: entity_text,
@@ -575,7 +592,11 @@ impl GlinerNerPipeline {
         }
 
         // Sort by confidence descending
-        entities.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+        entities.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         entities
     }
 }
@@ -605,6 +626,7 @@ impl GlinerNerPipeline {
     /// Decode model output logits for a specific batch element.
     ///
     /// Similar to `decode_spans` but takes a batch index for multi-text inference.
+    #[allow(clippy::too_many_arguments)]
     fn decode_spans_batch(
         &self,
         logits: &ndarray::ArrayD<f32>,
@@ -638,8 +660,10 @@ impl GlinerNerPipeline {
                             let score = sigmoid(logit);
                             if score >= threshold {
                                 let entity_text = words[start_word..=end_word].join(" ");
-                                let char_start = word_to_char.get(start_word).map(|&(s, _)| s).unwrap_or(0);
-                                let char_end = word_to_char.get(end_word).map(|&(_, e)| e).unwrap_or(0);
+                                let char_start =
+                                    word_to_char.get(start_word).map(|&(s, _)| s).unwrap_or(0);
+                                let char_end =
+                                    word_to_char.get(end_word).map(|&(_, e)| e).unwrap_or(0);
                                 entities.push(ExtractedEntity {
                                     text: entity_text,
                                     label: labels[label_idx].to_string(),
@@ -672,7 +696,8 @@ impl GlinerNerPipeline {
                         let score = sigmoid(logit);
                         if score >= threshold {
                             let entity_text = words[start_word..=end_word].join(" ");
-                            let char_start = word_to_char.get(start_word).map(|&(s, _)| s).unwrap_or(0);
+                            let char_start =
+                                word_to_char.get(start_word).map(|&(s, _)| s).unwrap_or(0);
                             let char_end = word_to_char.get(end_word).map(|&(_, e)| e).unwrap_or(0);
                             entities.push(ExtractedEntity {
                                 text: entity_text,
@@ -690,7 +715,11 @@ impl GlinerNerPipeline {
             }
         }
 
-        entities.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+        entities.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         entities
     }
 }
@@ -730,7 +759,11 @@ fn build_word_to_char_map(words: &[&str], original_text: &str) -> Vec<(usize, us
 /// This implements flat NER (no nested entities).
 fn greedy_dedup(mut entities: Vec<ExtractedEntity>) -> Vec<ExtractedEntity> {
     // Sort by confidence descending (highest first)
-    entities.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+    entities.sort_by(|a, b| {
+        b.confidence
+            .partial_cmp(&a.confidence)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     let mut result = Vec::new();
     let mut occupied: HashSet<usize> = HashSet::new();
 
@@ -765,7 +798,10 @@ mod tests {
     fn test_sigmoid_symmetry() {
         for x in [-5.0, -1.0, 0.0, 1.0, 5.0] {
             let sum = sigmoid(x) + sigmoid(-x);
-            assert!((sum - 1.0).abs() < 1e-6, "sigmoid(x) + sigmoid(-x) should equal 1");
+            assert!(
+                (sum - 1.0).abs() < 1e-6,
+                "sigmoid(x) + sigmoid(-x) should equal 1"
+            );
         }
     }
 
@@ -782,8 +818,8 @@ mod tests {
         let text = "Juan  vive  en  Madrid";
         let words: Vec<&str> = text.split_whitespace().collect();
         let map = build_word_to_char_map(&words, text);
-        assert_eq!(map[0], (0, 4));   // Juan
-        assert_eq!(map[1], (6, 10));  // vive
+        assert_eq!(map[0], (0, 4)); // Juan
+        assert_eq!(map[1], (6, 10)); // vive
         assert_eq!(map[2], (12, 14)); // en
         assert_eq!(map[3], (16, 22)); // Madrid
     }
@@ -793,8 +829,8 @@ mod tests {
         let text = "Hello, World!";
         let words: Vec<&str> = text.split_whitespace().collect();
         let map = build_word_to_char_map(&words, text);
-        assert_eq!(map[0], (0, 6));   // "Hello,"
-        assert_eq!(map[1], (7, 13));  // "World!"
+        assert_eq!(map[0], (0, 6)); // "Hello,"
+        assert_eq!(map[1], (7, 13)); // "World!"
     }
 
     #[test]
@@ -882,8 +918,14 @@ mod tests {
         let tokenizer_path = format!("{}/models/gliner_small-v2.1/tokenizer.json", manifest_dir);
 
         // Also check workspace-level models dir
-        let workspace_model_path = format!("{}/../models/gliner_small-v2.1/onnx/model.onnx", manifest_dir);
-        let workspace_tokenizer_path = format!("{}/../models/gliner_small-v2.1/tokenizer.json", manifest_dir);
+        let workspace_model_path = format!(
+            "{}/../models/gliner_small-v2.1/onnx/model.onnx",
+            manifest_dir
+        );
+        let workspace_tokenizer_path = format!(
+            "{}/../models/gliner_small-v2.1/tokenizer.json",
+            manifest_dir
+        );
 
         if Path::new(&model_path).exists() && Path::new(&tokenizer_path).exists() {
             Some((model_path, tokenizer_path))
@@ -902,8 +944,13 @@ mod tests {
             eprintln!("Skipping test: GLiNER model not found. Run scripts/download_models.sh");
             return;
         };
-        let pipeline = GlinerNerPipeline::new(&model_path, &tokenizer_path, GlinerConfig::default());
-        assert!(pipeline.is_ok(), "Failed to create pipeline: {:?}", pipeline.err());
+        let pipeline =
+            GlinerNerPipeline::new(&model_path, &tokenizer_path, GlinerConfig::default());
+        assert!(
+            pipeline.is_ok(),
+            "Failed to create pipeline: {:?}",
+            pipeline.err()
+        );
     }
 
     #[test]
@@ -912,10 +959,14 @@ mod tests {
             eprintln!("Skipping test: GLiNER model not found. Run scripts/download_models.sh");
             return;
         };
-        let pipeline = GlinerNerPipeline::new(&model_path, &tokenizer_path, GlinerConfig {
-            threshold: 0.3,
-            ..GlinerConfig::default()
-        })
+        let pipeline = GlinerNerPipeline::new(
+            &model_path,
+            &tokenizer_path,
+            GlinerConfig {
+                threshold: 0.3,
+                ..GlinerConfig::default()
+            },
+        )
         .unwrap();
 
         let text = "My name is James Bond and I live in London";
@@ -928,8 +979,14 @@ mod tests {
         let persons: Vec<_> = entities.iter().filter(|e| e.label == "person").collect();
         let locations: Vec<_> = entities.iter().filter(|e| e.label == "location").collect();
 
-        assert!(!persons.is_empty(), "Should find at least one person entity");
-        assert!(!locations.is_empty(), "Should find at least one location entity");
+        assert!(
+            !persons.is_empty(),
+            "Should find at least one person entity"
+        );
+        assert!(
+            !locations.is_empty(),
+            "Should find at least one location entity"
+        );
     }
 
     #[test]
@@ -938,10 +995,14 @@ mod tests {
             eprintln!("Skipping test: GLiNER model not found. Run scripts/download_models.sh");
             return;
         };
-        let pipeline = GlinerNerPipeline::new(&model_path, &tokenizer_path, GlinerConfig {
-            threshold: 0.3,
-            ..GlinerConfig::default()
-        })
+        let pipeline = GlinerNerPipeline::new(
+            &model_path,
+            &tokenizer_path,
+            GlinerConfig {
+                threshold: 0.3,
+                ..GlinerConfig::default()
+            },
+        )
         .unwrap();
 
         let text = "Juan se mudó de Madrid a Berlín en enero 2026";
@@ -951,7 +1012,10 @@ mod tests {
         eprintln!("Extracted entities (Spanish): {:?}", entities);
 
         // Should extract at least some entities from Spanish text
-        assert!(!entities.is_empty(), "Should extract entities from Spanish text");
+        assert!(
+            !entities.is_empty(),
+            "Should extract entities from Spanish text"
+        );
     }
 
     #[test]
@@ -976,9 +1040,7 @@ mod tests {
         let pipeline =
             GlinerNerPipeline::new(&model_path, &tokenizer_path, GlinerConfig::default()).unwrap();
 
-        let entities = pipeline
-            .extract_entities("Hello World", &[])
-            .unwrap();
+        let entities = pipeline.extract_entities("Hello World", &[]).unwrap();
         assert!(entities.is_empty());
     }
 
@@ -988,14 +1050,21 @@ mod tests {
             eprintln!("Skipping test: GLiNER model not found. Run scripts/download_models.sh");
             return;
         };
-        let pipeline = GlinerNerPipeline::new(&model_path, &tokenizer_path, GlinerConfig {
-            threshold: 0.1,  // Low threshold to get more entities
-            ..GlinerConfig::default()
-        })
+        let pipeline = GlinerNerPipeline::new(
+            &model_path,
+            &tokenizer_path,
+            GlinerConfig {
+                threshold: 0.1, // Low threshold to get more entities
+                ..GlinerConfig::default()
+            },
+        )
         .unwrap();
 
         let entities = pipeline
-            .extract_entities("Apple was founded by Steve Jobs in Cupertino", &["person", "organization", "location"])
+            .extract_entities(
+                "Apple was founded by Steve Jobs in Cupertino",
+                &["person", "organization", "location"],
+            )
             .unwrap();
 
         for entity in &entities {
@@ -1014,10 +1083,14 @@ mod tests {
             eprintln!("Skipping test: GLiNER model not found. Run scripts/download_models.sh");
             return;
         };
-        let pipeline = GlinerNerPipeline::new(&model_path, &tokenizer_path, GlinerConfig {
-            threshold: 0.3,
-            ..GlinerConfig::default()
-        })
+        let pipeline = GlinerNerPipeline::new(
+            &model_path,
+            &tokenizer_path,
+            GlinerConfig {
+                threshold: 0.3,
+                ..GlinerConfig::default()
+            },
+        )
         .unwrap();
 
         // Test with custom domain-specific labels
@@ -1053,7 +1126,7 @@ mod tests {
         let map = build_word_to_char_map(&words, text);
         assert_eq!(map.len(), 2);
         assert_eq!(map[0].0, 0); // "café" starts at byte 0
-        // "niño" starts after "café " (5 bytes for café + 1 space = 6)
+                                 // "niño" starts after "café " (5 bytes for café + 1 space = 6)
         assert!(map[1].0 > 0); // second word starts after first
     }
 
@@ -1084,7 +1157,11 @@ mod tests {
             },
         ];
         let result = greedy_dedup(entities);
-        assert_eq!(result.len(), 3, "All non-overlapping entities should be kept");
+        assert_eq!(
+            result.len(),
+            3,
+            "All non-overlapping entities should be kept"
+        );
         let texts: Vec<&str> = result.iter().map(|e| e.text.as_str()).collect();
         assert!(texts.contains(&"first"));
         assert!(texts.contains(&"second"));
@@ -1115,11 +1192,7 @@ mod tests {
     struct SimpleBatchNer;
 
     impl NerPipeline for SimpleBatchNer {
-        fn extract_entities(
-            &self,
-            text: &str,
-            _labels: &[&str],
-        ) -> Result<Vec<ExtractedEntity>> {
+        fn extract_entities(&self, text: &str, _labels: &[&str]) -> Result<Vec<ExtractedEntity>> {
             // Extract capitalized words as entities
             let mut entities = Vec::new();
             for word in text.split_whitespace() {
@@ -1195,9 +1268,9 @@ mod tests {
     fn test_batch_preserves_per_text_results() {
         let ner = SimpleBatchNer;
         let texts = &[
-            "Alice works in Paris",    // has Alice, Paris
-            "no caps here",            // no entities
-            "Bob lives in Berlin",     // has Bob, Berlin
+            "Alice works in Paris", // has Alice, Paris
+            "no caps here",         // no entities
+            "Bob lives in Berlin",  // has Bob, Berlin
         ];
         let labels = &["person", "location"];
         let results = ner.extract_entities_batch(texts, labels).unwrap();
@@ -1215,16 +1288,17 @@ mod tests {
             eprintln!("Skipping test: GLiNER model not found. Run scripts/download_models.sh");
             return;
         };
-        let pipeline = GlinerNerPipeline::new(&model_path, &tokenizer_path, GlinerConfig {
-            threshold: 0.3,
-            ..GlinerConfig::default()
-        })
+        let pipeline = GlinerNerPipeline::new(
+            &model_path,
+            &tokenizer_path,
+            GlinerConfig {
+                threshold: 0.3,
+                ..GlinerConfig::default()
+            },
+        )
         .unwrap();
 
-        let texts = &[
-            "James Bond lives in London",
-            "Marie Curie worked in Paris",
-        ];
+        let texts = &["James Bond lives in London", "Marie Curie worked in Paris"];
         let labels = &["person", "location"];
         let results = pipeline.extract_entities_batch(texts, labels).unwrap();
 
@@ -1244,10 +1318,14 @@ mod tests {
             eprintln!("Skipping test: GLiNER model not found. Run scripts/download_models.sh");
             return;
         };
-        let pipeline = GlinerNerPipeline::new(&model_path, &tokenizer_path, GlinerConfig {
-            threshold: 0.3,
-            ..GlinerConfig::default()
-        })
+        let pipeline = GlinerNerPipeline::new(
+            &model_path,
+            &tokenizer_path,
+            GlinerConfig {
+                threshold: 0.3,
+                ..GlinerConfig::default()
+            },
+        )
         .unwrap();
 
         let texts = &[
@@ -1272,8 +1350,10 @@ mod tests {
         eprintln!("Individual[1] entities: {:?}", individual_1);
 
         // Same entity texts should appear in both (order may differ)
-        let batch_texts_0: std::collections::HashSet<&str> = batch_results[0].iter().map(|e| e.text.as_str()).collect();
-        let indiv_texts_0: std::collections::HashSet<&str> = individual_0.iter().map(|e| e.text.as_str()).collect();
+        let batch_texts_0: std::collections::HashSet<&str> =
+            batch_results[0].iter().map(|e| e.text.as_str()).collect();
+        let indiv_texts_0: std::collections::HashSet<&str> =
+            individual_0.iter().map(|e| e.text.as_str()).collect();
         // At minimum, both should find the same prominent entities
         assert!(
             !batch_texts_0.is_empty() || !indiv_texts_0.is_empty(),
@@ -1287,10 +1367,14 @@ mod tests {
             eprintln!("Skipping test: GLiNER model not found. Run scripts/download_models.sh");
             return;
         };
-        let pipeline = GlinerNerPipeline::new(&model_path, &tokenizer_path, GlinerConfig {
-            threshold: 0.3,
-            ..GlinerConfig::default()
-        })
+        let pipeline = GlinerNerPipeline::new(
+            &model_path,
+            &tokenizer_path,
+            GlinerConfig {
+                threshold: 0.3,
+                ..GlinerConfig::default()
+            },
+        )
         .unwrap();
 
         // Empty texts should return empty, non-empty should have entities

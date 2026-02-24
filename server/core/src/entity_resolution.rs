@@ -249,7 +249,10 @@ mod tests {
             for node in nodes {
                 self.nodes.insert(node.id, node.clone());
             }
-            Ok(InsertStats { count: nodes.len(), duration_us: 0 })
+            Ok(InsertStats {
+                count: nodes.len(),
+                duration_us: 0,
+            })
         }
 
         fn insert_edges(&mut self, edges: &[Edge]) -> Result<InsertStats> {
@@ -257,7 +260,10 @@ mod tests {
                 self.adj.entry(edge.source).or_default().push(edge.target);
                 self.adj.entry(edge.target).or_default().push(edge.source);
             }
-            Ok(InsertStats { count: edges.len(), duration_us: 0 })
+            Ok(InsertStats {
+                count: edges.len(),
+                duration_us: 0,
+            })
         }
 
         fn get_node(&self, id: NodeId) -> Result<Option<Node>> {
@@ -287,7 +293,12 @@ mod tests {
             Ok(Vec::new())
         }
 
-        fn find_path(&self, _source: NodeId, _target: NodeId, _max_depth: u32) -> Result<Option<Vec<NodeId>>> {
+        fn find_path(
+            &self,
+            _source: NodeId,
+            _target: NodeId,
+            _max_depth: u32,
+        ) -> Result<Option<Vec<NodeId>>> {
             Ok(None) // not needed for entity resolution tests
         }
 
@@ -496,12 +507,7 @@ mod tests {
         let mut engine = MockEngine::new();
         engine.add_node(make_node(1, "Solo", unit_vec(384, 0)));
 
-        let clusters = resolve_entities(
-            &engine,
-            &[1],
-            &EntityResolutionConfig::default(),
-        )
-        .unwrap();
+        let clusters = resolve_entities(&engine, &[1], &EntityResolutionConfig::default()).unwrap();
 
         assert_eq!(clusters.len(), 1);
         assert_eq!(clusters[0].member_ids, vec![1]);
@@ -510,12 +516,7 @@ mod tests {
     #[test]
     fn test_empty_candidates_returns_empty() {
         let engine = MockEngine::new();
-        let clusters = resolve_entities(
-            &engine,
-            &[],
-            &EntityResolutionConfig::default(),
-        )
-        .unwrap();
+        let clusters = resolve_entities(&engine, &[], &EntityResolutionConfig::default()).unwrap();
         assert!(clusters.is_empty());
     }
 

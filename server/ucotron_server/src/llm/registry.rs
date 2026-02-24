@@ -16,7 +16,7 @@ use axum::{
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
-use heed::{Database, types::SerdeBincode};
+use heed::{types::SerdeBincode, Database};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -148,7 +148,10 @@ pub fn encrypt_api_key(key: &str, encryption_key: &[u8; ENCRYPTION_KEY_SIZE]) ->
     result
 }
 
-pub fn decrypt_api_key(encrypted: &[u8], encryption_key: &[u8; ENCRYPTION_KEY_SIZE]) -> Option<String> {
+pub fn decrypt_api_key(
+    encrypted: &[u8],
+    encryption_key: &[u8; ENCRYPTION_KEY_SIZE],
+) -> Option<String> {
     if encrypted.len() < NONCE_SIZE {
         return None;
     }
@@ -161,7 +164,9 @@ pub fn decrypt_api_key(encrypted: &[u8], encryption_key: &[u8; ENCRYPTION_KEY_SI
     String::from_utf8(plaintext).ok()
 }
 
-pub(crate) fn get_encryption_key(config: &ucotron_config::UcotronConfig) -> [u8; ENCRYPTION_KEY_SIZE] {
+pub(crate) fn get_encryption_key(
+    config: &ucotron_config::UcotronConfig,
+) -> [u8; ENCRYPTION_KEY_SIZE] {
     let mut key = [0u8; ENCRYPTION_KEY_SIZE];
     let key_source = config
         .auth
@@ -251,37 +256,39 @@ pub async fn create_provider_handler(
 
     // Try LMDB first, fall back to in-memory
     let db_key = format!("{}:{}", namespace, provider.id);
-    
+
     if let Some(db) = get_provider_db(&state) {
         let env = state.llm_providers_env.as_ref().unwrap();
-        let mut write_txn = env.write_txn().map_err(|e| {
-            AppError::internal(format!("Failed to start LMDB transaction: {}", e))
-        })?;
-        
-        if db.get(&write_txn, &db_key).map_err(|e| {
-            AppError::internal(format!("LMDB read error: {}", e))
-        })?.is_some() {
+        let mut write_txn = env
+            .write_txn()
+            .map_err(|e| AppError::internal(format!("Failed to start LMDB transaction: {}", e)))?;
+
+        if db
+            .get(&write_txn, &db_key)
+            .map_err(|e| AppError::internal(format!("LMDB read error: {}", e)))?
+            .is_some()
+        {
             return Err(AppError::bad_request(format!(
                 "provider with id '{}' already exists",
                 provider.id
             )));
         }
-        
-        db.put(&mut write_txn, &db_key, &provider).map_err(|e| {
-            AppError::internal(format!("LMDB write error: {}", e))
-        })?;
-        write_txn.commit().map_err(|e| {
-            AppError::internal(format!("LMDB commit error: {}", e))
-        })?;
-        
+
+        db.put(&mut write_txn, &db_key, &provider)
+            .map_err(|e| AppError::internal(format!("LMDB write error: {}", e)))?;
+        write_txn
+            .commit()
+            .map_err(|e| AppError::internal(format!("LMDB commit error: {}", e)))?;
+
         let response = ProviderResponse::from(&provider);
         return Ok((axum::http::StatusCode::CREATED, Json(response)));
     }
 
     // Fall back to in-memory storage
-    let mut providers = state.llm_providers.write().map_err(|e| {
-        AppError::internal(format!("Failed to acquire lock on providers: {}", e))
-    })?;
+    let mut providers = state
+        .llm_providers
+        .write()
+        .map_err(|e| AppError::internal(format!("Failed to acquire lock on providers: {}", e)))?;
 
     if providers.iter().any(|p| p.id == provider.id) {
         return Err(AppError::bad_request(format!(
@@ -329,29 +336,29 @@ pub async fn list_providers_handler(
         let read_txn = env.read_txn().map_err(|e| {
             AppError::internal(format!("Failed to start LMDB read transaction: {}", e))
         })?;
-        
+
         let prefix = format!("{}:", namespace);
         let mut providers = Vec::new();
-        let iter = db.iter(&read_txn).map_err(|e| {
-            AppError::internal(format!("LMDB iteration error: {}", e))
-        })?;
-        
+        let iter = db
+            .iter(&read_txn)
+            .map_err(|e| AppError::internal(format!("LMDB iteration error: {}", e)))?;
+
         for result in iter {
-            let (key, provider) = result.map_err(|e| {
-                AppError::internal(format!("LMDB read error: {}", e))
-            })?;
+            let (key, provider) =
+                result.map_err(|e| AppError::internal(format!("LMDB read error: {}", e)))?;
             if key.starts_with(&prefix) {
                 providers.push(ProviderResponse::from(&provider));
             }
         }
-        
+
         return Ok(Json(ProviderListResponse { providers }));
     }
 
     // Fall back to in-memory storage
-    let providers = state.llm_providers.read().map_err(|e| {
-        AppError::internal(format!("Failed to acquire lock on providers: {}", e))
-    })?;
+    let providers = state
+        .llm_providers
+        .read()
+        .map_err(|e| AppError::internal(format!("Failed to acquire lock on providers: {}", e)))?;
 
     let response = ProviderListResponse {
         providers: providers.iter().map(ProviderResponse::from).collect(),
@@ -386,24 +393,26 @@ pub async fn get_provider_handler(
 
     // Try LMDB first, fall back to in-memory
     let db_key = format!("{}:{}", namespace, id);
-    
+
     if let Some(db) = get_provider_db(&state) {
         let env = state.llm_providers_env.as_ref().unwrap();
         let read_txn = env.read_txn().map_err(|e| {
             AppError::internal(format!("Failed to start LMDB read transaction: {}", e))
         })?;
-        
-        let provider = db.get(&read_txn, &db_key).map_err(|e| {
-            AppError::internal(format!("LMDB read error: {}", e))
-        })?.ok_or_else(|| AppError::not_found(format!("provider '{}' not found", id)))?;
-        
+
+        let provider = db
+            .get(&read_txn, &db_key)
+            .map_err(|e| AppError::internal(format!("LMDB read error: {}", e)))?
+            .ok_or_else(|| AppError::not_found(format!("provider '{}' not found", id)))?;
+
         return Ok(Json(ProviderResponse::from(&provider)));
     }
 
     // Fall back to in-memory storage
-    let providers = state.llm_providers.read().map_err(|e| {
-        AppError::internal(format!("Failed to acquire lock on providers: {}", e))
-    })?;
+    let providers = state
+        .llm_providers
+        .read()
+        .map_err(|e| AppError::internal(format!("Failed to acquire lock on providers: {}", e)))?;
 
     let provider = providers
         .iter()
@@ -446,13 +455,14 @@ pub async fn update_provider_handler(
     // Try LMDB first, fall back to in-memory
     if let Some(db) = get_provider_db(&state) {
         let env = state.llm_providers_env.as_ref().unwrap();
-        let mut write_txn = env.write_txn().map_err(|e| {
-            AppError::internal(format!("Failed to start LMDB transaction: {}", e))
-        })?;
-        
-        let mut provider = db.get(&write_txn, &db_key).map_err(|e| {
-            AppError::internal(format!("LMDB read error: {}", e))
-        })?.ok_or_else(|| AppError::not_found(format!("provider '{}' not found", id)))?;
+        let mut write_txn = env
+            .write_txn()
+            .map_err(|e| AppError::internal(format!("Failed to start LMDB transaction: {}", e)))?;
+
+        let mut provider = db
+            .get(&write_txn, &db_key)
+            .map_err(|e| AppError::internal(format!("LMDB read error: {}", e)))?
+            .ok_or_else(|| AppError::not_found(format!("provider '{}' not found", id)))?;
 
         if let Some(name) = body.name {
             provider.name = name;
@@ -476,20 +486,20 @@ pub async fn update_provider_handler(
             provider.pricing = pricing;
         }
 
-        db.put(&mut write_txn, &db_key, &provider).map_err(|e| {
-            AppError::internal(format!("LMDB write error: {}", e))
-        })?;
-        write_txn.commit().map_err(|e| {
-            AppError::internal(format!("LMDB commit error: {}", e))
-        })?;
+        db.put(&mut write_txn, &db_key, &provider)
+            .map_err(|e| AppError::internal(format!("LMDB write error: {}", e)))?;
+        write_txn
+            .commit()
+            .map_err(|e| AppError::internal(format!("LMDB commit error: {}", e)))?;
 
         return Ok(Json(ProviderResponse::from(&provider)));
     }
 
     // Fall back to in-memory storage
-    let mut providers = state.llm_providers.write().map_err(|e| {
-        AppError::internal(format!("Failed to acquire lock on providers: {}", e))
-    })?;
+    let mut providers = state
+        .llm_providers
+        .write()
+        .map_err(|e| AppError::internal(format!("Failed to acquire lock on providers: {}", e)))?;
 
     let provider = providers
         .iter_mut()
@@ -550,32 +560,33 @@ pub async fn delete_provider_handler(
     // Try LMDB first, fall back to in-memory
     if let Some(db) = get_provider_db(&state) {
         let env = state.llm_providers_env.as_ref().unwrap();
-        let mut write_txn = env.write_txn().map_err(|e| {
-            AppError::internal(format!("Failed to start LMDB transaction: {}", e))
-        })?;
-        
-        let existed = db.get(&write_txn, &db_key).map_err(|e| {
-            AppError::internal(format!("LMDB read error: {}", e))
-        })?.is_some();
-        
+        let mut write_txn = env
+            .write_txn()
+            .map_err(|e| AppError::internal(format!("Failed to start LMDB transaction: {}", e)))?;
+
+        let existed = db
+            .get(&write_txn, &db_key)
+            .map_err(|e| AppError::internal(format!("LMDB read error: {}", e)))?
+            .is_some();
+
         if !existed {
             return Err(AppError::not_found(format!("provider '{}' not found", id)));
         }
-        
-        db.delete(&mut write_txn, &db_key).map_err(|e| {
-            AppError::internal(format!("LMDB delete error: {}", e))
-        })?;
-        write_txn.commit().map_err(|e| {
-            AppError::internal(format!("LMDB commit error: {}", e))
-        })?;
-        
+
+        db.delete(&mut write_txn, &db_key)
+            .map_err(|e| AppError::internal(format!("LMDB delete error: {}", e)))?;
+        write_txn
+            .commit()
+            .map_err(|e| AppError::internal(format!("LMDB commit error: {}", e)))?;
+
         return Ok(axum::http::StatusCode::NO_CONTENT);
     }
 
     // Fall back to in-memory storage
-    let mut providers = state.llm_providers.write().map_err(|e| {
-        AppError::internal(format!("Failed to acquire lock on providers: {}", e))
-    })?;
+    let mut providers = state
+        .llm_providers
+        .write()
+        .map_err(|e| AppError::internal(format!("Failed to acquire lock on providers: {}", e)))?;
 
     let initial_len = providers.len();
     providers.retain(|p| p.id != id);
@@ -593,5 +604,8 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/api/v1/llm/providers", get(list_providers_handler))
         .route("/api/v1/llm/providers/{id}", get(get_provider_handler))
         .route("/api/v1/llm/providers/{id}", put(update_provider_handler))
-        .route("/api/v1/llm/providers/{id}", delete(delete_provider_handler))
+        .route(
+            "/api/v1/llm/providers/{id}",
+            delete(delete_provider_handler),
+        )
 }

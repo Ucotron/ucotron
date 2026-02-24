@@ -265,10 +265,7 @@ impl GitHubConnector {
             serde_json::Value::String(kind.to_string()),
         );
         if !labels_str.is_empty() {
-            extra.insert(
-                "labels".to_string(),
-                serde_json::Value::String(labels_str),
-            );
+            extra.insert("labels".to_string(), serde_json::Value::String(labels_str));
         }
         if let Some(ref assignee) = issue.assignee {
             extra.insert(
@@ -293,6 +290,7 @@ impl GitHubConnector {
     }
 
     /// Converts a GitHub comment to a ContentItem.
+    #[allow(clippy::too_many_arguments)]
     fn comment_to_content_item(
         &self,
         comment: &GitHubComment,
@@ -518,7 +516,7 @@ impl Connector for GitHubConnector {
                 // Track the most recent updated_at across all items
                 if latest_updated
                     .as_ref()
-                    .map_or(true, |current| &issue.updated_at > current)
+                    .is_none_or(|current| &issue.updated_at > current)
                 {
                     latest_updated = Some(issue.updated_at.clone());
                 }
@@ -646,9 +644,7 @@ impl Connector for GitHubConnector {
                     .get("title")
                     .and_then(|v| v.as_str())
                     .unwrap_or("Unknown");
-                let is_pr = issue_obj
-                    .get("pull_request")
-                    .is_some_and(|v| !v.is_null());
+                let is_pr = issue_obj.get("pull_request").is_some_and(|v| !v.is_null());
                 let kind = if is_pr { "PR" } else { "Issue" };
 
                 let repo_full = body
@@ -690,10 +686,7 @@ fn parse_github_timestamp(ts: &str) -> Option<u64> {
     }
 
     let date_parts: Vec<u64> = parts[0].split('-').filter_map(|s| s.parse().ok()).collect();
-    let time_parts: Vec<u64> = parts[1]
-        .split(':')
-        .filter_map(|s| s.parse().ok())
-        .collect();
+    let time_parts: Vec<u64> = parts[1].split(':').filter_map(|s| s.parse().ok()).collect();
 
     if date_parts.len() != 3 || time_parts.len() != 3 {
         return None;
@@ -723,7 +716,7 @@ fn parse_github_timestamp(ts: &str) -> Option<u64> {
 }
 
 fn is_leap_year(year: u64) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 // --- GitHub API response types ---

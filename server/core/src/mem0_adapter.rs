@@ -262,7 +262,11 @@ fn parse_iso_timestamp(ts: &str) -> u64 {
         }
     }
 
-    if epoch < 0 { 0 } else { epoch as u64 }
+    if epoch < 0 {
+        0
+    } else {
+        epoch as u64
+    }
 }
 
 fn is_leap_year(year: u32) -> bool {
@@ -272,10 +276,7 @@ fn is_leap_year(year: u32) -> bool {
 /// Convert a serde_json::Value metadata object to a flat HashMap<String, serde_json::Value>.
 fn flatten_metadata(val: &serde_json::Value) -> HashMap<String, serde_json::Value> {
     match val {
-        serde_json::Value::Object(map) => map
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect(),
+        serde_json::Value::Object(map) => map.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
         _ => HashMap::new(),
     }
 }
@@ -285,10 +286,7 @@ fn flatten_metadata(val: &serde_json::Value) -> HashMap<String, serde_json::Valu
 /// Each Mem0 memory becomes an `ExportNode` of type `Entity`.
 /// Edges are inferred between memories sharing the same `user_id`
 /// (and optionally `agent_id`) using `RelatesTo` edge type.
-pub fn mem0_to_ucotron(
-    memories: &[Mem0Memory],
-    options: &Mem0ImportOptions,
-) -> Mem0ParseResult {
+pub fn mem0_to_ucotron(memories: &[Mem0Memory], options: &Mem0ImportOptions) -> Mem0ParseResult {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -348,14 +346,8 @@ pub fn mem0_to_ucotron(
         }
 
         // Origin marker.
-        metadata.insert(
-            "_import_source".to_string(),
-            serde_json::json!("mem0"),
-        );
-        metadata.insert(
-            "mem0_original_id".to_string(),
-            serde_json::json!(mem.id),
-        );
+        metadata.insert("_import_source".to_string(), serde_json::json!("mem0"));
+        metadata.insert("mem0_original_id".to_string(), serde_json::json!(mem.id));
 
         // Compute timestamp.
         let timestamp = mem
@@ -582,26 +574,24 @@ mod tests {
 
     #[test]
     fn test_convert_basic() {
-        let memories = vec![
-            Mem0Memory {
-                id: "mem_001".to_string(),
-                memory: "Likes coffee".to_string(),
-                user_id: Some("alice".to_string()),
-                agent_id: None,
-                app_id: None,
-                run_id: None,
-                hash: Some("h1".to_string()),
-                metadata: Some(serde_json::json!({"category": "preferences"})),
-                created_at: Some("2024-07-01T12:00:00Z".to_string()),
-                updated_at: Some("2024-07-01T12:00:00Z".to_string()),
-                input: None,
-                memory_type: None,
-                owner: None,
-                organization: None,
-                immutable: None,
-                expiration_date: None,
-            },
-        ];
+        let memories = vec![Mem0Memory {
+            id: "mem_001".to_string(),
+            memory: "Likes coffee".to_string(),
+            user_id: Some("alice".to_string()),
+            agent_id: None,
+            app_id: None,
+            run_id: None,
+            hash: Some("h1".to_string()),
+            metadata: Some(serde_json::json!({"category": "preferences"})),
+            created_at: Some("2024-07-01T12:00:00Z".to_string()),
+            updated_at: Some("2024-07-01T12:00:00Z".to_string()),
+            input: None,
+            memory_type: None,
+            owner: None,
+            organization: None,
+            immutable: None,
+            expiration_date: None,
+        }];
 
         let options = Mem0ImportOptions::default();
         let result = mem0_to_ucotron(&memories, &options);

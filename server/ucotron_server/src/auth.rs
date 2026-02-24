@@ -90,7 +90,9 @@ pub async fn auth_middleware(
             let err = AppError {
                 status: StatusCode::UNAUTHORIZED,
                 code: "UNAUTHORIZED".into(),
-                message: "Missing or invalid Authorization header. Use: Authorization: Bearer <api-key>".into(),
+                message:
+                    "Missing or invalid Authorization header. Use: Authorization: Bearer <api-key>"
+                        .into(),
             };
             err.into_response()
         }

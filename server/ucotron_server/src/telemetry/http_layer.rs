@@ -197,18 +197,13 @@ mod tests {
     }
 
     fn build_app(handler: axum::routing::MethodRouter) -> Router {
-        Router::new()
-            .route("/test", handler)
-            .layer(OtelHttpLayer)
+        Router::new().route("/test", handler).layer(OtelHttpLayer)
     }
 
     #[tokio::test]
     async fn test_otel_layer_passes_through() {
         let app = build_app(get(ok_handler));
-        let request = Request::builder()
-            .uri("/test")
-            .body(Body::empty())
-            .unwrap();
+        let request = Request::builder().uri("/test").body(Body::empty()).unwrap();
 
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
@@ -250,10 +245,7 @@ mod tests {
     #[tokio::test]
     async fn test_otel_layer_error_status() {
         let app = build_app(get(not_found_handler));
-        let request = Request::builder()
-            .uri("/test")
-            .body(Body::empty())
-            .unwrap();
+        let request = Request::builder().uri("/test").body(Body::empty()).unwrap();
 
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
@@ -262,10 +254,7 @@ mod tests {
     #[tokio::test]
     async fn test_otel_layer_server_error() {
         let app = build_app(get(error_handler));
-        let request = Request::builder()
-            .uri("/test")
-            .body(Body::empty())
-            .unwrap();
+        let request = Request::builder().uri("/test").body(Body::empty()).unwrap();
 
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);

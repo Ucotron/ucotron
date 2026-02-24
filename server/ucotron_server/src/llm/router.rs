@@ -14,7 +14,7 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
-use heed::{Database, types::SerdeBincode};
+use heed::{types::SerdeBincode, Database};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -22,29 +22,26 @@ use crate::auth::{require_namespace_access, require_role, AuthContext};
 use crate::error::AppError;
 use crate::llm::client::{ChatMessage, CompletionRequest, LLMClient, LLMResponse};
 use crate::llm::costs::record_cost;
-use crate::llm::registry::{decrypt_api_key, get_encryption_key, ProviderType};
 use crate::llm::registry::LLMProvider;
+use crate::llm::registry::{decrypt_api_key, get_encryption_key, ProviderType};
 use crate::state::AppState;
 use crate::types::ApiErrorResponse;
 
 type ProviderDb = Database<SerdeBincode<String>, SerdeBincode<LLMProvider>>;
 
 const DEFAULT_P50_PERCENTILE: usize = 50;
+#[allow(dead_code)]
 const MAX_PROVIDER_RETRIES: usize = 3;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum RoutingStrategy {
+    #[default]
     Cheapest,
     Fastest,
     Quality,
     RoundRobin,
-}
-
-impl Default for RoutingStrategy {
-    fn default() -> Self {
-        Self::Cheapest
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -169,6 +166,7 @@ pub fn extract_namespace(headers: &HeaderMap) -> String {
         .to_string()
 }
 
+#[allow(dead_code)]
 fn get_provider_db_key(namespace: &str, provider_id: &str) -> String {
     format!("{}:{}", namespace, provider_id)
 }
@@ -177,9 +175,10 @@ fn get_providers_from_state(
     state: &AppState,
     namespace: &str,
 ) -> Result<Vec<LLMProvider>, AppError> {
-    let env = state.llm_providers_env.as_ref().ok_or_else(|| {
-        AppError::internal("LLM providers environment not initialized")
-    })?;
+    let env = state
+        .llm_providers_env
+        .as_ref()
+        .ok_or_else(|| AppError::internal("LLM providers environment not initialized"))?;
 
     let read_txn = env
         .read_txn()
@@ -198,7 +197,8 @@ fn get_providers_from_state(
         .map_err(|e| AppError::internal(format!("LMDB iteration error: {}", e)))?;
 
     for result in iter {
-        let (key, provider): (String, LLMProvider) = result.map_err(|e| AppError::internal(format!("LMDB read error: {}", e)))?;
+        let (key, provider): (String, LLMProvider) =
+            result.map_err(|e| AppError::internal(format!("LMDB read error: {}", e)))?;
         if key.starts_with(&prefix) {
             providers.push(provider);
         }
@@ -264,8 +264,8 @@ fn select_provider_by_strategy(
                 {
                     continue;
                 }
-                let cost = provider.pricing.input_per_1k_tokens
-                    + provider.pricing.output_per_1k_tokens;
+                let cost =
+                    provider.pricing.input_per_1k_tokens + provider.pricing.output_per_1k_tokens;
                 match cheapest {
                     None => cheapest = Some((provider.id.clone(), cost)),
                     Some((_, current_cost)) if cost < current_cost => {
@@ -381,15 +381,17 @@ pub async fn complete_handler(
             .find(|p| p.id == *provider_id)
             .ok_or_else(|| AppError::not_found(format!("provider '{}' not found", provider_id)))?
     } else {
-        let stats_guard = state.llm_provider_stats.read().map_err(|e| {
-            AppError::internal(format!("Failed to read provider stats: {}", e))
-        })?;
+        let stats_guard = state
+            .llm_provider_stats
+            .read()
+            .map_err(|e| AppError::internal(format!("Failed to read provider stats: {}", e)))?;
         let stats: HashMap<String, ProviderStats> = stats_guard.clone();
         drop(stats_guard);
-        
-        let mut round_robin_index = state.llm_round_robin_index.write().map_err(|e| {
-            AppError::internal(format!("Failed to write round-robin index: {}", e))
-        })?;
+
+        let mut round_robin_index = state
+            .llm_round_robin_index
+            .write()
+            .map_err(|e| AppError::internal(format!("Failed to write round-robin index: {}", e)))?;
 
         let provider_id = select_provider_by_strategy(
             &providers,
@@ -420,9 +422,10 @@ pub async fn complete_handler(
     let result = client.complete(request).await;
     let latency = start.elapsed().as_millis() as u64;
 
-    let mut stats = state.llm_provider_stats.write().map_err(|e| {
-        AppError::internal(format!("Failed to write provider stats: {}", e))
-    })?;
+    let mut stats = state
+        .llm_provider_stats
+        .write()
+        .map_err(|e| AppError::internal(format!("Failed to write provider stats: {}", e)))?;
 
     let provider_stats = stats
         .entry(selected_provider.id.clone())
@@ -436,7 +439,7 @@ pub async fn complete_handler(
                 selected_provider,
             );
             provider_stats.record_success(latency, cost);
-            
+
             let _ = record_cost(
                 state.as_ref(),
                 &namespace,
@@ -447,7 +450,7 @@ pub async fn complete_handler(
                 response.output_tokens,
                 cost,
             );
-            
+
             response.provider = selected_provider.name.clone();
             response
         }
@@ -488,30 +491,40 @@ pub async fn metrics_handler(
     require_namespace_access(&auth, &namespace)?;
 
     let providers = get_providers_from_state(state.as_ref(), &namespace)?;
-    let stats = state.llm_provider_stats.read().map_err(|e| {
-        AppError::internal(format!("Failed to read provider stats: {}", e))
-    })?;
+    let stats = state
+        .llm_provider_stats
+        .read()
+        .map_err(|e| AppError::internal(format!("Failed to read provider stats: {}", e)))?;
 
     let metrics: Vec<ProviderMetrics> = providers
         .iter()
         .map(|p| {
             let provider_stats = stats.get(&p.id);
-            let (total_requests, successful_requests, failed_requests, success_rate, avg_latency, p50, p95, p99, total_cost) = 
-                if let Some(ps) = provider_stats {
-                    (
-                        ps.total_requests,
-                        ps.successful_requests,
-                        ps.failed_requests,
-                        ps.success_rate(),
-                        ps.avg_latency_ms(),
-                        ps.percentile_latency_ms(50),
-                        ps.percentile_latency_ms(95),
-                        ps.percentile_latency_ms(99),
-                        ps.total_cost,
-                    )
-                } else {
-                    (0, 0, 0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-                };
+            let (
+                total_requests,
+                successful_requests,
+                failed_requests,
+                success_rate,
+                avg_latency,
+                p50,
+                p95,
+                p99,
+                total_cost,
+            ) = if let Some(ps) = provider_stats {
+                (
+                    ps.total_requests,
+                    ps.successful_requests,
+                    ps.failed_requests,
+                    ps.success_rate(),
+                    ps.avg_latency_ms(),
+                    ps.percentile_latency_ms(50),
+                    ps.percentile_latency_ms(95),
+                    ps.percentile_latency_ms(99),
+                    ps.total_cost,
+                )
+            } else {
+                (0, 0, 0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            };
 
             ProviderMetrics {
                 provider_id: p.id.clone(),
@@ -540,15 +553,17 @@ pub async fn reset_metrics_handler(
     let namespace = extract_namespace(&headers);
     require_namespace_access(&auth, &namespace)?;
 
-    let mut stats = state.llm_provider_stats.write().map_err(|e| {
-        AppError::internal(format!("Failed to write provider stats: {}", e))
-    })?;
+    let mut stats = state
+        .llm_provider_stats
+        .write()
+        .map_err(|e| AppError::internal(format!("Failed to write provider stats: {}", e)))?;
 
     stats.clear();
 
-    let mut index = state.llm_round_robin_index.write().map_err(|e| {
-        AppError::internal(format!("Failed to write round-robin index: {}", e))
-    })?;
+    let mut index = state
+        .llm_round_robin_index
+        .write()
+        .map_err(|e| AppError::internal(format!("Failed to write round-robin index: {}", e)))?;
 
     *index = 0;
 

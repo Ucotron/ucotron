@@ -157,17 +157,14 @@ impl MongoConnector {
 
     /// Returns a filter document from settings (if configured).
     fn get_filter(config: &ConnectorConfig) -> Option<Document> {
-        config
-            .settings
-            .get("filter")
-            .and_then(|v| {
-                // Convert serde_json::Value to BSON Document
-                let bson = json_value_to_bson(v);
-                match bson {
-                    Bson::Document(doc) => Some(doc),
-                    _ => None,
-                }
-            })
+        config.settings.get("filter").and_then(|v| {
+            // Convert serde_json::Value to BSON Document
+            let bson = json_value_to_bson(v);
+            match bson {
+                Bson::Document(doc) => Some(doc),
+                _ => None,
+            }
+        })
     }
 
     /// Returns extra fields to include as metadata.
@@ -190,8 +187,7 @@ impl MongoConnector {
         let options = ClientOptions::parse(uri)
             .await
             .context("Failed to parse MongoDB connection string")?;
-        let client =
-            Client::with_options(options).context("Failed to create MongoDB client")?;
+        let client = Client::with_options(options).context("Failed to create MongoDB client")?;
         Ok(client)
     }
 
@@ -326,12 +322,10 @@ impl MongoConnector {
             }
 
             // Extract timestamp from _id (ObjectId) if available
-            let created_at = document
-                .get("_id")
-                .and_then(|v| match v {
-                    Bson::ObjectId(oid) => Some(oid.timestamp().timestamp_millis() as u64 / 1000),
-                    _ => None,
-                });
+            let created_at = document.get("_id").and_then(|v| match v {
+                Bson::ObjectId(oid) => Some(oid.timestamp().timestamp_millis() as u64 / 1000),
+                _ => None,
+            });
 
             items.push(ContentItem {
                 content,
@@ -373,9 +367,7 @@ fn json_value_to_bson(value: &serde_json::Value) -> Bson {
             }
         }
         serde_json::Value::String(s) => Bson::String(s.clone()),
-        serde_json::Value::Array(arr) => {
-            Bson::Array(arr.iter().map(json_value_to_bson).collect())
-        }
+        serde_json::Value::Array(arr) => Bson::Array(arr.iter().map(json_value_to_bson).collect()),
         serde_json::Value::Object(map) => {
             let mut doc = Document::new();
             for (k, v) in map {
@@ -597,10 +589,7 @@ mod tests {
 
     fn make_config(uri: &str) -> ConnectorConfig {
         let mut settings = HashMap::new();
-        settings.insert(
-            "database".to_string(),
-            serde_json::json!("testdb"),
-        );
+        settings.insert("database".to_string(), serde_json::json!("testdb"));
         settings.insert(
             "collections".to_string(),
             serde_json::json!(["articles", "comments"]),
@@ -628,7 +617,7 @@ mod tests {
 
     #[test]
     fn test_default_constructor() {
-        let connector = MongoConnector::default();
+        let connector = MongoConnector;
         assert_eq!(connector.id(), "mongodb");
     }
 
@@ -666,10 +655,7 @@ mod tests {
         };
         let result = connector.validate_config(&config);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("ConnectionString"));
+        assert!(result.unwrap_err().to_string().contains("ConnectionString"));
     }
 
     #[test]
@@ -817,10 +803,9 @@ mod tests {
     #[test]
     fn test_get_cursor_field_custom() {
         let mut config = make_config("mongodb://localhost:27017");
-        config.settings.insert(
-            "cursor_field".to_string(),
-            serde_json::json!("updated_at"),
-        );
+        config
+            .settings
+            .insert("cursor_field".to_string(), serde_json::json!("updated_at"));
         assert_eq!(
             MongoConnector::get_cursor_field(&config).unwrap(),
             "updated_at"
@@ -885,10 +870,7 @@ mod tests {
             serde_json::json!({"status": "published"}),
         );
         let filter = MongoConnector::get_filter(&config).unwrap();
-        assert_eq!(
-            filter.get_str("status").unwrap(),
-            "published"
-        );
+        assert_eq!(filter.get_str("status").unwrap(), "published");
     }
 
     #[test]
@@ -911,9 +893,9 @@ mod tests {
 
     #[test]
     fn test_json_value_to_bson_float() {
-        let val = serde_json::json!(3.14);
+        let val = serde_json::json!(3.125);
         match json_value_to_bson(&val) {
-            Bson::Double(d) => assert!((d - 3.14).abs() < f64::EPSILON),
+            Bson::Double(d) => assert!((d - 3.125).abs() < f64::EPSILON),
             other => panic!("Expected Double, got {:?}", other),
         }
     }
@@ -1088,10 +1070,9 @@ mod tests {
         config
             .settings
             .insert("limit".to_string(), serde_json::json!(500));
-        config.settings.insert(
-            "extra_fields".to_string(),
-            serde_json::json!(["author"]),
-        );
+        config
+            .settings
+            .insert("extra_fields".to_string(), serde_json::json!(["author"]));
         config.settings.insert(
             "filter".to_string(),
             serde_json::json!({"status": "published"}),

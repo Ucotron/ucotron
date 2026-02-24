@@ -110,8 +110,8 @@ impl Drop for TelemetryGuard {
 /// Returns a [`TelemetryGuard`] that must be held for the application lifetime.
 /// Dropping the guard flushes and shuts down the exporters.
 pub fn init_telemetry(init: TelemetryInit) -> anyhow::Result<TelemetryGuard> {
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&init.log_level));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&init.log_level));
 
     let use_json = init.log_format == "json";
 
@@ -135,8 +135,8 @@ pub fn init_telemetry(init: TelemetryInit) -> anyhow::Result<TelemetryGuard> {
     // Build fmt layers — exactly one of json or text is Some.
     let (json_layer, text_layer) = if use_json {
         // JSON structured logging with trace_id/span_id fields from OpenTelemetry context.
-        let json = tracing_subscriber::fmt::layer()
-            .event_format(trace_id_layer::TraceIdJsonFormat::new());
+        let json =
+            tracing_subscriber::fmt::layer().event_format(trace_id_layer::TraceIdJsonFormat::new());
         (Some(json), None)
     } else {
         let text = tracing_subscriber::fmt::layer()

@@ -906,8 +906,8 @@ mod tests {
         ] {
             let min = scorer.score(tag, 0.0, 0.0, 0.0, 0.0);
             let max = scorer.score(tag, 1.0, 1.0, 1.0, 1.0);
-            assert!(min >= 0.0 && min <= 1.0, "Min score out of range: {min}");
-            assert!(max >= 0.0 && max <= 1.0, "Max score out of range: {max}");
+            assert!((0.0..=1.0).contains(&min), "Min score out of range: {min}");
+            assert!((0.0..=1.0).contains(&max), "Max score out of range: {max}");
         }
     }
 
@@ -1075,7 +1075,7 @@ mod tests {
         let scorer = MindsetScorer::default();
         // Inputs outside [0, 1] should be clamped
         let score = scorer.score(MindsetTag::Convergent, 2.0, -1.0, 5.0, -0.5);
-        assert!(score >= 0.0 && score <= 1.0);
+        assert!((0.0..=1.0).contains(&score));
     }
 
     #[test]

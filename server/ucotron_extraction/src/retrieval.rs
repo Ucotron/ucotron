@@ -1795,6 +1795,7 @@ mod tests {
     ///
     /// Returns (registry, embedder, ground_truth) where ground_truth maps
     /// (query_text, expected_mindset) → relevant_node_ids.
+    #[allow(clippy::type_complexity)]
     fn setup_benchmark_registry() -> (
         BackendRegistry,
         MockEmbedder,

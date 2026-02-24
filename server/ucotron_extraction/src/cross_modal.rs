@@ -233,6 +233,13 @@ pub struct MockProjectionLayer {
 }
 
 #[cfg(test)]
+impl Default for MockProjectionLayer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
 impl MockProjectionLayer {
     pub fn new() -> Self {
         Self {
@@ -421,11 +428,7 @@ mod tests {
 
         assert_eq!(output.len(), MINILM_EMBED_DIM);
         let norm: f32 = output.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!(
-            (norm - 1.0).abs() < 1e-4,
-            "Output not normalized: {}",
-            norm
-        );
+        assert!((norm - 1.0).abs() < 1e-4, "Output not normalized: {}", norm);
     }
 
     #[test]

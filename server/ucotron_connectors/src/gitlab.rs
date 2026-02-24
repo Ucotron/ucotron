@@ -275,10 +275,7 @@ impl GitLabConnector {
             .collect::<String>();
 
         let content = if body_preview.is_empty() {
-            format!(
-                "[{}] Issue #{}: {}",
-                project_path, issue.iid, issue.title
-            )
+            format!("[{}] Issue #{}: {}", project_path, issue.iid, issue.title)
         } else {
             format!(
                 "[{}] Issue #{}: {}\n\n{}",
@@ -306,10 +303,7 @@ impl GitLabConnector {
             serde_json::Value::String("Issue".to_string()),
         );
         if !labels_str.is_empty() {
-            extra.insert(
-                "labels".to_string(),
-                serde_json::Value::String(labels_str),
-            );
+            extra.insert("labels".to_string(), serde_json::Value::String(labels_str));
         }
         if let Some(ref assignee) = issue.assignee {
             extra.insert(
@@ -351,10 +345,7 @@ impl GitLabConnector {
             .collect::<String>();
 
         let content = if body_preview.is_empty() {
-            format!(
-                "[{}] MR !{}: {}",
-                project_path, mr.iid, mr.title
-            )
+            format!("[{}] MR !{}: {}", project_path, mr.iid, mr.title)
         } else {
             format!(
                 "[{}] MR !{}: {}\n\n{}",
@@ -369,10 +360,7 @@ impl GitLabConnector {
             "project".to_string(),
             serde_json::Value::String(project_path.to_string()),
         );
-        extra.insert(
-            "iid".to_string(),
-            serde_json::Value::Number(mr.iid.into()),
-        );
+        extra.insert("iid".to_string(), serde_json::Value::Number(mr.iid.into()));
         extra.insert(
             "state".to_string(),
             serde_json::Value::String(mr.state.clone()),
@@ -390,10 +378,7 @@ impl GitLabConnector {
             serde_json::Value::String(mr.target_branch.clone()),
         );
         if !labels_str.is_empty() {
-            extra.insert(
-                "labels".to_string(),
-                serde_json::Value::String(labels_str),
-            );
+            extra.insert("labels".to_string(), serde_json::Value::String(labels_str));
         }
         if let Some(ref assignee) = mr.assignee {
             extra.insert(
@@ -589,9 +574,7 @@ impl Connector for GitLabConnector {
             }
 
             if fetch_snippets {
-                let snippets = self
-                    .fetch_snippets(token, &base_url, project_path)
-                    .await?;
+                let snippets = self.fetch_snippets(token, &base_url, project_path).await?;
                 for snippet in &snippets {
                     items.push(self.snippet_to_content_item(snippet, project_path, &config.id));
                 }
@@ -626,7 +609,7 @@ impl Connector for GitLabConnector {
                 for issue in &issues {
                     if latest_updated
                         .as_ref()
-                        .map_or(true, |current| &issue.updated_at > current)
+                        .is_none_or(|current| &issue.updated_at > current)
                     {
                         latest_updated = Some(issue.updated_at.clone());
                     }
@@ -641,7 +624,7 @@ impl Connector for GitLabConnector {
                 for mr in &mrs {
                     if latest_updated
                         .as_ref()
-                        .map_or(true, |current| &mr.updated_at > current)
+                        .is_none_or(|current| &mr.updated_at > current)
                     {
                         latest_updated = Some(mr.updated_at.clone());
                     }
@@ -695,9 +678,11 @@ impl Connector for GitLabConnector {
                 let issue: GitLabIssue = serde_json::from_value(attrs.clone())
                     .context("Failed to parse issue from webhook")?;
 
-                Ok(vec![
-                    self.issue_to_content_item(&issue, project_path, &config.id)
-                ])
+                Ok(vec![self.issue_to_content_item(
+                    &issue,
+                    project_path,
+                    &config.id,
+                )])
             }
             "merge_request" => {
                 let attrs = body
@@ -707,9 +692,7 @@ impl Connector for GitLabConnector {
                 let mr: GitLabMergeRequest = serde_json::from_value(attrs.clone())
                     .context("Failed to parse MR from webhook")?;
 
-                Ok(vec![
-                    self.mr_to_content_item(&mr, project_path, &config.id)
-                ])
+                Ok(vec![self.mr_to_content_item(&mr, project_path, &config.id)])
             }
             _ => Ok(Vec::new()),
         }
@@ -728,10 +711,7 @@ fn parse_gitlab_timestamp(ts: &str) -> Option<u64> {
     let date_parts: Vec<u64> = parts[0].split('-').filter_map(|s| s.parse().ok()).collect();
     // Strip fractional seconds if present
     let time_str = parts[1].split('.').next().unwrap_or(parts[1]);
-    let time_parts: Vec<u64> = time_str
-        .split(':')
-        .filter_map(|s| s.parse().ok())
-        .collect();
+    let time_parts: Vec<u64> = time_str.split(':').filter_map(|s| s.parse().ok()).collect();
 
     if date_parts.len() != 3 || time_parts.len() != 3 {
         return None;
@@ -759,7 +739,7 @@ fn parse_gitlab_timestamp(ts: &str) -> Option<u64> {
 }
 
 fn is_leap_year(year: u64) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 // --- GitLab API response types ---
@@ -1170,7 +1150,10 @@ mod tests {
 
     #[test]
     fn test_encode_project_path() {
-        assert_eq!(GitLabConnector::encode_project_path("group/project"), "group%2Fproject");
+        assert_eq!(
+            GitLabConnector::encode_project_path("group/project"),
+            "group%2Fproject"
+        );
         assert_eq!(
             GitLabConnector::encode_project_path("group/subgroup/project"),
             "group%2Fsubgroup%2Fproject"

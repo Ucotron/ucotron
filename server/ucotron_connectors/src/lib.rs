@@ -29,26 +29,26 @@ pub mod telegram;
 pub mod youtube;
 
 // Re-export primary types for convenience
+pub use bitbucket::BitbucketConnector;
 pub use connector::{
     AuthConfig, Connector, ConnectorConfig, ConnectorId, ContentItem, MediaAttachment,
     SourceMetadata, SyncCursor, SyncResult, WebhookPayload,
 };
-pub use filters::{ContentFilter, SourceFilter};
-pub use scheduler::{
-    validate_cron_expression, next_fire_time, CronScheduler, CronSchedulerConfig,
-    Scheduler, SyncFn, SyncRecord, SyncSchedule, SyncStatus, WebhookFn,
-};
-pub use bitbucket::BitbucketConnector;
 pub use discord::DiscordConnector;
+pub use filters::{ContentFilter, SourceFilter};
 pub use github::GitHubConnector;
 pub use gitlab::GitLabConnector;
 pub use google_docs::GoogleDocsConnector;
 pub use google_drive::GDriveConnector;
 pub use mongodb::MongoConnector;
 pub use notion::NotionConnector;
-pub use slack::SlackConnector;
 pub use obsidian::ObsidianConnector;
 pub use postgres::PostgresConnector;
+pub use scheduler::{
+    next_fire_time, validate_cron_expression, CronScheduler, CronSchedulerConfig, Scheduler,
+    SyncFn, SyncRecord, SyncSchedule, SyncStatus, WebhookFn,
+};
+pub use slack::SlackConnector;
 pub use spotify::SpotifyConnector;
 pub use telegram::TelegramConnector;
 pub use youtube::YouTubeConnector;

@@ -317,10 +317,7 @@ impl BitbucketConnector {
             "repo".to_string(),
             serde_json::Value::String(repo_full_name.to_string()),
         );
-        extra.insert(
-            "pr_id".to_string(),
-            serde_json::Value::Number(pr.id.into()),
-        );
+        extra.insert("pr_id".to_string(), serde_json::Value::Number(pr.id.into()));
         extra.insert(
             "state".to_string(),
             serde_json::Value::String(pr.state.clone()),
@@ -490,10 +487,7 @@ impl BitbucketConnector {
             "repo".to_string(),
             serde_json::Value::String(repo_full_name.to_string()),
         );
-        extra.insert(
-            "pr_id".to_string(),
-            serde_json::Value::Number(pr_id.into()),
-        );
+        extra.insert("pr_id".to_string(), serde_json::Value::Number(pr_id.into()));
         extra.insert(
             "comment_id".to_string(),
             serde_json::Value::Number(comment.id.into()),
@@ -693,7 +687,7 @@ impl Connector for BitbucketConnector {
                 for pr in &prs {
                     if latest_updated
                         .as_ref()
-                        .map_or(true, |current| &pr.updated_on > current)
+                        .is_none_or(|current| &pr.updated_on > current)
                     {
                         latest_updated = Some(pr.updated_on.clone());
                     }
@@ -722,7 +716,7 @@ impl Connector for BitbucketConnector {
                 for issue in &issues {
                     if latest_updated
                         .as_ref()
-                        .map_or(true, |current| &issue.updated_on > current)
+                        .is_none_or(|current| &issue.updated_on > current)
                     {
                         latest_updated = Some(issue.updated_on.clone());
                     }
@@ -769,7 +763,9 @@ impl Connector for BitbucketConnector {
             .unwrap_or("unknown/unknown");
 
         match event_key {
-            "pullrequest:created" | "pullrequest:updated" | "pullrequest:fulfilled"
+            "pullrequest:created"
+            | "pullrequest:updated"
+            | "pullrequest:fulfilled"
             | "pullrequest:rejected" => {
                 let pr_data = body
                     .get("pullrequest")
@@ -778,24 +774,21 @@ impl Connector for BitbucketConnector {
                 let pr: BitbucketPullRequest = serde_json::from_value(pr_data.clone())
                     .context("Failed to parse PR from webhook")?;
 
-                Ok(vec![
-                    self.pr_to_content_item(&pr, repo_full_name, &config.id)
-                ])
+                Ok(vec![self.pr_to_content_item(
+                    &pr,
+                    repo_full_name,
+                    &config.id,
+                )])
             }
             "pullrequest:comment_created" | "pullrequest:comment_updated" => {
-                let comment_data = body
-                    .get("comment")
-                    .context("Missing comment in webhook")?;
+                let comment_data = body.get("comment").context("Missing comment in webhook")?;
                 let pr_data = body
                     .get("pullrequest")
                     .context("Missing pullrequest in comment webhook")?;
 
                 let comment: BitbucketComment = serde_json::from_value(comment_data.clone())
                     .context("Failed to parse comment from webhook")?;
-                let pr_id = pr_data
-                    .get("id")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
+                let pr_id = pr_data.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
 
                 Ok(vec![self.comment_to_content_item(
                     &comment,
@@ -805,16 +798,16 @@ impl Connector for BitbucketConnector {
                 )])
             }
             "issue:created" | "issue:updated" => {
-                let issue_data = body
-                    .get("issue")
-                    .context("Missing issue in webhook")?;
+                let issue_data = body.get("issue").context("Missing issue in webhook")?;
 
                 let issue: BitbucketIssue = serde_json::from_value(issue_data.clone())
                     .context("Failed to parse issue from webhook")?;
 
-                Ok(vec![
-                    self.issue_to_content_item(&issue, repo_full_name, &config.id)
-                ])
+                Ok(vec![self.issue_to_content_item(
+                    &issue,
+                    repo_full_name,
+                    &config.id,
+                )])
             }
             _ => Ok(Vec::new()),
         }
@@ -834,10 +827,7 @@ fn parse_bitbucket_timestamp(ts: &str) -> Option<u64> {
 
     let date_parts: Vec<u64> = parts[0].split('-').filter_map(|s| s.parse().ok()).collect();
     let time_str = parts[1].split('.').next().unwrap_or(parts[1]);
-    let time_parts: Vec<u64> = time_str
-        .split(':')
-        .filter_map(|s| s.parse().ok())
-        .collect();
+    let time_parts: Vec<u64> = time_str.split(':').filter_map(|s| s.parse().ok()).collect();
 
     if date_parts.len() != 3 || time_parts.len() != 3 {
         return None;
@@ -865,7 +855,7 @@ fn parse_bitbucket_timestamp(ts: &str) -> Option<u64> {
 }
 
 fn is_leap_year(year: u64) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 // --- Bitbucket API response types ---
@@ -992,10 +982,7 @@ mod tests {
             }),
             links: Some(BitbucketLinks {
                 html: Some(BitbucketLink {
-                    href: format!(
-                        "https://bitbucket.org/workspace/repo/pull-requests/{}",
-                        id
-                    ),
+                    href: format!("https://bitbucket.org/workspace/repo/pull-requests/{}", id),
                 }),
             }),
         }
@@ -1222,8 +1209,7 @@ mod tests {
         let connector = BitbucketConnector::new();
         let comment = make_comment(55);
 
-        let item =
-            connector.comment_to_content_item(&comment, 42, "workspace/repo", "conn-1");
+        let item = connector.comment_to_content_item(&comment, 42, "workspace/repo", "conn-1");
 
         assert!(item.content.contains("[workspace/repo] Comment on PR #42"));
         assert!(item.content.contains("Looks good to me!"));

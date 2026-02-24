@@ -12,7 +12,7 @@ use axum::{
     Extension, Json, Router,
 };
 use chrono::{DateTime, Datelike, NaiveDate, Utc};
-use heed::{Database, types::SerdeBincode};
+use heed::{types::SerdeBincode, Database};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -178,6 +178,7 @@ pub fn estimate_cost(input_tokens: u32, output_tokens: u32, provider: &LLMProvid
     input_cost + output_cost
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn record_cost(
     state: &AppState,
     namespace: &str,
@@ -190,10 +191,10 @@ pub fn record_cost(
 ) -> Result<(), AppError> {
     let _actual_cost = if let Some(db) = get_cost_db(state) {
         let env = state.llm_costs_env.as_ref().unwrap();
-        
+
         let provider = get_provider_by_id(state, namespace, provider_id)?;
         let actual = estimate_cost(input_tokens, output_tokens, &provider);
-        
+
         let record = CostRecord {
             id: generate_cost_id(),
             namespace: namespace.to_string(),
@@ -208,23 +209,22 @@ pub fn record_cost(
         };
 
         let db_key = format!("{}:{}:{}", namespace, provider_id, record.id);
-        
-        let mut write_txn = env.write_txn().map_err(|e| {
-            AppError::internal(format!("Failed to start LMDB transaction: {}", e))
-        })?;
-        
-        db.put(&mut write_txn, &db_key, &record).map_err(|e| {
-            AppError::internal(format!("LMDB write error: {}", e))
-        })?;
-        write_txn.commit().map_err(|e| {
-            AppError::internal(format!("LMDB commit error: {}", e))
-        })?;
-        
+
+        let mut write_txn = env
+            .write_txn()
+            .map_err(|e| AppError::internal(format!("Failed to start LMDB transaction: {}", e)))?;
+
+        db.put(&mut write_txn, &db_key, &record)
+            .map_err(|e| AppError::internal(format!("LMDB write error: {}", e)))?;
+        write_txn
+            .commit()
+            .map_err(|e| AppError::internal(format!("LMDB commit error: {}", e)))?;
+
         actual
     } else {
         estimated_cost
     };
-    
+
     Ok(())
 }
 
@@ -233,9 +233,10 @@ fn get_provider_by_id(
     namespace: &str,
     provider_id: &str,
 ) -> Result<LLMProvider, AppError> {
-    let env = state.llm_providers_env.as_ref().ok_or_else(|| {
-        AppError::internal("LLM providers environment not initialized")
-    })?;
+    let env = state
+        .llm_providers_env
+        .as_ref()
+        .ok_or_else(|| AppError::internal("LLM providers environment not initialized"))?;
 
     let read_txn = env
         .read_txn()
@@ -308,14 +309,13 @@ pub async fn list_costs_handler(
         })?;
 
         let prefix = format!("{}:", namespace);
-        let iter = db.iter(&read_txn).map_err(|e| {
-            AppError::internal(format!("LMDB iteration error: {}", e))
-        })?;
+        let iter = db
+            .iter(&read_txn)
+            .map_err(|e| AppError::internal(format!("LMDB iteration error: {}", e)))?;
 
         for result in iter {
-            let (key, record) = result.map_err(|e| {
-                AppError::internal(format!("LMDB read error: {}", e))
-            })?;
+            let (key, record) =
+                result.map_err(|e| AppError::internal(format!("LMDB read error: {}", e)))?;
 
             if !key.starts_with(&prefix) {
                 continue;
@@ -402,7 +402,7 @@ pub async fn cost_summary_handler(
     let month = query.month.unwrap_or(current_month);
 
     let (period_start, period_end, period_label) = if query.period == "daily" {
-        let start = NaiveDate::from_ymd_opt(year, month as u32, 1)
+        let start = NaiveDate::from_ymd_opt(year, month, 1)
             .ok_or_else(|| AppError::bad_request("Invalid date"))?
             .and_hms_opt(0, 0, 0)
             .unwrap()
@@ -449,14 +449,13 @@ pub async fn cost_summary_handler(
         })?;
 
         let prefix = format!("{}:", namespace);
-        let iter = db.iter(&read_txn).map_err(|e| {
-            AppError::internal(format!("LMDB iteration error: {}", e))
-        })?;
+        let iter = db
+            .iter(&read_txn)
+            .map_err(|e| AppError::internal(format!("LMDB iteration error: {}", e)))?;
 
         for result in iter {
-            let (key, record) = result.map_err(|e| {
-                AppError::internal(format!("LMDB read error: {}", e))
-            })?;
+            let (key, record) =
+                result.map_err(|e| AppError::internal(format!("LMDB read error: {}", e)))?;
 
             if !key.starts_with(&prefix) {
                 continue;
@@ -471,15 +470,13 @@ pub async fn cost_summary_handler(
             total_output_tokens += record.output_tokens as u64;
             request_count += 1;
 
-            let entry = provider_costs
-                .entry(record.provider_id.clone())
-                .or_insert((
-                    record.provider_name.clone(),
-                    0.0,
-                    0,
-                    0,
-                    0,
-                ));
+            let entry = provider_costs.entry(record.provider_id.clone()).or_insert((
+                record.provider_name.clone(),
+                0.0,
+                0,
+                0,
+                0,
+            ));
             entry.1 += record.actual_cost;
             entry.2 += record.input_tokens as u64;
             entry.3 += record.output_tokens as u64;
@@ -489,16 +486,16 @@ pub async fn cost_summary_handler(
 
     let by_provider: Vec<ProviderCostSummary> = provider_costs
         .into_iter()
-        .map(|(provider_id, (provider_name, cost, input, output, count))| {
-            ProviderCostSummary {
+        .map(
+            |(provider_id, (provider_name, cost, input, output, count))| ProviderCostSummary {
                 provider_id,
                 provider_name,
                 total_cost: cost,
                 total_input_tokens: input,
                 total_output_tokens: output,
                 request_count: count,
-            }
-        })
+            },
+        )
         .collect();
 
     Ok(Json(CostSummary {

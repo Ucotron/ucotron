@@ -246,11 +246,8 @@ impl GDriveConnector {
 
                 let fields = "nextPageToken,files(id,name,mimeType,size,modifiedTime,createdTime,owners,webViewLink,webContentLink,thumbnailLink,description)";
                 let page_size = MAX_PAGE_SIZE.to_string();
-                let mut params: Vec<(&str, &str)> = vec![
-                    ("q", &query),
-                    ("fields", fields),
-                    ("pageSize", &page_size),
-                ];
+                let mut params: Vec<(&str, &str)> =
+                    vec![("q", &query), ("fields", fields), ("pageSize", &page_size)];
                 let page_token_val;
                 if let Some(ref pt) = page_token {
                     page_token_val = pt.clone();
@@ -292,9 +289,7 @@ impl GDriveConnector {
 
             // If recursing, also list subfolders
             if recurse {
-                let subfolder_files = self
-                    .list_subfolders(token, &current_folder)
-                    .await?;
+                let subfolder_files = self.list_subfolders(token, &current_folder).await?;
                 for sf in subfolder_files {
                     folders_to_process.push(sf.id);
                 }
@@ -305,11 +300,7 @@ impl GDriveConnector {
     }
 
     /// Lists subfolders within a given folder.
-    async fn list_subfolders(
-        &self,
-        token: &str,
-        folder_id: &str,
-    ) -> Result<Vec<DriveFile>> {
+    async fn list_subfolders(&self, token: &str, folder_id: &str) -> Result<Vec<DriveFile>> {
         let mut subfolders = Vec::new();
         let mut page_token: Option<String> = None;
 
@@ -360,11 +351,7 @@ impl GDriveConnector {
     }
 
     /// Fetches a single file's metadata by its ID.
-    async fn get_file_metadata(
-        &self,
-        token: &str,
-        file_id: &str,
-    ) -> Result<DriveFile> {
+    async fn get_file_metadata(&self, token: &str, file_id: &str) -> Result<DriveFile> {
         let fields = "id,name,mimeType,size,modifiedTime,createdTime,owners,webViewLink,webContentLink,thumbnailLink,description";
         let resp = self
             .client
@@ -392,12 +379,7 @@ impl GDriveConnector {
     }
 
     /// Downloads file content bytes.
-    async fn download_file(
-        &self,
-        token: &str,
-        file_id: &str,
-        mime_type: &str,
-    ) -> Result<Vec<u8>> {
+    async fn download_file(&self, token: &str, file_id: &str, mime_type: &str) -> Result<Vec<u8>> {
         let url = if is_google_workspace_type(mime_type) {
             // Export Google Workspace files to a downloadable format
             let export_mime = google_export_mime(mime_type);
@@ -420,7 +402,12 @@ impl GDriveConnector {
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            bail!("Google Drive download error for {}: {} - {}", file_id, status, body);
+            bail!(
+                "Google Drive download error for {}: {} - {}",
+                file_id,
+                status,
+                body
+            );
         }
 
         let bytes = resp.bytes().await.context("Failed to read file bytes")?;
@@ -434,7 +421,10 @@ impl GDriveConnector {
         connector_id: &str,
         media_data: Option<Vec<u8>>,
     ) -> ContentItem {
-        let mime = file.mime_type.as_deref().unwrap_or("application/octet-stream");
+        let mime = file
+            .mime_type
+            .as_deref()
+            .unwrap_or("application/octet-stream");
         let name = file.name.as_deref().unwrap_or("Untitled");
         let file_size = file.size.as_deref().and_then(|s| s.parse::<u64>().ok());
 
@@ -479,10 +469,7 @@ impl GDriveConnector {
             );
         }
         if let Some(size) = file_size {
-            extra.insert(
-                "file_size".to_string(),
-                serde_json::json!(size),
-            );
+            extra.insert("file_size".to_string(), serde_json::json!(size));
         }
         if let Some(ref thumb) = file.thumbnail_link {
             extra.insert(
@@ -627,9 +614,7 @@ impl Connector for GDriveConnector {
         let file_ids = Self::get_file_ids(config);
 
         if folder_ids.is_empty() && file_ids.is_empty() {
-            bail!(
-                "Google Drive connector requires either folder_ids or file_ids in settings"
-            );
+            bail!("Google Drive connector requires either folder_ids or file_ids in settings");
         }
 
         // Validate that at least one content type is included
@@ -805,8 +790,7 @@ impl Connector for GDriveConnector {
         // Google Drive push notifications (via changes API) send file change events.
         // The resource ID can come from the JSON body or from X-Goog-Resource-Id header.
 
-        let file_id = if let Ok(body) = serde_json::from_slice::<serde_json::Value>(&payload.body)
-        {
+        let file_id = if let Ok(body) = serde_json::from_slice::<serde_json::Value>(&payload.body) {
             body.get("fileId")
                 .or_else(|| body.get("resourceId"))
                 .or_else(|| body.get("file_id"))
@@ -816,12 +800,7 @@ impl Connector for GDriveConnector {
             None
         };
 
-        let file_id = file_id.or_else(|| {
-            payload
-                .headers
-                .get("x-goog-resource-id")
-                .cloned()
-        });
+        let file_id = file_id.or_else(|| payload.headers.get("x-goog-resource-id").cloned());
 
         let Some(file_id) = file_id else {
             return Ok(Vec::new());
@@ -838,7 +817,9 @@ impl Connector for GDriveConnector {
                 } else {
                     None
                 };
-                Ok(vec![self.file_to_content_item(&file, &config.id, media_data)])
+                Ok(vec![
+                    self.file_to_content_item(&file, &config.id, media_data)
+                ])
             }
             Err(e) => {
                 bail!("Failed to fetch file {} from webhook: {}", file_id, e);
@@ -876,10 +857,7 @@ impl GDriveConnector {
                 }
             }
             Err(e) => {
-                eprintln!(
-                    "Warning: failed to download file {}: {}",
-                    file.id, e
-                );
+                eprintln!("Warning: failed to download file {}: {}", file.id, e);
                 None
             }
         }
@@ -967,10 +945,7 @@ fn parse_rfc3339_timestamp(ts: &str) -> Option<u64> {
     let (year, month, day) = (date_parts[0], date_parts[1], date_parts[2]);
 
     let (hour, min, sec) = if parts.len() == 2 {
-        let time_parts: Vec<u64> = parts[1]
-            .split(':')
-            .filter_map(|s| s.parse().ok())
-            .collect();
+        let time_parts: Vec<u64> = parts[1].split(':').filter_map(|s| s.parse().ok()).collect();
         if time_parts.len() != 3 {
             return None;
         }
@@ -1318,7 +1293,7 @@ mod tests {
             item.source.extra.get("category").unwrap(),
             &serde_json::Value::String("Image".to_string())
         );
-        assert!(item.source.extra.get("thumbnail_url").is_some());
+        assert!(item.source.extra.contains_key("thumbnail_url"));
         assert!(item.media.is_none()); // No download requested
     }
 

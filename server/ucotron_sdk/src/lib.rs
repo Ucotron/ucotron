@@ -92,10 +92,7 @@ pub enum UcotronError {
 
     /// Server returned a non-success status code.
     #[error("Server error {status}: {message}")]
-    Server {
-        status: u16,
-        message: String,
-    },
+    Server { status: u16, message: String },
 
     /// JSON serialization/deserialization error.
     #[error("JSON error: {0}")]
@@ -103,10 +100,7 @@ pub enum UcotronError {
 
     /// All retry attempts exhausted.
     #[error("All {attempts} retry attempts failed: {last_error}")]
-    RetriesExhausted {
-        attempts: u32,
-        last_error: String,
-    },
+    RetriesExhausted { attempts: u32, last_error: String },
 }
 
 pub type Result<T> = std::result::Result<T, UcotronError>;
@@ -466,43 +460,35 @@ impl UcotronClient {
     // -----------------------------------------------------------------------
 
     /// Context augmentation — retrieves relevant memories for a given context.
-    pub async fn augment(
-        &self,
-        context: &str,
-        opts: AugmentOptions,
-    ) -> Result<AugmentResult> {
+    pub async fn augment(&self, context: &str, opts: AugmentOptions) -> Result<AugmentResult> {
         let body = AugmentBody {
             context: context.to_string(),
             limit: opts.limit,
         };
-        let namespace = opts.namespace.as_deref()
+        let namespace = opts
+            .namespace
+            .as_deref()
             .or(self.config.default_namespace.as_deref());
 
         self.post_json("/api/v1/augment", &body, namespace).await
     }
 
     /// Learn from agent output — extracts and stores memories.
-    pub async fn learn(
-        &self,
-        output: &str,
-        opts: LearnOptions,
-    ) -> Result<LearnResult> {
+    pub async fn learn(&self, output: &str, opts: LearnOptions) -> Result<LearnResult> {
         let body = LearnBody {
             output: output.to_string(),
             metadata: opts.metadata.unwrap_or_default(),
         };
-        let namespace = opts.namespace.as_deref()
+        let namespace = opts
+            .namespace
+            .as_deref()
             .or(self.config.default_namespace.as_deref());
 
         self.post_json("/api/v1/learn", &body, namespace).await
     }
 
     /// Semantic search over stored memories.
-    pub async fn search(
-        &self,
-        query: &str,
-        opts: SearchOptions,
-    ) -> Result<SearchResult> {
+    pub async fn search(&self, query: &str, opts: SearchOptions) -> Result<SearchResult> {
         let body = SearchBody {
             query: query.to_string(),
             limit: opts.limit,
@@ -510,10 +496,13 @@ impl UcotronClient {
             time_range: opts.time_range,
             query_mindset: opts.query_mindset,
         };
-        let namespace = opts.namespace.as_deref()
+        let namespace = opts
+            .namespace
+            .as_deref()
             .or(self.config.default_namespace.as_deref());
 
-        self.post_json("/api/v1/memories/search", &body, namespace).await
+        self.post_json("/api/v1/memories/search", &body, namespace)
+            .await
     }
 
     /// Add a memory (ingest text).
@@ -526,22 +515,23 @@ impl UcotronClient {
             text: text.to_string(),
             metadata: opts.metadata.unwrap_or_default(),
         };
-        let namespace = opts.namespace.as_deref()
+        let namespace = opts
+            .namespace
+            .as_deref()
             .or(self.config.default_namespace.as_deref());
 
         self.post_json("/api/v1/memories", &body, namespace).await
     }
 
     /// Get a specific entity by ID.
-    pub async fn get_entity(
-        &self,
-        id: u64,
-        opts: EntityOptions,
-    ) -> Result<EntityResponse> {
-        let namespace = opts.namespace.as_deref()
+    pub async fn get_entity(&self, id: u64, opts: EntityOptions) -> Result<EntityResponse> {
+        let namespace = opts
+            .namespace
+            .as_deref()
             .or(self.config.default_namespace.as_deref());
 
-        self.get_json(&format!("/api/v1/entities/{}", id), namespace).await
+        self.get_json(&format!("/api/v1/entities/{}", id), namespace)
+            .await
     }
 
     /// List entities.
@@ -563,7 +553,9 @@ impl UcotronClient {
             url.push('?');
             url.push_str(&params.join("&"));
         }
-        let namespace = opts.namespace.as_deref()
+        let namespace = opts
+            .namespace
+            .as_deref()
             .or(self.config.default_namespace.as_deref());
 
         self.get_json_url(&url, namespace).await
@@ -571,7 +563,8 @@ impl UcotronClient {
 
     /// Get a specific memory by ID.
     pub async fn get_memory(&self, id: u64) -> Result<MemoryResponse> {
-        self.get_json(&format!("/api/v1/memories/{}", id), None).await
+        self.get_json(&format!("/api/v1/memories/{}", id), None)
+            .await
     }
 
     /// List memories with optional filters.
@@ -613,13 +606,15 @@ impl UcotronClient {
             metadata: metadata.unwrap_or_default(),
         };
         let url = format!("{}/api/v1/memories/{}", self.base_url, id);
-        self.request_json(reqwest::Method::PUT, &url, Some(&body), None).await
+        self.request_json(reqwest::Method::PUT, &url, Some(&body), None)
+            .await
     }
 
     /// Delete a memory (soft delete).
     pub async fn delete_memory(&self, id: u64) -> Result<()> {
         let url = format!("{}/api/v1/memories/{}", self.base_url, id);
-        self.request_no_body(reqwest::Method::DELETE, &url, None).await
+        self.request_no_body(reqwest::Method::DELETE, &url, None)
+            .await
     }
 
     /// Check server health.
@@ -637,29 +632,17 @@ impl UcotronClient {
     // -----------------------------------------------------------------------
 
     /// Synchronous version of [`augment`](Self::augment).
-    pub fn augment_sync(
-        &self,
-        context: &str,
-        opts: AugmentOptions,
-    ) -> Result<AugmentResult> {
+    pub fn augment_sync(&self, context: &str, opts: AugmentOptions) -> Result<AugmentResult> {
         block_on(self.augment(context, opts))
     }
 
     /// Synchronous version of [`learn`](Self::learn).
-    pub fn learn_sync(
-        &self,
-        output: &str,
-        opts: LearnOptions,
-    ) -> Result<LearnResult> {
+    pub fn learn_sync(&self, output: &str, opts: LearnOptions) -> Result<LearnResult> {
         block_on(self.learn(output, opts))
     }
 
     /// Synchronous version of [`search`](Self::search).
-    pub fn search_sync(
-        &self,
-        query: &str,
-        opts: SearchOptions,
-    ) -> Result<SearchResult> {
+    pub fn search_sync(&self, query: &str, opts: SearchOptions) -> Result<SearchResult> {
         block_on(self.search(query, opts))
     }
 
@@ -673,11 +656,7 @@ impl UcotronClient {
     }
 
     /// Synchronous version of [`get_entity`](Self::get_entity).
-    pub fn get_entity_sync(
-        &self,
-        id: u64,
-        opts: EntityOptions,
-    ) -> Result<EntityResponse> {
+    pub fn get_entity_sync(&self, id: u64, opts: EntityOptions) -> Result<EntityResponse> {
         block_on(self.get_entity(id, opts))
     }
 
@@ -702,7 +681,8 @@ impl UcotronClient {
         namespace: Option<&str>,
     ) -> Result<R> {
         let url = format!("{}{}", self.base_url, path);
-        self.request_json(reqwest::Method::POST, &url, Some(body), namespace).await
+        self.request_json(reqwest::Method::POST, &url, Some(body), namespace)
+            .await
     }
 
     async fn get_json<R: for<'de> Deserialize<'de>>(
@@ -719,7 +699,8 @@ impl UcotronClient {
         url: &str,
         namespace: Option<&str>,
     ) -> Result<R> {
-        self.request_json::<(), R>(reqwest::Method::GET, url, None, namespace).await
+        self.request_json::<(), R>(reqwest::Method::GET, url, None, namespace)
+            .await
     }
 
     /// Core request method with retry logic.
@@ -868,11 +849,10 @@ fn block_on<F: std::future::Future<Output = Result<T>>, T>(future: F) -> Result<
         }
         Err(_) => {
             // No runtime — create a new one
-            let rt = tokio::runtime::Runtime::new()
-                .map_err(|e| UcotronError::Server {
-                    status: 0,
-                    message: format!("Failed to create tokio runtime: {}", e),
-                })?;
+            let rt = tokio::runtime::Runtime::new().map_err(|e| UcotronError::Server {
+                status: 0,
+                message: format!("Failed to create tokio runtime: {}", e),
+            })?;
             rt.block_on(future)
         }
     }
@@ -912,10 +892,7 @@ mod tests {
         let client = UcotronClient::with_config("http://localhost:8420", config);
         assert_eq!(client.server_url(), "http://localhost:8420");
         assert_eq!(client.config.retry.max_retries, 5);
-        assert_eq!(
-            client.config.default_namespace.as_deref(),
-            Some("test-ns")
-        );
+        assert_eq!(client.config.default_namespace.as_deref(), Some("test-ns"));
     }
 
     #[test]
@@ -1266,8 +1243,14 @@ mod tests {
             map.set("tracestate", "vendor=value".to_string());
 
             assert_eq!(map.0.len(), 2);
-            assert_eq!(map.0[0], ("traceparent".to_string(), "00-abc-def-01".to_string()));
-            assert_eq!(map.0[1], ("tracestate".to_string(), "vendor=value".to_string()));
+            assert_eq!(
+                map.0[0],
+                ("traceparent".to_string(), "00-abc-def-01".to_string())
+            );
+            assert_eq!(
+                map.0[1],
+                ("tracestate".to_string(), "vendor=value".to_string())
+            );
         }
 
         #[test]
@@ -1299,8 +1282,7 @@ mod tests {
             );
 
             // Attach the span context to the current OpenTelemetry context.
-            let cx = opentelemetry::Context::current()
-                .with_remote_span_context(span_context);
+            let cx = opentelemetry::Context::current().with_remote_span_context(span_context);
             let _guard = cx.attach();
 
             // Now inject trace context and verify via the HeaderMap injector.
@@ -1340,19 +1322,12 @@ mod tests {
 
             let trace_id = TraceId::from_hex("abcdef1234567890abcdef1234567890").unwrap();
             let span_id = SpanId::from_hex("1234567890abcdef").unwrap();
-            let tracestate = TraceState::from_key_value([("congo", "t61rcWkgMzE")])
-                .unwrap();
+            let tracestate = TraceState::from_key_value([("congo", "t61rcWkgMzE")]).unwrap();
 
-            let span_context = SpanContext::new(
-                trace_id,
-                span_id,
-                TraceFlags::SAMPLED,
-                true,
-                tracestate,
-            );
+            let span_context =
+                SpanContext::new(trace_id, span_id, TraceFlags::SAMPLED, true, tracestate);
 
-            let cx = opentelemetry::Context::current()
-                .with_remote_span_context(span_context);
+            let cx = opentelemetry::Context::current().with_remote_span_context(span_context);
             let _guard = cx.attach();
 
             use opentelemetry::propagation::TextMapPropagator;

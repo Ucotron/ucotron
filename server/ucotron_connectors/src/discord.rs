@@ -213,10 +213,7 @@ impl DiscordConnector {
         token: &str,
         guild_id: &str,
     ) -> Result<Vec<DiscordChannel>> {
-        let url = format!(
-            "{}/guilds/{}/threads/active",
-            DISCORD_API_BASE, guild_id
-        );
+        let url = format!("{}/guilds/{}/threads/active", DISCORD_API_BASE, guild_id);
 
         let resp = self
             .client
@@ -255,10 +252,7 @@ impl DiscordConnector {
     ) -> ContentItem {
         let content = if message.content.is_empty() {
             // For embeds or attachments with no text
-            format!(
-                "[Discord] {} (embed/attachment)",
-                message.author.username
-            )
+            format!("[Discord] {} (embed/attachment)", message.author.username)
         } else {
             message.content.clone()
         };
@@ -418,8 +412,7 @@ impl Connector for DiscordConnector {
                     if fetch_threads {
                         if let Ok(threads) = self.fetch_active_threads(token, guild_id).await {
                             for thread in &threads {
-                                channels_to_fetch
-                                    .push((thread.id.clone(), Some(guild_id.clone())));
+                                channels_to_fetch.push((thread.id.clone(), Some(guild_id.clone())));
                             }
                         }
                     }
@@ -515,7 +508,7 @@ impl Connector for DiscordConnector {
                     }
 
                     // Track the latest message ID for cursor
-                    if latest_id.as_ref().map_or(true, |current| &msg.id > current) {
+                    if latest_id.as_ref().is_none_or(|current| &msg.id > current) {
                         latest_id = Some(msg.id.clone());
                     }
 
@@ -555,10 +548,7 @@ impl Connector for DiscordConnector {
         // Discord Interactions/Webhooks send a `type` field
         // Type 1 = PING (respond with type 1 for verification)
         // For gateway events forwarded via webhook, check `t` field
-        let event_type = body
-            .get("t")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default();
+        let event_type = body.get("t").and_then(|v| v.as_str()).unwrap_or_default();
 
         match event_type {
             "MESSAGE_CREATE" => {
@@ -581,10 +571,7 @@ impl Connector for DiscordConnector {
                 let guild_id = data.get("guild_id").and_then(|v| v.as_str());
 
                 Ok(vec![self.message_to_content_item(
-                    &message,
-                    channel_id,
-                    guild_id,
-                    &config.id,
+                    &message, channel_id, guild_id, &config.id,
                 )])
             }
             _ => Ok(Vec::new()),
@@ -606,10 +593,7 @@ fn parse_discord_timestamp(ts: &str) -> Option<u64> {
     }
 
     let date_parts: Vec<u64> = parts[0].split('-').filter_map(|s| s.parse().ok()).collect();
-    let time_parts: Vec<u64> = parts[1]
-        .split(':')
-        .filter_map(|s| s.parse().ok())
-        .collect();
+    let time_parts: Vec<u64> = parts[1].split(':').filter_map(|s| s.parse().ok()).collect();
 
     if date_parts.len() != 3 || time_parts.len() != 3 {
         return None;
@@ -637,7 +621,7 @@ fn parse_discord_timestamp(ts: &str) -> Option<u64> {
 }
 
 fn is_leap_year(year: u64) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 // --- Discord API response types ---
@@ -803,7 +787,10 @@ mod tests {
         let config = make_config("bot_token_123", vec![], vec![]);
         let err = connector.validate_config(&config);
         assert!(err.is_err());
-        assert!(err.unwrap_err().to_string().contains("guild_id or channel_id"));
+        assert!(err
+            .unwrap_err()
+            .to_string()
+            .contains("guild_id or channel_id"));
     }
 
     #[test]

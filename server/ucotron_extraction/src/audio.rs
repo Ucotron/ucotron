@@ -146,9 +146,7 @@ fn log_mel_spectrogram(samples: &[f32], n_mels: usize) -> Vec<f32> {
 
     // Hann window
     let hann: Vec<f32> = (0..FFT_SIZE)
-        .map(|i| {
-            0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / FFT_SIZE as f32).cos())
-        })
+        .map(|i| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / FFT_SIZE as f32).cos()))
         .collect();
 
     // Compute STFT frames
@@ -197,21 +195,19 @@ fn log_mel_spectrogram(samples: &[f32], n_mels: usize) -> Vec<f32> {
     }
 
     // Log transform (clamp to avoid log(0))
-    let max_val = mel_spec
-        .iter()
-        .copied()
-        .fold(f32::NEG_INFINITY, f32::max);
-    let clamp_min = if max_val > 0.0 { max_val * 1e-10 } else { 1e-10 };
+    let max_val = mel_spec.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let clamp_min = if max_val > 0.0 {
+        max_val * 1e-10
+    } else {
+        1e-10
+    };
 
     for val in mel_spec.iter_mut() {
         *val = (*val).max(clamp_min).log10();
     }
 
     // Normalize: scale to [-1, 1] range (Whisper convention)
-    let log_max = mel_spec
-        .iter()
-        .copied()
-        .fold(f32::NEG_INFINITY, f32::max);
+    let log_max = mel_spec.iter().copied().fold(f32::NEG_INFINITY, f32::max);
     let log_min_clamp = log_max - 8.0; // 8 decades dynamic range
 
     for val in mel_spec.iter_mut() {
@@ -226,8 +222,8 @@ fn log_mel_spectrogram(samples: &[f32], n_mels: usize) -> Vec<f32> {
 /// If the file is stereo, channels are averaged to mono.
 /// If the sample rate differs from 16kHz, a simple linear resampling is applied.
 fn load_wav_mono_16khz(path: &Path) -> Result<Vec<f32>> {
-    let reader =
-        hound::WavReader::open(path).with_context(|| format!("Failed to open WAV file: {:?}", path))?;
+    let reader = hound::WavReader::open(path)
+        .with_context(|| format!("Failed to open WAV file: {:?}", path))?;
 
     let spec = reader.spec();
     let channels = spec.channels as usize;
@@ -449,8 +445,8 @@ pub struct ChunkTranscription {
 /// Format: one token per line, token ID is the line number (0-indexed).
 /// Special tokens may include `<|token|>` format.
 fn load_token_map(path: &Path) -> Result<HashMap<i64, String>> {
-    let content =
-        std::fs::read_to_string(path).with_context(|| format!("Failed to read tokens file: {:?}", path))?;
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read tokens file: {:?}", path))?;
 
     let mut map = HashMap::new();
     for (idx, line) in content.lines().enumerate() {
@@ -549,7 +545,10 @@ impl WhisperOnnxPipeline {
     /// Input: mel spectrogram of shape `[1, 80, 3000]`
     /// Output: (cross_k, cross_v) tensors
     #[allow(clippy::type_complexity)]
-    fn run_encoder(&self, mel_data: Vec<f32>) -> Result<(Vec<f32>, Vec<f32>, Vec<usize>, Vec<usize>)> {
+    fn run_encoder(
+        &self,
+        mel_data: Vec<f32>,
+    ) -> Result<(Vec<f32>, Vec<f32>, Vec<usize>, Vec<usize>)> {
         let mel_tensor = Tensor::from_array(([1usize, N_MELS, N_FRAMES], mel_data))
             .context("Failed to create mel tensor")?;
 
@@ -572,8 +571,14 @@ impl WhisperOnnxPipeline {
 
         let k_shape = cross_k.shape().to_vec();
         let v_shape = cross_v.shape().to_vec();
-        let k_data = cross_k.as_slice().context("cross_k not contiguous")?.to_vec();
-        let v_data = cross_v.as_slice().context("cross_v not contiguous")?.to_vec();
+        let k_data = cross_k
+            .as_slice()
+            .context("cross_k not contiguous")?
+            .to_vec();
+        let v_data = cross_v
+            .as_slice()
+            .context("cross_v not contiguous")?
+            .to_vec();
 
         Ok((k_data, v_data, k_shape, v_shape))
     }
@@ -622,8 +627,8 @@ impl WhisperOnnxPipeline {
             let n_tokens = current_tokens.len();
 
             // Create input tensors
-            let tokens_tensor =
-                Tensor::from_array(([1usize, n_tokens], current_tokens)).context("Failed to create tokens tensor")?;
+            let tokens_tensor = Tensor::from_array(([1usize, n_tokens], current_tokens))
+                .context("Failed to create tokens tensor")?;
 
             let self_k_tensor = Tensor::from_array((
                 [n_text_layer, 1usize, n_text_ctx, n_text_state],
@@ -637,16 +642,14 @@ impl WhisperOnnxPipeline {
             ))
             .context("Failed to create self_v_cache tensor")?;
 
-            let cross_k_tensor =
-                Tensor::from_array((cross_k_shape.to_vec(), cross_k.to_vec()))
-                    .context("Failed to create cross_k tensor")?;
+            let cross_k_tensor = Tensor::from_array((cross_k_shape.to_vec(), cross_k.to_vec()))
+                .context("Failed to create cross_k tensor")?;
 
-            let cross_v_tensor =
-                Tensor::from_array((cross_v_shape.to_vec(), cross_v.to_vec()))
-                    .context("Failed to create cross_v tensor")?;
+            let cross_v_tensor = Tensor::from_array((cross_v_shape.to_vec(), cross_v.to_vec()))
+                .context("Failed to create cross_v tensor")?;
 
-            let offset_tensor =
-                Tensor::from_array(([1usize], vec![offset])).context("Failed to create offset tensor")?;
+            let offset_tensor = Tensor::from_array(([1usize], vec![offset]))
+                .context("Failed to create offset tensor")?;
 
             // Run decoder
             let outputs = session
@@ -880,7 +883,11 @@ mod tests {
         let filters = mel_filterbank(N_MELS, FFT_SIZE, WHISPER_SAMPLE_RATE as f32);
         for row in &filters {
             for &val in row {
-                assert!(val >= 0.0, "Mel filter weight should be non-negative, got {}", val);
+                assert!(
+                    val >= 0.0,
+                    "Mel filter weight should be non-negative, got {}",
+                    val
+                );
             }
         }
     }
@@ -933,7 +940,10 @@ mod tests {
         assert_eq!(mel.len(), N_MELS * N_FRAMES);
         // Should have higher energy in some mel bins than silence
         let max_val = mel.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-        assert!(max_val > -10.0, "A 440Hz tone should produce non-trivial mel energy");
+        assert!(
+            max_val > -10.0,
+            "A 440Hz tone should produce non-trivial mel energy"
+        );
     }
 
     #[test]
@@ -1034,8 +1044,10 @@ mod tests {
         let config = WhisperConfig::default();
         assert_eq!(config.language_token(), EN_LANG_TOKEN);
 
-        let mut es_config = WhisperConfig::default();
-        es_config.language = "es".to_string();
+        let es_config = WhisperConfig {
+            language: "es".to_string(),
+            ..Default::default()
+        };
         assert_eq!(es_config.language_token(), EN_LANG_TOKEN + 3);
     }
 
@@ -1044,8 +1056,10 @@ mod tests {
         let config = WhisperConfig::default();
         assert_eq!(config.task_token(), TRANSCRIBE_TOKEN);
 
-        let mut translate_config = WhisperConfig::default();
-        translate_config.translate = true;
+        let translate_config = WhisperConfig {
+            translate: true,
+            ..Default::default()
+        };
         assert_eq!(translate_config.task_token(), TRANSLATE_TOKEN);
     }
 
@@ -1167,7 +1181,9 @@ mod tests {
     // -----------------------------------------------------------------------
 
     fn whisper_model_path() -> Option<PathBuf> {
-        let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent()?.to_path_buf();
+        let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()?
+            .to_path_buf();
         let model_dir = workspace.join("models").join("whisper-tiny");
         let encoder = model_dir.join("encoder.onnx");
         let decoder = model_dir.join("decoder.onnx");
@@ -1197,7 +1213,11 @@ mod tests {
             WhisperConfig::default(),
         );
 
-        assert!(pipeline.is_ok(), "Pipeline creation failed: {:?}", pipeline.err());
+        assert!(
+            pipeline.is_ok(),
+            "Pipeline creation failed: {:?}",
+            pipeline.err()
+        );
     }
 
     #[test]

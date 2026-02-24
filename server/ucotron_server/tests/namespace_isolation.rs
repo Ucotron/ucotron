@@ -173,7 +173,10 @@ impl ucotron_core::GraphBackend for MockGraphBackend {
 
     fn get_all_edges(&self) -> anyhow::Result<Vec<(NodeId, NodeId, f32)>> {
         let store = self.edges.lock().unwrap();
-        Ok(store.iter().map(|e| (e.source, e.target, e.weight)).collect())
+        Ok(store
+            .iter()
+            .map(|e| (e.source, e.target, e.weight))
+            .collect())
     }
 
     fn get_all_edges_full(&self) -> anyhow::Result<Vec<Edge>> {
@@ -293,7 +296,7 @@ fn build_app() -> (Router, Arc<AppState>) {
     ));
     let embedder: Arc<dyn EmbeddingPipeline> = Arc::new(MockEmbedder);
     let config = UcotronConfig::default();
-    let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     let app = Router::new()
         .route("/api/v1/memories", post(handlers::create_memory_handler))
@@ -349,18 +352,13 @@ fn build_app_with_audit() -> (Router, Arc<AppState>) {
         },
     ];
 
-    let state = Arc::new(AppState::new(registry, embedder, None, None, config, None, None, None, None));
+    let state = Arc::new(AppState::new(registry, embedder, None, None, config));
 
     (Router::new(), state)
 }
 
 /// Insert a node with explicit namespace metadata into the shared state.
-fn insert_namespaced_node(
-    state: &AppState,
-    id: NodeId,
-    content: &str,
-    namespace: &str,
-) {
+fn insert_namespaced_node(state: &AppState, id: NodeId, content: &str, namespace: &str) {
     let embedding = vec![0.5f32; 384];
     let mut metadata = HashMap::new();
     metadata.insert(
@@ -406,7 +404,12 @@ async fn test_augment_namespace_isolation() {
 
     // Insert nodes for two different tenants with similar content so both
     // would match a query about "database technology".
-    insert_namespaced_node(&state, 100, "Acme Corp uses PostgreSQL for analytics", "acme");
+    insert_namespaced_node(
+        &state,
+        100,
+        "Acme Corp uses PostgreSQL for analytics",
+        "acme",
+    );
     insert_namespaced_node(&state, 101, "Globex uses MySQL for analytics", "globex");
     insert_namespaced_node(&state, 102, "Acme Corp runs Redis for caching", "acme");
 
@@ -452,9 +455,24 @@ async fn test_search_namespace_isolation() {
     let (_, state) = build_app();
 
     // Insert nodes for two tenants with overlapping themes
-    insert_namespaced_node(&state, 200, "Alpha project uses Kubernetes for deployment", "alpha");
-    insert_namespaced_node(&state, 201, "Beta project uses Docker Swarm for deployment", "beta");
-    insert_namespaced_node(&state, 202, "Alpha project migrated from Heroku to AWS", "alpha");
+    insert_namespaced_node(
+        &state,
+        200,
+        "Alpha project uses Kubernetes for deployment",
+        "alpha",
+    );
+    insert_namespaced_node(
+        &state,
+        201,
+        "Beta project uses Docker Swarm for deployment",
+        "beta",
+    );
+    insert_namespaced_node(
+        &state,
+        202,
+        "Alpha project migrated from Heroku to AWS",
+        "alpha",
+    );
 
     // Search as tenant "beta" for "deployment"
     let app = with_auth(
@@ -503,8 +521,18 @@ async fn test_context_text_namespace_isolation() {
     let (_, state) = build_app();
 
     // Two tenants with clearly distinguishable content
-    insert_namespaced_node(&state, 300, "Tenant-X secret: launch code is ALPHA-7", "tenant-x");
-    insert_namespaced_node(&state, 301, "Tenant-Y secret: launch code is BRAVO-9", "tenant-y");
+    insert_namespaced_node(
+        &state,
+        300,
+        "Tenant-X secret: launch code is ALPHA-7",
+        "tenant-x",
+    );
+    insert_namespaced_node(
+        &state,
+        301,
+        "Tenant-Y secret: launch code is BRAVO-9",
+        "tenant-y",
+    );
 
     // Augment as tenant-x
     let app = with_auth(
@@ -615,8 +643,7 @@ async fn test_audit_namespace_capture() {
     let entries2 = state.audit_log.export_all();
     let staging_entry = entries2
         .iter()
-        .filter(|e| e.action == "memories.list")
-        .last()
+        .rfind(|e| e.action == "memories.list")
         .expect("should have a second memories.list audit entry");
     assert_eq!(
         staging_entry.namespace,

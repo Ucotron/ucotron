@@ -103,8 +103,8 @@ impl EvalDataset {
     pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = fs::read_to_string(path.as_ref())
             .with_context(|| format!("Failed to read dataset file: {}", path.as_ref().display()))?;
-        let dataset: EvalDataset = serde_json::from_str(&content)
-            .with_context(|| "Failed to parse dataset JSON")?;
+        let dataset: EvalDataset =
+            serde_json::from_str(&content).with_context(|| "Failed to parse dataset JSON")?;
         Ok(dataset)
     }
 
@@ -117,7 +117,8 @@ impl EvalDataset {
             .with_context(|| format!("Failed to open JSONL file: {}", path.as_ref().display()))?;
         let reader = BufReader::new(file);
 
-        let mut name = path.as_ref()
+        let mut name = path
+            .as_ref()
             .file_stem()
             .map(|s| s.to_string_lossy().into_owned())
             .unwrap_or_else(|| "unnamed".to_string());
@@ -142,8 +143,9 @@ impl EvalDataset {
                 queries.push(q);
             } else if value.get("content").is_some() {
                 // This is a document entry
-                let d: EvalDocument = serde_json::from_value(value)
-                    .with_context(|| format!("Failed to parse document on line {}", line_num + 1))?;
+                let d: EvalDocument = serde_json::from_value(value).with_context(|| {
+                    format!("Failed to parse document on line {}", line_num + 1)
+                })?;
                 documents.push(d);
             } else if value.get("name").is_some() {
                 // Metadata header
@@ -288,15 +290,24 @@ impl EvalReport {
         let mut md = String::new();
 
         md.push_str(&format!("# Evaluation Report: {}\n\n", self.dataset_name));
-        md.push_str(&format!("**Queries evaluated**: {}\n\n", self.aggregate.num_queries));
+        md.push_str(&format!(
+            "**Queries evaluated**: {}\n\n",
+            self.aggregate.num_queries
+        ));
 
         // Overall metrics table
         md.push_str("## Overall Metrics\n\n");
         md.push_str("| Metric | Value |\n");
         md.push_str("|--------|-------|\n");
         md.push_str(&format!("| MRR | {:.4} |\n", self.aggregate.mrr));
-        md.push_str(&format!("| Mean Precision | {:.4} |\n", self.aggregate.mean_precision));
-        md.push_str(&format!("| Mean Recall | {:.4} |\n", self.aggregate.mean_recall));
+        md.push_str(&format!(
+            "| Mean Precision | {:.4} |\n",
+            self.aggregate.mean_precision
+        ));
+        md.push_str(&format!(
+            "| Mean Recall | {:.4} |\n",
+            self.aggregate.mean_recall
+        ));
         md.push_str(&format!("| Mean F1 | {:.4} |\n", self.aggregate.mean_f1));
         md.push_str(&format!(
             "| Latency P50 | {:.2}ms |\n",
@@ -371,7 +382,8 @@ impl EvalReport {
 
     /// Serialize the report to JSON.
     pub fn to_json(&self) -> Result<String> {
-        serde_json::to_string_pretty(self).map_err(|e| anyhow::anyhow!("JSON serialization error: {}", e))
+        serde_json::to_string_pretty(self)
+            .map_err(|e| anyhow::anyhow!("JSON serialization error: {}", e))
     }
 }
 
@@ -384,14 +396,19 @@ pub fn recall_at_k(retrieved: &[String], relevant: &[String], k: usize) -> f64 {
     if relevant.is_empty() {
         return 0.0;
     }
-    let top_k: std::collections::HashSet<&str> = retrieved.iter().take(k).map(|s| s.as_str()).collect();
-    let num_relevant_found = relevant.iter().filter(|r| top_k.contains(r.as_str())).count();
+    let top_k: std::collections::HashSet<&str> =
+        retrieved.iter().take(k).map(|s| s.as_str()).collect();
+    let num_relevant_found = relevant
+        .iter()
+        .filter(|r| top_k.contains(r.as_str()))
+        .count();
     num_relevant_found as f64 / relevant.len() as f64
 }
 
 /// Compute Reciprocal Rank: 1/rank of the first relevant result (0 if none).
 pub fn reciprocal_rank(retrieved: &[String], relevant: &[String]) -> f64 {
-    let relevant_set: std::collections::HashSet<&str> = relevant.iter().map(|s| s.as_str()).collect();
+    let relevant_set: std::collections::HashSet<&str> =
+        relevant.iter().map(|s| s.as_str()).collect();
     for (i, doc) in retrieved.iter().enumerate() {
         if relevant_set.contains(doc.as_str()) {
             return 1.0 / (i as f64 + 1.0);
@@ -426,7 +443,8 @@ fn dcg_at_k(
     relevance_grades: &HashMap<String, f32>,
     k: usize,
 ) -> f64 {
-    let relevant_set: std::collections::HashSet<&str> = relevant.iter().map(|s| s.as_str()).collect();
+    let relevant_set: std::collections::HashSet<&str> =
+        relevant.iter().map(|s| s.as_str()).collect();
     let mut dcg = 0.0;
 
     for (i, doc) in retrieved.iter().take(k).enumerate() {
@@ -444,11 +462,7 @@ fn dcg_at_k(
 }
 
 /// Compute ideal DCG@k (best possible DCG given the relevant set).
-fn ideal_dcg_at_k(
-    relevant: &[String],
-    relevance_grades: &HashMap<String, f32>,
-    k: usize,
-) -> f64 {
+fn ideal_dcg_at_k(relevant: &[String], relevance_grades: &HashMap<String, f32>, k: usize) -> f64 {
     let mut grades: Vec<f64> = relevant
         .iter()
         .map(|id| {
@@ -474,8 +488,12 @@ pub fn precision(retrieved: &[String], relevant: &[String]) -> f64 {
     if retrieved.is_empty() {
         return 0.0;
     }
-    let relevant_set: std::collections::HashSet<&str> = relevant.iter().map(|s| s.as_str()).collect();
-    let relevant_found = retrieved.iter().filter(|r| relevant_set.contains(r.as_str())).count();
+    let relevant_set: std::collections::HashSet<&str> =
+        relevant.iter().map(|s| s.as_str()).collect();
+    let relevant_found = retrieved
+        .iter()
+        .filter(|r| relevant_set.contains(r.as_str()))
+        .count();
     relevant_found as f64 / retrieved.len() as f64
 }
 
@@ -539,7 +557,11 @@ pub fn aggregate_metrics(query_metrics: &[QueryMetrics], k_values: &[usize]) -> 
         .collect();
 
     // MRR
-    let mrr: f64 = query_metrics.iter().map(|qm| qm.reciprocal_rank).sum::<f64>() / n as f64;
+    let mrr: f64 = query_metrics
+        .iter()
+        .map(|qm| qm.reciprocal_rank)
+        .sum::<f64>()
+        / n as f64;
 
     // Mean NDCG@k
     let mean_ndcg_at_k: Vec<(usize, f64)> = k_values
@@ -637,7 +659,12 @@ impl Evaluator {
                 .config
                 .k_values
                 .iter()
-                .map(|&k| (k, ndcg_at_k(&retrieved, &q.relevant_ids, &q.relevance_grades, k)))
+                .map(|&k| {
+                    (
+                        k,
+                        ndcg_at_k(&retrieved, &q.relevant_ids, &q.relevance_grades, k),
+                    )
+                })
                 .collect();
 
             let prec = precision(&retrieved, &q.relevant_ids);
@@ -701,7 +728,11 @@ mod tests {
 
     fn sample_retrieved() -> Vec<String> {
         vec![
-            "d3".into(), "d1".into(), "d5".into(), "d2".into(), "d7".into(),
+            "d3".into(),
+            "d1".into(),
+            "d5".into(),
+            "d2".into(),
+            "d7".into(),
         ]
     }
 
@@ -925,8 +956,16 @@ mod tests {
         let dataset = EvalDataset::new(
             "test",
             vec![
-                EvalDocument { id: "d1".into(), content: "Hello world".into(), metadata: HashMap::new() },
-                EvalDocument { id: "d2".into(), content: "Goodbye world".into(), metadata: HashMap::new() },
+                EvalDocument {
+                    id: "d1".into(),
+                    content: "Hello world".into(),
+                    metadata: HashMap::new(),
+                },
+                EvalDocument {
+                    id: "d2".into(),
+                    content: "Goodbye world".into(),
+                    metadata: HashMap::new(),
+                },
             ],
             vec![EvalQuery {
                 id: "q1".into(),
@@ -1165,7 +1204,7 @@ mod tests {
     fn test_dataset_from_jsonl() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("dataset.jsonl");
-        let lines = vec![
+        let lines = [
             r#"{"name": "jsonl_test", "description": "A test dataset"}"#,
             r#"{"id": "d1", "content": "Hello world"}"#,
             r#"{"id": "d2", "content": "Goodbye"}"#,

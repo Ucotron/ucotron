@@ -311,11 +311,7 @@ fn edge_to_export(edge: &Edge) -> ExportEdge {
 /// Export nodes and edges to a `MemoryGraphExport` JSON-LD structure.
 ///
 /// Filters nodes by namespace and optionally by timestamp.
-pub fn export_graph(
-    nodes: &[Node],
-    edges: &[Edge],
-    options: &ExportOptions,
-) -> MemoryGraphExport {
+pub fn export_graph(nodes: &[Node], edges: &[Edge], options: &ExportOptions) -> MemoryGraphExport {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -335,8 +331,7 @@ pub fn export_graph(
         .collect();
 
     // Collect node IDs for edge filtering.
-    let node_ids: std::collections::HashSet<NodeId> =
-        filtered_nodes.iter().map(|n| n.id).collect();
+    let node_ids: std::collections::HashSet<NodeId> = filtered_nodes.iter().map(|n| n.id).collect();
 
     // Filter edges to only those between exported nodes.
     let filtered_edges: Vec<&Edge> = edges
@@ -349,10 +344,7 @@ pub fn export_graph(
         .map(|n| node_to_export(n, options.include_embeddings))
         .collect();
 
-    let export_edges: Vec<ExportEdge> = filtered_edges
-        .iter()
-        .map(|e| edge_to_export(e))
-        .collect();
+    let export_edges: Vec<ExportEdge> = filtered_edges.iter().map(|e| edge_to_export(e)).collect();
 
     let stats = ExportStats {
         total_nodes: export_nodes.len(),
@@ -377,7 +369,8 @@ pub fn export_graph(
 
 /// Serialize a `MemoryGraphExport` to a JSON string.
 pub fn export_to_json(export: &MemoryGraphExport) -> anyhow::Result<String> {
-    serde_json::to_string_pretty(export).map_err(|e| anyhow::anyhow!("JSON serialization failed: {}", e))
+    serde_json::to_string_pretty(export)
+        .map_err(|e| anyhow::anyhow!("JSON serialization failed: {}", e))
 }
 
 // ---------------------------------------------------------------------------
@@ -401,7 +394,9 @@ pub struct ImportResult {
 
 /// Parse a node ID from the JSON-LD `@id` format "ucotron:node/{id}".
 fn parse_node_id(id_str: &str) -> Option<NodeId> {
-    id_str.strip_prefix("ucotron:node/").and_then(|s| s.parse().ok())
+    id_str
+        .strip_prefix("ucotron:node/")
+        .and_then(|s| s.parse().ok())
 }
 
 /// Import a JSON-LD export, remapping node IDs starting from `next_id`.
@@ -447,7 +442,10 @@ pub fn import_graph(
         nodes.push(Node {
             id: new_id,
             content: export_node.content.clone(),
-            embedding: export_node.embedding.clone().unwrap_or_else(|| vec![0.0f32; 384]),
+            embedding: export_node
+                .embedding
+                .clone()
+                .unwrap_or_else(|| vec![0.0f32; 384]),
             metadata,
             node_type: string_to_node_type(&export_node.node_type),
             timestamp: export_node.timestamp,
@@ -768,7 +766,12 @@ mod tests {
 
     #[test]
     fn test_node_type_roundtrip() {
-        let types = vec![NodeType::Entity, NodeType::Event, NodeType::Fact, NodeType::Skill];
+        let types = vec![
+            NodeType::Entity,
+            NodeType::Event,
+            NodeType::Fact,
+            NodeType::Skill,
+        ];
         for nt in types {
             let s = node_type_to_string(&nt);
             let rt = string_to_node_type(&s);
@@ -854,7 +857,8 @@ mod tests {
         assert!(contents.contains(&"Lunch event"));
 
         // Verify edges are coherent (source and target are valid new IDs).
-        let new_ids: std::collections::HashSet<NodeId> = result.nodes.iter().map(|n| n.id).collect();
+        let new_ids: std::collections::HashSet<NodeId> =
+            result.nodes.iter().map(|n| n.id).collect();
         for edge in &result.edges {
             assert!(new_ids.contains(&edge.source));
             assert!(new_ids.contains(&edge.target));

@@ -89,40 +89,137 @@ impl CooccurrenceRelationExtractor {
 // shorter/generic ones (e.g., "works at" before "at", "moved to" before "to").
 const PREDICATE_PATTERNS: &[(&[&str], &str, f32)] = &[
     // Location / movement (specific)
-    (&["lives in", "vive en", "reside in", "based in", "located in", "ubicado en"], "lives_in", 0.3),
-    (&["moved to", "se mudó a", "relocated to", "trasladó a"], "moved_to", 0.3),
-    (&["moved from", "se mudó de", "came from", "vino de"], "moved_from", 0.3),
+    (
+        &[
+            "lives in",
+            "vive en",
+            "reside in",
+            "based in",
+            "located in",
+            "ubicado en",
+        ],
+        "lives_in",
+        0.3,
+    ),
+    (
+        &["moved to", "se mudó a", "relocated to", "trasladó a"],
+        "moved_to",
+        0.3,
+    ),
+    (
+        &["moved from", "se mudó de", "came from", "vino de"],
+        "moved_from",
+        0.3,
+    ),
     (&["born in", "nació en", "nacido en"], "born_in", 0.3),
-    (&["traveled to", "viajó a", "went to", "fue a"], "traveled_to", 0.2),
+    (
+        &["traveled to", "viajó a", "went to", "fue a"],
+        "traveled_to",
+        0.2,
+    ),
     // Employment / affiliation (specific — must come before generic "at"/"en")
-    (&["works at", "trabaja en", "employed at", "employed by"], "works_at", 0.3),
+    (
+        &["works at", "trabaja en", "employed at", "employed by"],
+        "works_at",
+        0.3,
+    ),
     (&["works for", "trabaja para"], "works_for", 0.3),
-    (&["founded", "fundó", "created", "creó", "started"], "founded", 0.3),
-    (&["leads", "lidera", "heads", "dirige", "manages", "gestiona"], "leads", 0.25),
+    (
+        &["founded", "fundó", "created", "creó", "started"],
+        "founded",
+        0.3,
+    ),
+    (
+        &["leads", "lidera", "heads", "dirige", "manages", "gestiona"],
+        "leads",
+        0.25,
+    ),
     (&["joined", "se unió a", "ingresó a"], "joined", 0.25),
     (&["CEO of", "director of", "president of"], "leads", 0.3),
     // Relationships
-    (&["married to", "casado con", "spouse of", "esposo de", "esposa de"], "married_to", 0.3),
+    (
+        &[
+            "married to",
+            "casado con",
+            "spouse of",
+            "esposo de",
+            "esposa de",
+        ],
+        "married_to",
+        0.3,
+    ),
     (&["friend of", "amigo de", "amiga de"], "friend_of", 0.2),
-    (&["sibling of", "hermano de", "hermana de", "brother of", "sister of"], "sibling_of", 0.3),
-    (&["child of", "hijo de", "hija de", "son of", "daughter of"], "child_of", 0.3),
-    (&["parent of", "padre de", "madre de", "father of", "mother of"], "parent_of", 0.3),
+    (
+        &[
+            "sibling of",
+            "hermano de",
+            "hermana de",
+            "brother of",
+            "sister of",
+        ],
+        "sibling_of",
+        0.3,
+    ),
+    (
+        &["child of", "hijo de", "hija de", "son of", "daughter of"],
+        "child_of",
+        0.3,
+    ),
+    (
+        &[
+            "parent of",
+            "padre de",
+            "madre de",
+            "father of",
+            "mother of",
+        ],
+        "parent_of",
+        0.3,
+    ),
     // Ownership / creation
     (&["owns", "posee", "has", "tiene"], "owns", 0.15),
-    (&["bought", "compró", "acquired", "adquirió", "purchased"], "acquired", 0.25),
-    (&["wrote", "escribió", "authored", "publicó", "published"], "authored", 0.25),
+    (
+        &["bought", "compró", "acquired", "adquirió", "purchased"],
+        "acquired",
+        0.25,
+    ),
+    (
+        &["wrote", "escribió", "authored", "publicó", "published"],
+        "authored",
+        0.25,
+    ),
     // Causal / temporal
-    (&["caused", "causó", "led to", "provocó", "resulted in"], "caused_by", 0.25),
-    (&["after", "después de", "following", "tras"], "follows", 0.1),
+    (
+        &["caused", "causó", "led to", "provocó", "resulted in"],
+        "caused_by",
+        0.25,
+    ),
+    (
+        &["after", "después de", "following", "tras"],
+        "follows",
+        0.1,
+    ),
     (&["before", "antes de", "prior to"], "precedes", 0.1),
     // Interaction
     (&["met", "conoció", "met with", "se reunió con"], "met", 0.2),
-    (&["called", "llamó", "contacted", "contactó"], "contacted", 0.2),
-    (&["said", "dijo", "told", "told to"], "communicated_with", 0.1),
+    (
+        &["called", "llamó", "contacted", "contactó"],
+        "contacted",
+        0.2,
+    ),
+    (
+        &["said", "dijo", "told", "told to"],
+        "communicated_with",
+        0.1,
+    ),
     // Eating / consuming (for event node test case)
     (&["ate", "comió", "eaten", "eating", "comiendo"], "ate", 0.2),
     // Generic / short patterns (MUST be last — these are catch-all)
-    (&["with", "con", "junto a", "along with"], "associated_with", 0.05),
+    (
+        &["with", "con", "junto a", "along with"],
+        "associated_with",
+        0.05,
+    ),
     (&["in", "en", "at", "a"], "located_in", 0.05),
 ];
 
@@ -211,10 +308,18 @@ fn order_entities<'a>(
     let person_labels = ["person", "persona", "per", "people"];
     let location_labels = ["location", "lugar", "loc", "place", "city", "country"];
 
-    let a_is_person = person_labels.iter().any(|l| entity_a.label.to_lowercase().contains(l));
-    let b_is_person = person_labels.iter().any(|l| entity_b.label.to_lowercase().contains(l));
-    let a_is_location = location_labels.iter().any(|l| entity_a.label.to_lowercase().contains(l));
-    let b_is_location = location_labels.iter().any(|l| entity_b.label.to_lowercase().contains(l));
+    let a_is_person = person_labels
+        .iter()
+        .any(|l| entity_a.label.to_lowercase().contains(l));
+    let b_is_person = person_labels
+        .iter()
+        .any(|l| entity_b.label.to_lowercase().contains(l));
+    let a_is_location = location_labels
+        .iter()
+        .any(|l| entity_a.label.to_lowercase().contains(l));
+    let b_is_location = location_labels
+        .iter()
+        .any(|l| entity_b.label.to_lowercase().contains(l));
 
     // For spatial predicates, person should be subject, location object
     let is_spatial = matches!(
@@ -333,7 +438,11 @@ impl RelationExtractor for CooccurrenceRelationExtractor {
         }
 
         // Sort by confidence descending
-        relations.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+        relations.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         Ok(relations)
     }
@@ -547,7 +656,8 @@ impl FireworksRelationExtractor {
             "temperature": self.config.temperature
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Authorization", format!("Bearer {}", self.config.api_key))
             .header("Content-Type", "application/json")
@@ -565,7 +675,8 @@ impl FireworksRelationExtractor {
             ));
         }
 
-        let json: serde_json::Value = response.json()
+        let json: serde_json::Value = response
+            .json()
             .map_err(|e| anyhow::anyhow!("Failed to parse Fireworks response: {}", e))?;
 
         // Extract the assistant message content from OpenAI-compatible response
@@ -685,12 +796,20 @@ impl CompositeRelationExtractor {
         // Look for GGUF file in the model directory
         let gguf_exists = if model_path.is_dir() {
             std::fs::read_dir(&model_path)
-                .map(|entries| entries.filter_map(|e| e.ok()).any(|e| {
-                    e.path().extension().map(|ext| ext == "gguf").unwrap_or(false)
-                }))
+                .map(|entries| {
+                    entries.filter_map(|e| e.ok()).any(|e| {
+                        e.path()
+                            .extension()
+                            .map(|ext| ext == "gguf")
+                            .unwrap_or(false)
+                    })
+                })
                 .unwrap_or(false)
         } else if model_path.exists() {
-            model_path.extension().map(|ext| ext == "gguf").unwrap_or(false)
+            model_path
+                .extension()
+                .map(|ext| ext == "gguf")
+                .unwrap_or(false)
         } else {
             false
         };
@@ -741,9 +860,7 @@ impl RelationExtractor for CompositeRelationExtractor {
                 // Fallback to co-occurrence on error
                 self.cooccurrence.extract_relations(text, entities)
             }
-            RelationStrategy::CoOccurrence => {
-                self.cooccurrence.extract_relations(text, entities)
-            }
+            RelationStrategy::CoOccurrence => self.cooccurrence.extract_relations(text, entities),
             RelationStrategy::Llm => {
                 // When "llm" feature is enabled, this would call the local LLM.
                 // Fall back to co-occurrence if not compiled in.
@@ -761,7 +878,13 @@ impl RelationExtractor for CompositeRelationExtractor {
 mod tests {
     use super::*;
 
-    fn make_entity(text: &str, label: &str, start: usize, end: usize, confidence: f32) -> ExtractedEntity {
+    fn make_entity(
+        text: &str,
+        label: &str,
+        start: usize,
+        end: usize,
+        confidence: f32,
+    ) -> ExtractedEntity {
         ExtractedEntity {
             text: text.to_string(),
             label: label.to_string(),
@@ -840,7 +963,9 @@ mod tests {
     fn test_cooccurrence_single_entity() {
         let extractor = CooccurrenceRelationExtractor::with_defaults();
         let entities = vec![make_entity("Juan", "person", 0, 4, 0.9)];
-        let result = extractor.extract_relations("Juan lives here", &entities).unwrap();
+        let result = extractor
+            .extract_relations("Juan lives here", &entities)
+            .unwrap();
         assert!(result.is_empty());
     }
 
@@ -876,14 +1001,23 @@ mod tests {
         let result = extractor.extract_relations(text, &entities).unwrap();
 
         // Should find relations: Juan→Madrid (moved from), Juan→Berlin (moved to), Juan→SAP (works)
-        assert!(result.len() >= 2, "Expected at least 2 relations, got {}: {:?}", result.len(), result);
+        assert!(
+            result.len() >= 2,
+            "Expected at least 2 relations, got {}: {:?}",
+            result.len(),
+            result
+        );
 
         // Check for Juan → Madrid relation
-        let juan_madrid = result.iter().find(|r| r.subject == "Juan" && r.object == "Madrid");
+        let juan_madrid = result
+            .iter()
+            .find(|r| r.subject == "Juan" && r.object == "Madrid");
         assert!(juan_madrid.is_some(), "Expected Juan→Madrid relation");
 
         // Check for Juan → Berlín relation
-        let juan_berlin = result.iter().find(|r| r.subject == "Juan" && r.object == "Berlín");
+        let juan_berlin = result
+            .iter()
+            .find(|r| r.subject == "Juan" && r.object == "Berlín");
         assert!(juan_berlin.is_some(), "Expected Juan→Berlín relation");
     }
 
@@ -899,7 +1033,10 @@ mod tests {
             ..Default::default()
         });
         let result = extractor.extract_relations(text, &entities).unwrap();
-        assert!(result.is_empty(), "Far-apart entities should not produce relations");
+        assert!(
+            result.is_empty(),
+            "Far-apart entities should not produce relations"
+        );
     }
 
     #[test]
@@ -930,9 +1067,16 @@ mod tests {
         let result = extractor.extract_relations(text, &entities).unwrap();
 
         // Should find: Juan→Google (works_at), and potentially Google→Mountain View, Juan→Mountain View
-        assert!(result.len() >= 2, "Expected at least 2 relations, got {}: {:?}", result.len(), result);
+        assert!(
+            result.len() >= 2,
+            "Expected at least 2 relations, got {}: {:?}",
+            result.len(),
+            result
+        );
 
-        let juan_google = result.iter().find(|r| r.subject == "Juan" && r.object == "Google");
+        let juan_google = result
+            .iter()
+            .find(|r| r.subject == "Juan" && r.object == "Google");
         assert!(juan_google.is_some(), "Expected Juan→Google relation");
     }
 
@@ -949,10 +1093,15 @@ mod tests {
         let result = extractor.extract_relations(text, &entities).unwrap();
 
         // Should only have one Juan→Madrid relation (deduped)
-        let juan_madrid: Vec<_> = result.iter()
+        let juan_madrid: Vec<_> = result
+            .iter()
             .filter(|r| r.subject == "Juan" && r.object == "Madrid")
             .collect();
-        assert_eq!(juan_madrid.len(), 1, "Should dedup to single Juan→Madrid relation");
+        assert_eq!(
+            juan_madrid.len(),
+            1,
+            "Should dedup to single Juan→Madrid relation"
+        );
     }
 
     // --- JSON parsing tests ---
@@ -1278,8 +1427,14 @@ That's all!"#;
             make_entity("London", "location", 4, 10, 0.8),
         ];
         let relations = extractor.extract_relations(text, &entities).unwrap();
-        assert!(!relations.is_empty(), "Adjacent entities should still produce relations");
-        assert!(relations[0].confidence > 0.5, "Adjacent entities should have high confidence");
+        assert!(
+            !relations.is_empty(),
+            "Adjacent entities should still produce relations"
+        );
+        assert!(
+            relations[0].confidence > 0.5,
+            "Adjacent entities should have high confidence"
+        );
     }
 
     #[test]
@@ -1422,9 +1577,7 @@ That's all!"#;
                     make_entity("Microsoft", "organization", 0, 9, 0.97),
                     make_entity("Activision Blizzard", "organization", 19, 38, 0.95),
                 ],
-                ground_truth: vec![
-                    ("Microsoft", "acquired", "Activision Blizzard"),
-                ],
+                ground_truth: vec![("Microsoft", "acquired", "Activision Blizzard")],
                 fine_tuned_output: r#"[{"subject":"Microsoft","predicate":"acquired","object":"Activision Blizzard","confidence":0.97}]"#,
             },
             // 8. Authorship
@@ -1436,7 +1589,11 @@ That's all!"#;
                     make_entity("Colombia", "location", 64, 72, 0.92),
                 ],
                 ground_truth: vec![
-                    ("Gabriel García Márquez", "authored", "One Hundred Years of Solitude"),
+                    (
+                        "Gabriel García Márquez",
+                        "authored",
+                        "One Hundred Years of Solitude",
+                    ),
                     ("Gabriel García Márquez", "lives_in", "Colombia"),
                 ],
                 fine_tuned_output: r#"[{"subject":"Gabriel García Márquez","predicate":"authored","object":"One Hundred Years of Solitude","confidence":0.97},{"subject":"Gabriel García Márquez","predicate":"born_in","object":"Colombia","confidence":0.85}]"#,
@@ -1448,9 +1605,7 @@ That's all!"#;
                     make_entity("Sarah", "person", 21, 26, 0.91),
                     make_entity("David", "person", 57, 62, 0.90),
                 ],
-                ground_truth: vec![
-                    ("Sarah", "follows", "David"),
-                ],
+                ground_truth: vec![("Sarah", "follows", "David")],
                 fine_tuned_output: r#"[{"subject":"Sarah","predicate":"follows","object":"David","confidence":0.82}]"#,
             },
             // 10. Spanish text — siblings
@@ -1519,9 +1674,7 @@ That's all!"#;
                     make_entity("Jeff Bezos", "person", 0, 10, 0.96),
                     make_entity("Washington Post", "organization", 20, 35, 0.94),
                 ],
-                ground_truth: vec![
-                    ("Jeff Bezos", "owns", "Washington Post"),
-                ],
+                ground_truth: vec![("Jeff Bezos", "owns", "Washington Post")],
                 fine_tuned_output: r#"[{"subject":"Jeff Bezos","predicate":"owns","object":"Washington Post","confidence":0.96}]"#,
             },
             // 15. Joining an organization
@@ -1573,9 +1726,7 @@ That's all!"#;
                     make_entity("John", "person", 0, 4, 0.92),
                     make_entity("Sarah", "person", 12, 17, 0.91),
                 ],
-                ground_truth: vec![
-                    ("John", "contacted", "Sarah"),
-                ],
+                ground_truth: vec![("John", "contacted", "Sarah")],
                 fine_tuned_output: r#"[{"subject":"John","predicate":"contacted","object":"Sarah","confidence":0.90}]"#,
             },
             // 19. Child relationship
@@ -1637,9 +1788,21 @@ That's all!"#;
         let pred_count = pred_set.len();
         let truth_count = truth_set.len();
 
-        let prec = if pred_count > 0 { correct as f64 / pred_count as f64 } else { 0.0 };
-        let rec = if truth_count > 0 { correct as f64 / truth_count as f64 } else { 0.0 };
-        let f1 = if prec + rec > 0.0 { 2.0 * prec * rec / (prec + rec) } else { 0.0 };
+        let prec = if pred_count > 0 {
+            correct as f64 / pred_count as f64
+        } else {
+            0.0
+        };
+        let rec = if truth_count > 0 {
+            correct as f64 / truth_count as f64
+        } else {
+            0.0
+        };
+        let f1 = if prec + rec > 0.0 {
+            2.0 * prec * rec / (prec + rec)
+        } else {
+            0.0
+        };
 
         (prec, rec, f1, correct, pred_count, truth_count)
     }
@@ -1748,27 +1911,47 @@ That's all!"#;
 
         // ─── Print results ───
         println!("\n===== Relation Extraction Benchmark: Fine-Tuned vs Co-occurrence =====");
-        println!("Dataset: {} samples, {} total ground-truth relations", dataset.len(), truth_total);
+        println!(
+            "Dataset: {} samples, {} total ground-truth relations",
+            dataset.len(),
+            truth_total
+        );
         println!();
-        println!("| Method | Macro-P | Macro-R | Macro-F1 | Micro-P | Micro-R | Micro-F1 | Latency |");
-        println!("|--------|---------|---------|----------|---------|---------|----------|---------|");
+        println!(
+            "| Method | Macro-P | Macro-R | Macro-F1 | Micro-P | Micro-R | Micro-F1 | Latency |"
+        );
+        println!(
+            "|--------|---------|---------|----------|---------|---------|----------|---------|"
+        );
         println!(
             "| Co-occurrence | {:.3} | {:.3} | {:.3} | {:.3} | {:.3} | {:.3} | {:.1}ms |",
-            cooc_macro_prec, cooc_macro_rec, cooc_macro_f1,
-            cooc_micro_prec, cooc_micro_rec, cooc_micro_f1,
+            cooc_macro_prec,
+            cooc_macro_rec,
+            cooc_macro_f1,
+            cooc_micro_prec,
+            cooc_micro_rec,
+            cooc_micro_f1,
             cooc_duration.as_secs_f64() * 1000.0
         );
         println!(
             "| Fine-tuned | {:.3} | {:.3} | {:.3} | {:.3} | {:.3} | {:.3} | {:.1}ms |",
-            ft_macro_prec, ft_macro_rec, ft_macro_f1,
-            ft_micro_prec, ft_micro_rec, ft_micro_f1,
+            ft_macro_prec,
+            ft_macro_rec,
+            ft_macro_f1,
+            ft_micro_prec,
+            ft_micro_rec,
+            ft_micro_f1,
             ft_duration.as_secs_f64() * 1000.0
         );
         println!();
-        println!("Co-occurrence: {}/{} correct out of {} predicted ({} ground truth)",
-            cooc_correct_total, cooc_pred_total, cooc_pred_total, truth_total);
-        println!("Fine-tuned: {}/{} correct out of {} predicted ({} ground truth)",
-            ft_correct_total, ft_pred_total, ft_pred_total, truth_total);
+        println!(
+            "Co-occurrence: {}/{} correct out of {} predicted ({} ground truth)",
+            cooc_correct_total, cooc_pred_total, cooc_pred_total, truth_total
+        );
+        println!(
+            "Fine-tuned: {}/{} correct out of {} predicted ({} ground truth)",
+            ft_correct_total, ft_pred_total, ft_pred_total, truth_total
+        );
 
         // ─── Improvement calculation ───
         let f1_improvement = if cooc_macro_f1 > 0.0 {
@@ -1776,26 +1959,32 @@ That's all!"#;
         } else {
             100.0
         };
-        println!("\nFine-tuned F1 improvement over co-occurrence: {:+.1}%", f1_improvement);
+        println!(
+            "\nFine-tuned F1 improvement over co-occurrence: {:+.1}%",
+            f1_improvement
+        );
 
         // ─── Assertions ───
         // Fine-tuned model should have higher precision than co-occurrence
         assert!(
             ft_macro_prec > cooc_macro_prec,
             "Fine-tuned precision ({:.3}) should exceed co-occurrence ({:.3})",
-            ft_macro_prec, cooc_macro_prec
+            ft_macro_prec,
+            cooc_macro_prec
         );
         // Fine-tuned model should have higher recall than co-occurrence
         assert!(
             ft_macro_rec > cooc_macro_rec,
             "Fine-tuned recall ({:.3}) should exceed co-occurrence ({:.3})",
-            ft_macro_rec, cooc_macro_rec
+            ft_macro_rec,
+            cooc_macro_rec
         );
         // Fine-tuned model should have higher F1 than co-occurrence
         assert!(
             ft_macro_f1 > cooc_macro_f1,
             "Fine-tuned F1 ({:.3}) should exceed co-occurrence ({:.3})",
-            ft_macro_f1, cooc_macro_f1
+            ft_macro_f1,
+            cooc_macro_f1
         );
         // Fine-tuned model should achieve reasonable quality (F1 > 0.5)
         assert!(

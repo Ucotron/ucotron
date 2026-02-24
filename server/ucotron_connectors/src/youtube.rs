@@ -146,11 +146,7 @@ impl YouTubeConnector {
                 .context("Failed to parse YouTube videos.list response")?;
 
             if let Some(error) = resp.error {
-                bail!(
-                    "YouTube API error: {} ({})",
-                    error.message,
-                    error.code
-                );
+                bail!("YouTube API error: {} ({})", error.message, error.code);
             }
 
             all_details.extend(resp.items.unwrap_or_default());
@@ -183,11 +179,7 @@ impl YouTubeConnector {
             .context("Failed to parse YouTube channels.list response")?;
 
         if let Some(error) = channel_resp.error {
-            bail!(
-                "YouTube API error: {} ({})",
-                error.message,
-                error.code
-            );
+            bail!("YouTube API error: {} ({})", error.message, error.code);
         }
 
         let uploads_playlist_id = channel_resp
@@ -237,11 +229,7 @@ impl YouTubeConnector {
                 .context("Failed to parse YouTube playlistItems.list response")?;
 
             if let Some(error) = resp.error {
-                bail!(
-                    "YouTube API error: {} ({})",
-                    error.message,
-                    error.code
-                );
+                bail!("YouTube API error: {} ({})", error.message, error.code);
             }
 
             for item in resp.items.unwrap_or_default() {
@@ -276,11 +264,7 @@ impl YouTubeConnector {
         let resp: CaptionListResponse = self
             .client
             .get(format!("{}/captions", YOUTUBE_API_BASE))
-            .query(&[
-                ("key", api_key),
-                ("videoId", video_id),
-                ("part", "snippet"),
-            ])
+            .query(&[("key", api_key), ("videoId", video_id), ("part", "snippet")])
             .send()
             .await
             .context("Failed to call YouTube captions.list API")?
@@ -289,11 +273,7 @@ impl YouTubeConnector {
             .context("Failed to parse YouTube captions.list response")?;
 
         if let Some(error) = resp.error {
-            bail!(
-                "YouTube API error: {} ({})",
-                error.message,
-                error.code
-            );
+            bail!("YouTube API error: {} ({})", error.message, error.code);
         }
 
         Ok(resp.items.unwrap_or_default())
@@ -303,20 +283,12 @@ impl YouTubeConnector {
     ///
     /// Falls back to the timedtext endpoint for auto-generated captions
     /// since the captions.download endpoint requires OAuth for third-party content.
-    async fn download_captions(
-        &self,
-        video_id: &str,
-        language: &str,
-    ) -> Result<Option<String>> {
+    async fn download_captions(&self, video_id: &str, language: &str) -> Result<Option<String>> {
         // Use the public timedtext endpoint (works without OAuth for public videos)
         let resp = self
             .client
             .get("https://www.youtube.com/api/timedtext")
-            .query(&[
-                ("v", video_id),
-                ("lang", language),
-                ("fmt", "srv3"),
-            ])
+            .query(&[("v", video_id), ("lang", language), ("fmt", "srv3")])
             .send()
             .await
             .context("Failed to fetch captions from timedtext API")?;
@@ -723,7 +695,7 @@ impl Connector for YouTubeConnector {
             // Track the most recent published_at
             if latest_published
                 .as_ref()
-                .map_or(true, |current| video.snippet.published_at.as_str() > current.as_str())
+                .is_none_or(|current| video.snippet.published_at.as_str() > current.as_str())
             {
                 latest_published = Some(video.snippet.published_at.clone());
             }
@@ -772,7 +744,7 @@ impl Connector for YouTubeConnector {
             let language = Self::get_language(config);
 
             let details = self
-                .fetch_video_details(api_key, &[video_id.clone()])
+                .fetch_video_details(api_key, std::slice::from_ref(&video_id))
                 .await?;
 
             if let Some(video) = details.first() {
@@ -822,10 +794,7 @@ fn parse_iso8601_timestamp(ts: &str) -> Option<u64> {
     }
 
     let date_parts: Vec<u64> = parts[0].split('-').filter_map(|s| s.parse().ok()).collect();
-    let time_parts: Vec<u64> = parts[1]
-        .split(':')
-        .filter_map(|s| s.parse().ok())
-        .collect();
+    let time_parts: Vec<u64> = parts[1].split(':').filter_map(|s| s.parse().ok()).collect();
 
     if date_parts.len() != 3 || time_parts.len() != 3 {
         return None;
@@ -839,11 +808,25 @@ fn parse_iso8601_timestamp(ts: &str) -> Option<u64> {
     for y in 1970..year {
         days += if is_leap_year(y) { 366 } else { 365 };
     }
-    let days_in_months = [31, 28 + if is_leap_year(year) { 1 } else { 0 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    for m in 0..(month.saturating_sub(1) as usize) {
-        if m < 12 {
-            days += days_in_months[m];
-        }
+    let days_in_months = [
+        31,
+        28 + if is_leap_year(year) { 1 } else { 0 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    for d in days_in_months
+        .iter()
+        .take((month.saturating_sub(1)) as usize)
+    {
+        days += d;
     }
     days += day.saturating_sub(1);
 
@@ -851,7 +834,7 @@ fn parse_iso8601_timestamp(ts: &str) -> Option<u64> {
 }
 
 fn is_leap_year(year: u64) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 // --- YouTube Data API v3 response types ---
@@ -984,19 +967,13 @@ mod tests {
 
     fn make_video_config(api_key: &str, video_ids: Vec<&str>) -> ConnectorConfig {
         let mut settings = HashMap::new();
-        settings.insert(
-            "video_ids".to_string(),
-            serde_json::json!(video_ids),
-        );
+        settings.insert("video_ids".to_string(), serde_json::json!(video_ids));
         make_config(api_key, settings)
     }
 
     fn make_channel_config(api_key: &str, channel_id: &str) -> ConnectorConfig {
         let mut settings = HashMap::new();
-        settings.insert(
-            "channel_id".to_string(),
-            serde_json::json!(channel_id),
-        );
+        settings.insert("channel_id".to_string(), serde_json::json!(channel_id));
         make_config(api_key, settings)
     }
 
@@ -1017,7 +994,9 @@ mod tests {
         assert!(schema["properties"]["settings"]["properties"]["channel_id"].is_object());
         assert!(schema["properties"]["settings"]["properties"]["playlist_id"].is_object());
         assert!(schema["properties"]["settings"]["properties"]["language"].is_object());
-        assert!(schema["properties"]["settings"]["properties"]["include_auto_captions"].is_object());
+        assert!(
+            schema["properties"]["settings"]["properties"]["include_auto_captions"].is_object()
+        );
     }
 
     #[test]
@@ -1038,10 +1017,7 @@ mod tests {
     fn test_validate_config_valid_with_playlist_id() {
         let connector = YouTubeConnector::new();
         let mut settings = HashMap::new();
-        settings.insert(
-            "playlist_id".to_string(),
-            serde_json::json!("PLxxxxxxxx"),
-        );
+        settings.insert("playlist_id".to_string(), serde_json::json!("PLxxxxxxxx"));
         let config = make_config("AIza_test_key", settings);
         assert!(connector.validate_config(&config).is_ok());
     }
@@ -1231,7 +1207,9 @@ mod tests {
 
         assert!(item.content.contains("Title: Test Video"));
         assert!(item.content.contains("Channel: Test Channel"));
-        assert!(item.content.contains("Description: A test video description"));
+        assert!(item
+            .content
+            .contains("Description: A test video description"));
         assert!(item
             .content
             .contains("Transcript: Hello everyone welcome to the video"));
@@ -1252,10 +1230,7 @@ mod tests {
             Some(true)
         );
         assert_eq!(
-            item.source
-                .extra
-                .get("duration")
-                .and_then(|v| v.as_str()),
+            item.source.extra.get("duration").and_then(|v| v.as_str()),
             Some("PT5M30S")
         );
     }

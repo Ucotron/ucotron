@@ -102,9 +102,7 @@ impl FfmpegVideoPipeline {
 
     /// Extract frames from a video file.
     pub fn extract_frames(&self, path: &Path) -> Result<FrameExtractionResult> {
-        let path_str = path
-            .to_str()
-            .context("Video path contains invalid UTF-8")?;
+        let path_str = path.to_str().context("Video path contains invalid UTF-8")?;
 
         // Open input file
         let mut ictx = ffmpeg_next::format::input(&path_str)
@@ -187,7 +185,7 @@ impl FfmpegVideoPipeline {
             let mut decoded_frame = ffmpeg_next::util::frame::video::Video::empty();
             while decoder.receive_frame(&mut decoded_frame).is_ok() {
                 // Check if we should extract this frame based on interval
-                if frame_count % frame_interval != 0 {
+                if !frame_count.is_multiple_of(frame_interval) {
                     frame_count += 1;
                     continue;
                 }
@@ -221,15 +219,16 @@ impl FfmpegVideoPipeline {
                 }
 
                 // Convert to RGB
-                let mut rgb_frame =
-                    ffmpeg_next::util::frame::video::Video::empty();
-                scaler.as_mut().unwrap().run(&decoded_frame, &mut rgb_frame)?;
+                let mut rgb_frame = ffmpeg_next::util::frame::video::Video::empty();
+                scaler
+                    .as_mut()
+                    .unwrap()
+                    .run(&decoded_frame, &mut rgb_frame)?;
 
                 // Compute grayscale histogram for scene change detection
                 let rgb_data = rgb_frame.data(0);
-                let stride = rgb_frame.stride(0) as usize;
-                let mut flat_rgb =
-                    Vec::with_capacity((out_width * out_height * 3) as usize);
+                let stride = rgb_frame.stride(0);
+                let mut flat_rgb = Vec::with_capacity((out_width * out_height * 3) as usize);
                 for y in 0..out_height as usize {
                     let row_start = y * stride;
                     let row_end = row_start + (out_width as usize * 3);
@@ -248,8 +247,7 @@ impl FfmpegVideoPipeline {
 
                 // Calculate timestamp
                 let pts = decoded_frame.pts().unwrap_or(0);
-                let timestamp_ms =
-                    (pts as f64 * f64::from(time_base) * 1000.0).max(0.0) as u64;
+                let timestamp_ms = (pts as f64 * f64::from(time_base) * 1000.0).max(0.0) as u64;
 
                 let is_keyframe = decoded_frame.is_key();
 
@@ -283,9 +281,8 @@ impl FfmpegVideoPipeline {
                 let mut rgb_frame = ffmpeg_next::util::frame::video::Video::empty();
                 if s.run(&decoded_frame, &mut rgb_frame).is_ok() {
                     let rgb_data = rgb_frame.data(0);
-                    let stride = rgb_frame.stride(0) as usize;
-                    let mut flat_rgb =
-                        Vec::with_capacity((out_width * out_height * 3) as usize);
+                    let stride = rgb_frame.stride(0);
+                    let mut flat_rgb = Vec::with_capacity((out_width * out_height * 3) as usize);
                     for y in 0..out_height as usize {
                         let row_start = y * stride;
                         let row_end = row_start + (out_width as usize * 3);
@@ -303,8 +300,7 @@ impl FfmpegVideoPipeline {
                     prev_histogram = Some(histogram);
 
                     let pts = decoded_frame.pts().unwrap_or(0);
-                    let timestamp_ms =
-                        (pts as f64 * f64::from(time_base) * 1000.0).max(0.0) as u64;
+                    let timestamp_ms = (pts as f64 * f64::from(time_base) * 1000.0).max(0.0) as u64;
                     let is_keyframe = decoded_frame.is_key();
 
                     frames.push(ExtractedFrame {
@@ -407,10 +403,7 @@ impl FrameSegment {
 ///    into the previous segment (if one exists)
 ///
 /// Returns an empty vec if `frames` is empty.
-pub fn segment_frames(
-    frames: &[ExtractedFrame],
-    config: &SegmentConfig,
-) -> Vec<FrameSegment> {
+pub fn segment_frames(frames: &[ExtractedFrame], config: &SegmentConfig) -> Vec<FrameSegment> {
     if frames.is_empty() {
         return Vec::new();
     }
@@ -420,6 +413,7 @@ pub fn segment_frames(
     let mut current_indices: Vec<usize> = vec![0];
     let mut current_is_scene_change = true; // first segment always starts a "scene"
 
+    #[allow(clippy::needless_range_loop)]
     for i in 1..frames.len() {
         let frame = &frames[i];
         let elapsed = frame.timestamp_ms.saturating_sub(current_start_ms);
@@ -483,8 +477,8 @@ pub fn segment_frames(
 pub(crate) fn compute_grayscale_histogram(rgb_data: &[u8]) -> [u32; 256] {
     let mut histogram = [0u32; 256];
     for pixel in rgb_data.chunks_exact(3) {
-        let gray = (0.299 * pixel[0] as f64 + 0.587 * pixel[1] as f64 + 0.114 * pixel[2] as f64)
-            as u8;
+        let gray =
+            (0.299 * pixel[0] as f64 + 0.587 * pixel[1] as f64 + 0.114 * pixel[2] as f64) as u8;
         histogram[gray as usize] += 1;
     }
     histogram
@@ -550,7 +544,10 @@ mod tests {
     fn test_histogram_identical() {
         let h = [100u32; 256];
         let diff = histogram_diff(&h, &h);
-        assert!(diff.abs() < 1e-10, "Identical histograms should have diff=0, got {diff}");
+        assert!(
+            diff.abs() < 1e-10,
+            "Identical histograms should have diff=0, got {diff}"
+        );
     }
 
     #[test]
@@ -575,7 +572,10 @@ mod tests {
         h2[0] = 500;
         h2[255] = 500;
         let diff = histogram_diff(&h1, &h2);
-        assert!(diff > 0.0 && diff < 1.0, "Partial diff should be in (0,1), got {diff}");
+        assert!(
+            diff > 0.0 && diff < 1.0,
+            "Partial diff should be in (0,1), got {diff}"
+        );
     }
 
     #[test]
@@ -583,7 +583,10 @@ mod tests {
         let h1 = [0u32; 256];
         let h2 = [0u32; 256];
         let diff = histogram_diff(&h1, &h2);
-        assert!((diff - 1.0).abs() < 1e-10, "Empty histograms should return 1.0");
+        assert!(
+            (diff - 1.0).abs() < 1e-10,
+            "Empty histograms should return 1.0"
+        );
     }
 
     #[test]
@@ -592,7 +595,10 @@ mod tests {
         let mut h2 = [0u32; 256];
         h2[128] = 1000;
         let diff = histogram_diff(&h1, &h2);
-        assert!((diff - 1.0).abs() < 1e-10, "One empty histogram should return 1.0");
+        assert!(
+            (diff - 1.0).abs() < 1e-10,
+            "One empty histogram should return 1.0"
+        );
     }
 
     #[test]
@@ -601,8 +607,8 @@ mod tests {
         let rgb = vec![0u8; 9];
         let hist = compute_grayscale_histogram(&rgb);
         assert_eq!(hist[0], 3);
-        for i in 1..256 {
-            assert_eq!(hist[i], 0);
+        for h in &hist[1..256] {
+            assert_eq!(*h, 0);
         }
     }
 
@@ -761,9 +767,7 @@ mod tests {
     #[test]
     fn test_segment_no_scene_changes() {
         // 10 frames spanning 20s, no scene changes — all below threshold
-        let frames: Vec<_> = (0..10)
-            .map(|i| make_frame(i * 2000, 0.1))
-            .collect();
+        let frames: Vec<_> = (0..10).map(|i| make_frame(i * 2000, 0.1)).collect();
         let segments = segment_frames(&frames, &SegmentConfig::default());
         // All frames should be in a single segment (no splits triggered)
         assert_eq!(segments.len(), 1);
@@ -779,14 +783,14 @@ mod tests {
         // Min duration 5s is met (6s - 0s = 6s >= 5s)
         // Second segment (6s-14s = 8s) is long enough to NOT be merged
         let frames = vec![
-            make_frame(0, 1.0),      // segment 0 start
-            make_frame(2000, 0.1),   // same scene
-            make_frame(4000, 0.1),   // same scene
-            make_frame(6000, 0.8),   // scene change! elapsed=6s >= min=5s → split
-            make_frame(8000, 0.1),   // new segment
+            make_frame(0, 1.0),    // segment 0 start
+            make_frame(2000, 0.1), // same scene
+            make_frame(4000, 0.1), // same scene
+            make_frame(6000, 0.8), // scene change! elapsed=6s >= min=5s → split
+            make_frame(8000, 0.1), // new segment
             make_frame(10000, 0.1),
             make_frame(12000, 0.1),
-            make_frame(14000, 0.1),  // end — tail is 8s >= min 5s
+            make_frame(14000, 0.1), // end — tail is 8s >= min 5s
         ];
         let config = SegmentConfig {
             min_duration_ms: 5_000,
@@ -839,13 +843,21 @@ mod tests {
         };
         let segments = segment_frames(&frames, &config);
         // Should split at 10s and 20s boundaries
-        assert!(segments.len() >= 3, "Expected at least 3 segments for 35s video with 10s max, got {}", segments.len());
+        assert!(
+            segments.len() >= 3,
+            "Expected at least 3 segments for 35s video with 10s max, got {}",
+            segments.len()
+        );
         for seg in &segments {
             // No individual segment should exceed max_duration (except possibly last due to merge)
             if seg.index < segments.len() - 1 {
-                assert!(seg.duration_ms() <= config.max_duration_ms,
+                assert!(
+                    seg.duration_ms() <= config.max_duration_ms,
                     "Segment {} duration {}ms exceeds max {}ms",
-                    seg.index, seg.duration_ms(), config.max_duration_ms);
+                    seg.index,
+                    seg.duration_ms(),
+                    config.max_duration_ms
+                );
             }
         }
     }
@@ -899,7 +911,10 @@ mod tests {
             .collect();
         all_indices.sort();
         let expected: Vec<usize> = (0..20).collect();
-        assert_eq!(all_indices, expected, "All frames should be covered exactly once");
+        assert_eq!(
+            all_indices, expected,
+            "All frames should be covered exactly once"
+        );
     }
 
     #[test]
@@ -920,15 +935,15 @@ mod tests {
         // Multiple scene changes with sufficient gaps.
         // Each segment must be >= min_duration (5s) to avoid tail merge.
         let frames = vec![
-            make_frame(0, 1.0),       // seg 0
+            make_frame(0, 1.0), // seg 0
             make_frame(3000, 0.05),
-            make_frame(6000, 0.9),    // scene change at 6s (>= 5s min) → seg 1
+            make_frame(6000, 0.9), // scene change at 6s (>= 5s min) → seg 1
             make_frame(9000, 0.05),
-            make_frame(12000, 0.9),   // scene change at 12s (6s since seg1 start >= 5s) → seg 2
+            make_frame(12000, 0.9), // scene change at 12s (6s since seg1 start >= 5s) → seg 2
             make_frame(15000, 0.05),
-            make_frame(18000, 0.9),   // scene change at 18s (6s since seg2 start >= 5s) → seg 3
+            make_frame(18000, 0.9), // scene change at 18s (6s since seg2 start >= 5s) → seg 3
             make_frame(21000, 0.05),
-            make_frame(24000, 0.05),  // ensure last segment is 6s (18s-24s >= 5s min)
+            make_frame(24000, 0.05), // ensure last segment is 6s (18s-24s >= 5s min)
         ];
         let config = SegmentConfig {
             min_duration_ms: 5_000,
@@ -936,7 +951,11 @@ mod tests {
             scene_change_threshold: 0.3,
         };
         let segments = segment_frames(&frames, &config);
-        assert_eq!(segments.len(), 4, "Expected 4 segments from 3 scene changes + initial");
+        assert_eq!(
+            segments.len(),
+            4,
+            "Expected 4 segments from 3 scene changes + initial"
+        );
         assert!(segments[1].is_scene_change);
         assert!(segments[2].is_scene_change);
         assert!(segments[3].is_scene_change);
@@ -957,9 +976,14 @@ mod tests {
             ..Default::default()
         };
         let pipeline = FfmpegVideoPipeline::new(config);
-        let result = pipeline.extract_frames(test_video).expect("Should extract frames");
+        let result = pipeline
+            .extract_frames(test_video)
+            .expect("Should extract frames");
 
-        assert!(!result.frames.is_empty(), "Should extract at least one frame");
+        assert!(
+            !result.frames.is_empty(),
+            "Should extract at least one frame"
+        );
         assert!(result.video_width > 0, "Video width should be positive");
         assert!(result.video_height > 0, "Video height should be positive");
 

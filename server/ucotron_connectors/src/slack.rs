@@ -75,7 +75,10 @@ impl SlackConnector {
         let mut cursor = String::new();
 
         loop {
-            let mut params = vec![("limit", "200".to_string()), ("types", "public_channel".to_string())];
+            let mut params = vec![
+                ("limit", "200".to_string()),
+                ("types", "public_channel".to_string()),
+            ];
             if !cursor.is_empty() {
                 params.push(("cursor", cursor.clone()));
             }
@@ -210,11 +213,7 @@ impl SlackConnector {
         }
 
         // Parse Slack timestamp (e.g., "1234567890.123456") to Unix seconds
-        let created_at = msg
-            .ts
-            .split('.')
-            .next()
-            .and_then(|s| s.parse::<u64>().ok());
+        let created_at = msg.ts.split('.').next().and_then(|s| s.parse::<u64>().ok());
 
         let mut extra = HashMap::new();
         extra.insert(
@@ -410,7 +409,7 @@ impl Connector for SlackConnector {
 
             // Track the most recent timestamp across all channels
             if let Some(ref ts) = channel_latest {
-                if latest_ts.as_ref().map_or(true, |current| ts > current) {
+                if latest_ts.as_ref().is_none_or(|current| ts > current) {
                     latest_ts = Some(ts.clone());
                 }
             }
@@ -508,10 +507,7 @@ impl Connector for SlackConnector {
             .get("channel")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
-        let user_id = event
-            .get("user")
-            .and_then(|v| v.as_str())
-            .map(String::from);
+        let user_id = event.get("user").and_then(|v| v.as_str()).map(String::from);
         let ts = event
             .get("ts")
             .and_then(|v| v.as_str())
@@ -632,10 +628,7 @@ mod tests {
     fn make_config(token: &str, channels: Vec<&str>) -> ConnectorConfig {
         let mut settings = HashMap::new();
         if !channels.is_empty() {
-            settings.insert(
-                "channels".to_string(),
-                serde_json::json!(channels),
-            );
+            settings.insert("channels".to_string(), serde_json::json!(channels));
         }
         ConnectorConfig {
             id: "slack-test".to_string(),
@@ -809,11 +802,7 @@ mod tests {
             .message_to_content_item(&msg, "C01", "general", "conn-1", None)
             .unwrap();
 
-        assert!(item
-            .source
-            .extra
-            .get("thread_ts")
-            .is_some());
+        assert!(item.source.extra.contains_key("thread_ts"));
     }
 
     #[test]

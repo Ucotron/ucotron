@@ -232,7 +232,12 @@ mod tests {
             find_related(self, query, top_k, hops, DEFAULT_HOP_DECAY)
         }
 
-        fn find_path(&self, _source: NodeId, _target: NodeId, _max_depth: u32) -> Result<Option<Vec<NodeId>>> {
+        fn find_path(
+            &self,
+            _source: NodeId,
+            _target: NodeId,
+            _max_depth: u32,
+        ) -> Result<Option<Vec<NodeId>>> {
             Ok(None) // not needed for hybrid search tests
         }
 
@@ -340,7 +345,10 @@ mod tests {
 
         let ids1: Vec<u64> = r1.iter().map(|n| n.id).collect();
         let ids2: Vec<u64> = r2.iter().map(|n| n.id).collect();
-        assert_eq!(ids1, ids2, "Repeated queries should return identical results");
+        assert_eq!(
+            ids1, ids2,
+            "Repeated queries should return identical results"
+        );
     }
 
     #[test]
@@ -357,8 +365,8 @@ mod tests {
         emb_a[1] /= norm;
 
         engine.add_node(make_node(0, unit_vec(384, 0))); // sim=1.0 to query
-        engine.add_node(make_node(1, emb_a));              // sim~=0.994 to query
-        engine.add_node(make_node(2, vec![0.0; 384]));     // no vector match
+        engine.add_node(make_node(1, emb_a)); // sim~=0.994 to query
+        engine.add_node(make_node(2, vec![0.0; 384])); // no vector match
 
         engine.add_edge_undirected(0, 2); // path 1: 0→2, score = 1.0 * 0.5 = 0.5
         engine.add_edge_undirected(1, 2); // path 2: 1→2, score = 0.994 * 0.5 ≈ 0.497
@@ -391,7 +399,10 @@ mod tests {
 
         let ids: Vec<u64> = results.iter().map(|n| n.id).collect();
         assert!(ids.contains(&0), "Vector match should be included");
-        assert!(!ids.contains(&1), "No graph expansion should happen with hops=0");
+        assert!(
+            !ids.contains(&1),
+            "No graph expansion should happen with hops=0"
+        );
     }
 
     #[test]

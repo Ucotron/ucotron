@@ -179,8 +179,12 @@ impl LongMemEvalDataset {
     /// Supports both array format (just a list of questions) and object format
     /// (with metadata wrapper).
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let content = fs::read_to_string(path.as_ref())
-            .with_context(|| format!("Failed to read LongMemEval file: {}", path.as_ref().display()))?;
+        let content = fs::read_to_string(path.as_ref()).with_context(|| {
+            format!(
+                "Failed to read LongMemEval file: {}",
+                path.as_ref().display()
+            )
+        })?;
 
         let variant = path
             .as_ref()
@@ -204,7 +208,9 @@ impl LongMemEvalDataset {
                     serde_json::from_value(arr.clone())
                         .with_context(|| "Failed to parse questions array")?
                 } else {
-                    anyhow::bail!("LongMemEval JSON must be an array or object with 'data'/'questions' key");
+                    anyhow::bail!(
+                        "LongMemEval JSON must be an array or object with 'data'/'questions' key"
+                    );
                 }
             }
         };
@@ -228,11 +234,7 @@ impl LongMemEvalDataset {
                 .entry(MemoryAbility::from_question_type(&q.question_type))
                 .or_default() += 1;
             total_sessions += q.haystack_sessions.len();
-            total_turns += q
-                .haystack_sessions
-                .iter()
-                .map(|s| s.len())
-                .sum::<usize>();
+            total_turns += q.haystack_sessions.iter().map(|s| s.len()).sum::<usize>();
         }
 
         DatasetStats {
@@ -255,7 +257,10 @@ impl LongMemEvalDataset {
     }
 
     /// Convert with explicit granularity control.
-    pub fn to_eval_dataset_with_granularity(&self, granularity: DocumentGranularity) -> EvalDataset {
+    pub fn to_eval_dataset_with_granularity(
+        &self,
+        granularity: DocumentGranularity,
+    ) -> EvalDataset {
         let mut documents = Vec::new();
         let mut queries = Vec::new();
         let mut seen_docs: HashMap<String, bool> = HashMap::new();
@@ -351,7 +356,9 @@ impl LongMemEvalDataset {
                             .haystack_session_ids
                             .get(session_idx)
                             .cloned()
-                            .unwrap_or_else(|| format!("{}:session_{}", q.question_id, session_idx));
+                            .unwrap_or_else(|| {
+                                format!("{}:session_{}", q.question_id, session_idx)
+                            });
 
                         if q.answer_session_ids.contains(&session_id) {
                             for (turn_idx, turn) in session.iter().enumerate() {
@@ -583,15 +590,8 @@ impl LongMemEvalReport {
 
         // Group categories by ability (category format: "Ability Label:question_type")
         for cat_name in report.per_category.keys() {
-            let ability_label = cat_name
-                .split(':')
-                .next()
-                .unwrap_or(cat_name)
-                .to_string();
-            ability_map
-                .entry(ability_label)
-                .or_default()
-                .push(cat_name);
+            let ability_label = cat_name.split(':').next().unwrap_or(cat_name).to_string();
+            ability_map.entry(ability_label).or_default().push(cat_name);
         }
 
         let mut result = HashMap::new();
@@ -1041,10 +1041,7 @@ mod tests {
         assert_eq!(stats.num_questions, 2);
         assert_eq!(stats.total_sessions, 4);
         assert_eq!(stats.total_turns, 8);
-        assert_eq!(
-            stats.by_ability[&MemoryAbility::InformationExtraction],
-            1
-        );
+        assert_eq!(stats.by_ability[&MemoryAbility::InformationExtraction], 1);
         assert_eq!(stats.by_ability[&MemoryAbility::KnowledgeUpdate], 1);
     }
 
@@ -1077,7 +1074,11 @@ mod tests {
         assert_eq!(q1.id, "q1");
         assert_eq!(q1.query, "What is the user's name?");
         assert_eq!(q1.relevant_ids, vec!["s2"]);
-        assert!(q1.category.as_ref().unwrap().contains("Information Extraction"));
+        assert!(q1
+            .category
+            .as_ref()
+            .unwrap()
+            .contains("Information Extraction"));
 
         // Check second query
         let q2 = &eval.queries[1];
@@ -1216,16 +1217,17 @@ mod tests {
         };
 
         // Perfect retrieval: always return the correct session
-        let report = run_benchmark_from_dataset(&ds, DocumentGranularity::Session, config, |query| {
-            if query.contains("name") {
-                vec!["s2".into(), "s1".into()]
-            } else if query.contains("live") {
-                vec!["s3".into(), "s4".into()]
-            } else {
-                vec![]
-            }
-        })
-        .unwrap();
+        let report =
+            run_benchmark_from_dataset(&ds, DocumentGranularity::Session, config, |query| {
+                if query.contains("name") {
+                    vec!["s2".into(), "s1".into()]
+                } else if query.contains("live") {
+                    vec!["s3".into(), "s4".into()]
+                } else {
+                    vec![]
+                }
+            })
+            .unwrap();
 
         // Both queries should have perfect Recall@1
         assert_eq!(report.eval_report.aggregate.num_queries, 2);
@@ -1265,14 +1267,15 @@ mod tests {
             ..Default::default()
         };
 
-        let report = run_benchmark_from_dataset(&ds, DocumentGranularity::Session, config, |query| {
-            if query.contains("name") {
-                vec!["s2".into()]
-            } else {
-                vec!["s3".into()]
-            }
-        })
-        .unwrap();
+        let report =
+            run_benchmark_from_dataset(&ds, DocumentGranularity::Session, config, |query| {
+                if query.contains("name") {
+                    vec!["s2".into()]
+                } else {
+                    vec!["s3".into()]
+                }
+            })
+            .unwrap();
 
         let md = report.to_markdown();
         assert!(md.contains("# LongMemEval Benchmark Results"));
@@ -1431,14 +1434,15 @@ mod tests {
             ..Default::default()
         };
 
-        let report = run_benchmark_from_dataset(&ds, DocumentGranularity::Session, config, |query| {
-            if query.contains("name") {
-                vec!["s2".into()]
-            } else {
-                vec!["s3".into()]
-            }
-        })
-        .unwrap();
+        let report =
+            run_benchmark_from_dataset(&ds, DocumentGranularity::Session, config, |query| {
+                if query.contains("name") {
+                    vec!["s2".into()]
+                } else {
+                    vec!["s3".into()]
+                }
+            })
+            .unwrap();
 
         // Should have 2 ability categories
         assert_eq!(report.per_ability.len(), 2);

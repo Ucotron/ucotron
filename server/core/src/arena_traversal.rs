@@ -599,7 +599,11 @@ mod tests {
         assert_eq!(ids1, ids2);
 
         // Arena was reset between calls — bytes should be modest
-        assert!(bytes1 < 65536, "Arena should use modest memory: {} bytes", bytes1);
+        assert!(
+            bytes1 < 65536,
+            "Arena should use modest memory: {} bytes",
+            bytes1
+        );
     }
 
     #[test]
@@ -614,8 +618,8 @@ mod tests {
         emb_a[1] /= norm;
 
         engine.add_node(make_node(0, unit_vec(384, 0))); // sim=1.0
-        engine.add_node(make_node(1, emb_a));              // sim~=0.994
-        engine.add_node(make_node(2, vec![0.0; 384]));     // no vector match
+        engine.add_node(make_node(1, emb_a)); // sim~=0.994
+        engine.add_node(make_node(2, vec![0.0; 384])); // no vector match
 
         engine.add_edge_undirected(0, 2);
         engine.add_edge_undirected(1, 2);
@@ -703,7 +707,10 @@ mod tests {
         let mut std_ids: Vec<u64> = std_results.iter().map(|n| n.id).collect();
         arena_ids.sort();
         std_ids.sort();
-        assert_eq!(arena_ids, std_ids, "Arena and standard should discover same nodes");
+        assert_eq!(
+            arena_ids, std_ids,
+            "Arena and standard should discover same nodes"
+        );
 
         // Print timing for manual inspection (not enforced — depends on hardware)
         eprintln!(
@@ -729,7 +736,13 @@ mod tests {
         let score_1 = result.iter().find(|(id, _)| *id == 1).unwrap().1;
         let score_2 = result.iter().find(|(id, _)| *id == 2).unwrap().1;
 
-        assert!((score_1 - 0.9).abs() < 1e-6, "Should keep highest score for node 1");
-        assert!((score_2 - 0.3).abs() < 1e-6, "Should keep highest score for node 2");
+        assert!(
+            (score_1 - 0.9).abs() < 1e-6,
+            "Should keep highest score for node 1"
+        );
+        assert!(
+            (score_2 - 0.3).abs() < 1e-6,
+            "Should keep highest score for node 2"
+        );
     }
 }

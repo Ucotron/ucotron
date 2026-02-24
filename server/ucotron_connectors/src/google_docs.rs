@@ -7,11 +7,10 @@
 use std::collections::HashMap;
 
 use anyhow::{bail, Context, Result};
-use serde::Deserialize;
 
 use crate::connector::{
-    AuthConfig, Connector, ConnectorConfig, ContentItem, SourceMetadata,
-    SyncCursor, SyncResult, WebhookPayload,
+    AuthConfig, Connector, ConnectorConfig, ContentItem, SourceMetadata, SyncCursor, SyncResult,
+    WebhookPayload,
 };
 
 const DOCS_API_BASE: &str = "https://docs.googleapis.com/v1";
@@ -19,6 +18,12 @@ const DOCS_API_BASE: &str = "https://docs.googleapis.com/v1";
 /// Google Docs connector implementation.
 pub struct GoogleDocsConnector {
     client: reqwest::Client,
+}
+
+impl Default for GoogleDocsConnector {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GoogleDocsConnector {
@@ -90,10 +95,7 @@ impl GoogleDocsConnector {
                 connector_type: "google_docs".to_string(),
                 connector_id: config.id.clone(),
                 source_id: doc_id.to_string(),
-                source_url: Some(format!(
-                    "https://docs.google.com/document/d/{}",
-                    doc_id
-                )),
+                source_url: Some(format!("https://docs.google.com/document/d/{}", doc_id)),
                 author: None,
                 created_at: None,
                 extra: {

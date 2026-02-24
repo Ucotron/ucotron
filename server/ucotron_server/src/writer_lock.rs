@@ -203,7 +203,8 @@ mod tests {
 
         // Write a fake lock file with a PID that doesn't exist (PID 1 is init,
         // but PID 99999999 almost certainly doesn't exist).
-        let fake_content = r#"{"instance_id":"dead","pid":99999999,"acquired_at":"0s-since-epoch"}"#;
+        let fake_content =
+            r#"{"instance_id":"dead","pid":99999999,"acquired_at":"0s-since-epoch"}"#;
         fs::write(&lock_path, fake_content).unwrap();
 
         // Should succeed because the PID is dead (unless we happen to have a

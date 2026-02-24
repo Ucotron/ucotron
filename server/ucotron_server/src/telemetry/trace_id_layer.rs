@@ -27,9 +27,7 @@ pub struct TraceIdJsonFormat {
 
 impl TraceIdJsonFormat {
     pub fn new() -> Self {
-        Self {
-            timer: SystemTime,
-        }
+        Self { timer: SystemTime }
     }
 }
 

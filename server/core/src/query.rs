@@ -214,10 +214,7 @@ impl<'a> TraversalQuery<'a> {
         while let Some((current_id, depth)) = queue.pop_front() {
             // Fetch and optionally filter the current node
             if let Some(node) = graph.get_node(current_id)? {
-                let passes = self
-                    .node_filter
-                    .as_ref()
-                    .is_none_or(|f| f(&node));
+                let passes = self.node_filter.as_ref().is_none_or(|f| f(&node));
                 if passes {
                     result_nodes.push(node);
                 }
@@ -295,10 +292,7 @@ impl<'a> TraversalQuery<'a> {
         let mut results = Vec::with_capacity(scored.len());
         for (node_id, _score) in &scored {
             if let Some(node) = graph.get_node(*node_id)? {
-                let passes = self
-                    .node_filter
-                    .as_ref()
-                    .is_none_or(|f| f(&node));
+                let passes = self.node_filter.as_ref().is_none_or(|f| f(&node));
                 if passes {
                     results.push(node);
                 }
@@ -373,10 +367,7 @@ impl<'a> VectorQuery<'a> {
 
             // Fetch full node and apply filter
             if let Some(node) = graph.get_node(node_id)? {
-                let passes = self
-                    .node_filter
-                    .as_ref()
-                    .is_none_or(|f| f(&node));
+                let passes = self.node_filter.as_ref().is_none_or(|f| f(&node));
                 if passes {
                     nodes.push((node, score));
                 }
@@ -691,7 +682,8 @@ mod tests {
         graph_backend.upsert_edges(&edges).unwrap();
 
         // Embeddings
-        let embs: Vec<(NodeId, Vec<f32>)> = nodes.iter().map(|n| (n.id, n.embedding.clone())).collect();
+        let embs: Vec<(NodeId, Vec<f32>)> =
+            nodes.iter().map(|n| (n.id, n.embedding.clone())).collect();
         vec_backend.upsert_embeddings(&embs).unwrap();
 
         BackendRegistry::new(Box::new(vec_backend), Box::new(graph_backend))
@@ -703,12 +695,7 @@ mod tests {
     fn test_traversal_1hop_from_node() {
         let registry = setup_registry();
 
-        let results = registry
-            .query()
-            .from(1)
-            .traverse(1)
-            .collect()
-            .unwrap();
+        let results = registry.query().from(1).traverse(1).collect().unwrap();
 
         let ids: Vec<NodeId> = results.iter().map(|n| n.id).collect();
         assert!(ids.contains(&1), "Start node should be included");
@@ -721,12 +708,7 @@ mod tests {
     fn test_traversal_2hop_from_node() {
         let registry = setup_registry();
 
-        let results = registry
-            .query()
-            .from(1)
-            .traverse(2)
-            .collect()
-            .unwrap();
+        let results = registry.query().from(1).traverse(2).collect().unwrap();
 
         let ids: Vec<NodeId> = results.iter().map(|n| n.id).collect();
         assert!(ids.contains(&1), "Start node");
@@ -768,11 +750,7 @@ mod tests {
         let registry = setup_registry();
 
         let query = unit_vec(4, 0); // matches node 1 perfectly
-        let results = registry
-            .query()
-            .vectors(&query, 3)
-            .collect()
-            .unwrap();
+        let results = registry.query().vectors(&query, 3).collect().unwrap();
 
         assert!(!results.is_empty());
         assert_eq!(results[0].0.id, 1, "Node 1 should be the top match");
@@ -877,12 +855,7 @@ mod tests {
     fn test_path_finding() {
         let registry = setup_registry();
 
-        let path = registry
-            .query()
-            .path(1, 4)
-            .max_depth(10)
-            .find()
-            .unwrap();
+        let path = registry.query().path(1, 4).max_depth(10).find().unwrap();
 
         assert!(path.is_some(), "Path should exist from 1 to 4");
         let p = path.unwrap();
@@ -894,11 +867,7 @@ mod tests {
     fn test_path_same_node() {
         let registry = setup_registry();
 
-        let path = registry
-            .query()
-            .path(1, 1)
-            .find()
-            .unwrap();
+        let path = registry.query().path(1, 1).find().unwrap();
 
         assert_eq!(path, Some(vec![1]));
     }
@@ -916,14 +885,12 @@ mod tests {
         // No edges between them
         let registry = BackendRegistry::new(Box::new(vec_backend), Box::new(graph_backend));
 
-        let path = registry
-            .query()
-            .path(1, 2)
-            .max_depth(10)
-            .find()
-            .unwrap();
+        let path = registry.query().path(1, 2).max_depth(10).find().unwrap();
 
-        assert!(path.is_none(), "No path should exist between disconnected nodes");
+        assert!(
+            path.is_none(),
+            "No path should exist between disconnected nodes"
+        );
     }
 
     #[test]
@@ -953,22 +920,12 @@ mod tests {
 
         // max_depth=2 means at most 2 edges (3 nodes in path)
         // Path 10→11→12→13 needs 3 edges, so should fail
-        let path = registry
-            .query()
-            .path(10, 13)
-            .max_depth(2)
-            .find()
-            .unwrap();
+        let path = registry.query().path(10, 13).max_depth(2).find().unwrap();
 
         assert!(path.is_none(), "Path requires 3 hops but max_depth=2");
 
         // max_depth=3 should succeed
-        let path = registry
-            .query()
-            .path(10, 13)
-            .max_depth(3)
-            .find()
-            .unwrap();
+        let path = registry.query().path(10, 13).max_depth(3).find().unwrap();
 
         assert!(path.is_some(), "Path should be found with max_depth=3");
         let p = path.unwrap();
@@ -1060,7 +1017,10 @@ mod tests {
         // Neighbors get score = sim * 0.0^hop = 0 for hop >= 1
         // The seed should still be present
         let ids: Vec<NodeId> = results.iter().map(|n| n.id).collect();
-        assert!(ids.contains(&1), "Seed node should be in results even with zero decay");
+        assert!(
+            ids.contains(&1),
+            "Seed node should be in results even with zero decay"
+        );
     }
 
     #[test]
@@ -1089,7 +1049,10 @@ mod tests {
             .filter_node(|_| false) // reject everything
             .collect()
             .unwrap();
-        assert!(results.is_empty(), "Filter rejecting all should return empty");
+        assert!(
+            results.is_empty(),
+            "Filter rejecting all should return empty"
+        );
     }
 
     #[test]
@@ -1130,6 +1093,9 @@ mod tests {
         let registry = setup_registry();
         // max_depth=0 means no edges allowed — only source==target can succeed
         let path = registry.query().path(1, 2).max_depth(0).find().unwrap();
-        assert!(path.is_none(), "No path with max_depth=0 between different nodes");
+        assert!(
+            path.is_none(),
+            "No path with max_depth=0 between different nodes"
+        );
     }
 }

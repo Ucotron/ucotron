@@ -536,50 +536,48 @@ mod tests {
     #[test]
     fn test_detect_communities_disconnected_components() {
         // Two completely disconnected pairs → should be in different communities
-        let edges = vec![
-            (1, 2, 1.0),
-            (3, 4, 1.0),
-        ];
+        let edges = vec![(1, 2, 1.0), (3, 4, 1.0)];
         let config = CommunityConfig::default();
         let result = detect_communities(&edges, &config).unwrap();
 
         // Nodes 1,2 should be in the same community; nodes 3,4 in another
         let c1 = result.get_community_id(1);
         let c3 = result.get_community_id(3);
-        assert_ne!(c1, c3, "Disconnected components should be in different communities");
+        assert_ne!(
+            c1, c3,
+            "Disconnected components should be in different communities"
+        );
     }
 
     #[test]
     fn test_community_result_all_node_ids() {
-        let edges = vec![
-            (10, 20, 1.0),
-            (20, 30, 1.0),
-        ];
+        let edges = vec![(10, 20, 1.0), (20, 30, 1.0)];
         let config = CommunityConfig::default();
         let result = detect_communities(&edges, &config).unwrap();
 
         // All nodes that appear in edges should be assigned a community
         for &node in &[10, 20, 30] {
-            assert!(result.get_community_id(node).is_some(),
-                "Node {} should have a community assignment", node);
+            assert!(
+                result.get_community_id(node).is_some(),
+                "Node {} should have a community assignment",
+                node
+            );
         }
     }
 
     #[test]
     fn test_detect_communities_small_resolution() {
         // Very small resolution should tend to merge into fewer communities
-        let edges = vec![
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 4, 1.0),
-            (4, 5, 1.0),
-        ];
+        let edges = vec![(1, 2, 1.0), (2, 3, 1.0), (3, 4, 1.0), (4, 5, 1.0)];
         let config = CommunityConfig {
             resolution: 0.01,
             ..Default::default()
         };
         let result = detect_communities(&edges, &config).unwrap();
-        assert!(result.num_communities() >= 1, "Should have at least 1 community");
+        assert!(
+            result.num_communities() >= 1,
+            "Should have at least 1 community"
+        );
     }
 
     #[test]

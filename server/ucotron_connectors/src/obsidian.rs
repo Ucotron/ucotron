@@ -55,7 +55,9 @@ impl ObsidianConnector {
             .settings
             .get("vault_path")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Missing 'vault_path' in Obsidian connector settings"))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!("Missing 'vault_path' in Obsidian connector settings")
+            })?;
         let path = PathBuf::from(path_str);
         if !path.is_absolute() {
             bail!("vault_path must be an absolute path, got: {}", path_str);
@@ -69,13 +71,12 @@ impl ObsidianConnector {
             .settings
             .get("exclude_patterns")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
-            .unwrap_or_else(|| {
-                vec![
-                    ".obsidian/**".to_string(),
-                    ".trash/**".to_string(),
-                ]
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
             })
+            .unwrap_or_else(|| vec![".obsidian/**".to_string(), ".trash/**".to_string()])
     }
 
     /// Returns include patterns from settings (defaults to all .md files).
@@ -84,7 +85,11 @@ impl ObsidianConnector {
             .settings
             .get("include_patterns")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_else(|| vec!["**/*.md".to_string()])
     }
 
@@ -144,7 +149,8 @@ impl ObsidianConnector {
         exclude: &[String],
         files: &mut Vec<PathBuf>,
     ) -> Result<()> {
-        let entries = std::fs::read_dir(dir).with_context(|| format!("Failed to read directory: {}", dir.display()))?;
+        let entries = std::fs::read_dir(dir)
+            .with_context(|| format!("Failed to read directory: {}", dir.display()))?;
 
         for entry in entries {
             let entry = entry?;
@@ -240,9 +246,7 @@ impl ObsidianConnector {
         let raw = std::fs::read_to_string(file_path)
             .with_context(|| format!("Failed to read file: {}", file_path.display()))?;
 
-        let relative = file_path
-            .strip_prefix(vault_path)
-            .unwrap_or(file_path);
+        let relative = file_path.strip_prefix(vault_path).unwrap_or(file_path);
         let rel_str = relative.to_string_lossy().to_string();
 
         // Derive note title from filename (without .md extension)
@@ -265,23 +269,28 @@ impl ObsidianConnector {
 
         // Truncate body if needed
         let content = if body.len() > max_len {
-            &body[..body.char_indices().take_while(|(i, _)| *i < max_len).last().map(|(i, c)| i + c.len_utf8()).unwrap_or(0)]
+            &body[..body
+                .char_indices()
+                .take_while(|(i, _)| *i < max_len)
+                .last()
+                .map(|(i, c)| i + c.len_utf8())
+                .unwrap_or(0)]
         } else {
             body
         };
 
         // Build metadata
         let mut extra: HashMap<String, serde_json::Value> = HashMap::new();
-        extra.insert("path".to_string(), serde_json::Value::String(rel_str.clone()));
+        extra.insert(
+            "path".to_string(),
+            serde_json::Value::String(rel_str.clone()),
+        );
         extra.insert("title".to_string(), serde_json::Value::String(title));
 
         if do_parse_wikilinks {
             let wikilinks = Self::extract_wikilinks(body);
             if !wikilinks.is_empty() {
-                extra.insert(
-                    "wikilinks".to_string(),
-                    serde_json::json!(wikilinks),
-                );
+                extra.insert("wikilinks".to_string(), serde_json::json!(wikilinks));
             }
         }
 
@@ -293,10 +302,7 @@ impl ObsidianConnector {
         }
 
         if !frontmatter.is_empty() {
-            extra.insert(
-                "frontmatter".to_string(),
-                serde_json::json!(frontmatter),
-            );
+            extra.insert("frontmatter".to_string(), serde_json::json!(frontmatter));
         }
 
         // Get file modification time for created_at
@@ -434,7 +440,10 @@ impl ObsidianConnector {
             }
 
             // Skip heading lines (# Heading)
-            if trimmed.starts_with("# ") || trimmed.starts_with("## ") || trimmed.starts_with("### ") {
+            if trimmed.starts_with("# ")
+                || trimmed.starts_with("## ")
+                || trimmed.starts_with("### ")
+            {
                 // Still extract tags from headings if they contain them inline
                 // Actually, skip lines that ARE headings to avoid false positives with # prefix
                 // But we should still parse inline tags in the heading text
@@ -449,13 +458,22 @@ impl ObsidianConnector {
                 if bytes[i] == b'#' {
                     // Check this is a tag, not a heading or anchor
                     // Must be preceded by whitespace, start of line, or certain punctuation
-                    let is_start_of_word = i == 0 || matches!(bytes[i - 1], b' ' | b'\t' | b'(' | b'[' | b',');
+                    let is_start_of_word =
+                        i == 0 || matches!(bytes[i - 1], b' ' | b'\t' | b'(' | b'[' | b',');
 
-                    if is_start_of_word && i + 1 < len && (bytes[i + 1].is_ascii_alphanumeric() || bytes[i + 1] == b'_') {
+                    if is_start_of_word
+                        && i + 1 < len
+                        && (bytes[i + 1].is_ascii_alphanumeric() || bytes[i + 1] == b'_')
+                    {
                         // Collect tag chars
                         let tag_start = i + 1;
                         let mut j = tag_start;
-                        while j < len && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'-' || bytes[j] == b'_' || bytes[j] == b'/') {
+                        while j < len
+                            && (bytes[j].is_ascii_alphanumeric()
+                                || bytes[j] == b'-'
+                                || bytes[j] == b'_'
+                                || bytes[j] == b'/')
+                        {
                             j += 1;
                         }
                         let tag = &line[tag_start..j];
@@ -568,8 +586,8 @@ impl Connector for ObsidianConnector {
     async fn fetch(&self, config: &ConnectorConfig) -> Result<Vec<ContentItem>> {
         let vault_path = Self::get_vault_path(config)?;
 
-        let files = Self::collect_files(&vault_path, config)
-            .context("Failed to collect vault files")?;
+        let files =
+            Self::collect_files(&vault_path, config).context("Failed to collect vault files")?;
 
         let mut items = Vec::new();
         for file in &files {
@@ -596,8 +614,8 @@ impl Connector for ObsidianConnector {
         let vault_path = Self::get_vault_path(config)?;
         let last_sync_ts = cursor.last_sync.unwrap_or(0);
 
-        let files = Self::collect_files(&vault_path, config)
-            .context("Failed to collect vault files")?;
+        let files =
+            Self::collect_files(&vault_path, config).context("Failed to collect vault files")?;
 
         let mut items = Vec::new();
         let mut skipped = 0;
@@ -902,9 +920,18 @@ mod tests {
 
     #[test]
     fn test_glob_match_directory() {
-        assert!(ObsidianConnector::glob_match(".obsidian/**", ".obsidian/app.json"));
-        assert!(ObsidianConnector::glob_match(".obsidian/**", ".obsidian/plugins/x.json"));
-        assert!(!ObsidianConnector::glob_match(".obsidian/**", "notes/file.md"));
+        assert!(ObsidianConnector::glob_match(
+            ".obsidian/**",
+            ".obsidian/app.json"
+        ));
+        assert!(ObsidianConnector::glob_match(
+            ".obsidian/**",
+            ".obsidian/plugins/x.json"
+        ));
+        assert!(!ObsidianConnector::glob_match(
+            ".obsidian/**",
+            "notes/file.md"
+        ));
     }
 
     #[test]
@@ -959,9 +986,20 @@ mod tests {
         }
 
         // Check daily note has wikilinks and tags
-        let daily = items.iter().find(|i| i.source.source_id.contains("daily.md")).unwrap();
-        let wikilinks = daily.source.extra.get("wikilinks").unwrap().as_array().unwrap();
-        assert!(wikilinks.iter().any(|v| v.as_str() == Some("Project Alpha")));
+        let daily = items
+            .iter()
+            .find(|i| i.source.source_id.contains("daily.md"))
+            .unwrap();
+        let wikilinks = daily
+            .source
+            .extra
+            .get("wikilinks")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert!(wikilinks
+            .iter()
+            .any(|v| v.as_str() == Some("Project Alpha")));
         assert!(wikilinks.iter().any(|v| v.as_str() == Some("Alice")));
 
         let tags = daily.source.extra.get("tags").unwrap().as_array().unwrap();
@@ -969,7 +1007,13 @@ mod tests {
         assert!(tags.iter().any(|v| v.as_str() == Some("productivity")));
 
         // Check frontmatter was parsed
-        let fm = daily.source.extra.get("frontmatter").unwrap().as_object().unwrap();
+        let fm = daily
+            .source
+            .extra
+            .get("frontmatter")
+            .unwrap()
+            .as_object()
+            .unwrap();
         assert_eq!(fm.get("date").unwrap().as_str().unwrap(), "2024-01-15");
     }
 
@@ -978,15 +1022,20 @@ mod tests {
         let vault = create_temp_vault();
         let connector = ObsidianConnector::new();
         let mut config = make_config(vault.path().to_str().unwrap());
-        config.settings.insert("parse_wikilinks".to_string(), serde_json::json!(false));
+        config
+            .settings
+            .insert("parse_wikilinks".to_string(), serde_json::json!(false));
 
         let items = connector.fetch(&config).await.unwrap();
-        let daily = items.iter().find(|i| i.source.source_id.contains("daily.md")).unwrap();
+        let daily = items
+            .iter()
+            .find(|i| i.source.source_id.contains("daily.md"))
+            .unwrap();
 
         // Wikilinks should not be extracted
-        assert!(daily.source.extra.get("wikilinks").is_none());
+        assert!(!daily.source.extra.contains_key("wikilinks"));
         // But tags should still be present
-        assert!(daily.source.extra.get("tags").is_some());
+        assert!(daily.source.extra.contains_key("tags"));
     }
 
     #[tokio::test]
@@ -994,15 +1043,20 @@ mod tests {
         let vault = create_temp_vault();
         let connector = ObsidianConnector::new();
         let mut config = make_config(vault.path().to_str().unwrap());
-        config.settings.insert("parse_tags".to_string(), serde_json::json!(false));
+        config
+            .settings
+            .insert("parse_tags".to_string(), serde_json::json!(false));
 
         let items = connector.fetch(&config).await.unwrap();
-        let daily = items.iter().find(|i| i.source.source_id.contains("daily.md")).unwrap();
+        let daily = items
+            .iter()
+            .find(|i| i.source.source_id.contains("daily.md"))
+            .unwrap();
 
         // Tags should not be extracted
-        assert!(daily.source.extra.get("tags").is_none());
+        assert!(!daily.source.extra.contains_key("tags"));
         // But wikilinks should still be present
-        assert!(daily.source.extra.get("wikilinks").is_some());
+        assert!(daily.source.extra.contains_key("wikilinks"));
     }
 
     #[tokio::test]
@@ -1041,13 +1095,21 @@ mod tests {
 
         let new_file = vault.path().join("new_note.md");
         let mut f = std::fs::File::create(&new_file).unwrap();
-        writeln!(f, "# New Note\n\nThis is a new note with [[links]] and #tags.").unwrap();
+        writeln!(
+            f,
+            "# New Note\n\nThis is a new note with [[links]] and #tags."
+        )
+        .unwrap();
         drop(f);
 
         // Build cursor from the max mtime value returned by first sync
         let cursor = SyncCursor {
             value: result.cursor.value.clone(),
-            last_sync: result.cursor.value.as_ref().and_then(|v| v.parse::<u64>().ok()),
+            last_sync: result
+                .cursor
+                .value
+                .as_ref()
+                .and_then(|v| v.parse::<u64>().ok()),
         };
 
         // Second incremental sync — should only get the new file
@@ -1082,7 +1144,9 @@ mod tests {
     #[test]
     fn test_max_content_length_custom() {
         let mut config = make_config("/tmp/vault");
-        config.settings.insert("max_content_length".to_string(), serde_json::json!(500));
+        config
+            .settings
+            .insert("max_content_length".to_string(), serde_json::json!(500));
         assert_eq!(ObsidianConnector::max_content_length(&config), 500);
     }
 
@@ -1097,23 +1161,31 @@ mod tests {
         std::fs::write(vault.path().join("long.md"), &long_content).unwrap();
 
         // Set max length to 100
-        config.settings.insert("max_content_length".to_string(), serde_json::json!(100));
+        config
+            .settings
+            .insert("max_content_length".to_string(), serde_json::json!(100));
 
         let items = connector.fetch(&config).await.unwrap();
-        let long_item = items.iter().find(|i| i.source.source_id.contains("long.md")).unwrap();
+        let long_item = items
+            .iter()
+            .find(|i| i.source.source_id.contains("long.md"))
+            .unwrap();
         assert!(long_item.content.len() <= 100);
     }
 
     #[test]
     fn test_default_constructor() {
-        let connector = ObsidianConnector::default();
+        let connector = ObsidianConnector;
         assert_eq!(connector.id(), "obsidian");
     }
 
     #[test]
     fn test_settings_defaults() {
         let config = make_config("/tmp/vault");
-        assert_eq!(ObsidianConnector::get_include_patterns(&config), vec!["**/*.md"]);
+        assert_eq!(
+            ObsidianConnector::get_include_patterns(&config),
+            vec!["**/*.md"]
+        );
         assert_eq!(
             ObsidianConnector::get_exclude_patterns(&config),
             vec![".obsidian/**", ".trash/**"]

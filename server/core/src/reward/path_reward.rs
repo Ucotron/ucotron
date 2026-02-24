@@ -218,7 +218,9 @@ impl PathRewardCalculator {
         let pairs = edge_types.len() - 1;
 
         for i in 0..pairs {
-            total += self.coherence_config.similarity(edge_types[i], edge_types[i + 1]);
+            total += self
+                .coherence_config
+                .similarity(edge_types[i], edge_types[i + 1]);
         }
 
         total / pairs as f32
@@ -238,7 +240,10 @@ impl PathRewardCalculator {
         let max_degree = degrees.iter().copied().max().unwrap_or(1).max(1);
 
         // Average normalized degree of intermediate nodes
-        let avg: f32 = degrees.iter().map(|&d| d as f32 / max_degree as f32).sum::<f32>()
+        let avg: f32 = degrees
+            .iter()
+            .map(|&d| d as f32 / max_degree as f32)
+            .sum::<f32>()
             / intermediates.len() as f32;
 
         avg
@@ -342,10 +347,7 @@ mod tests {
 
     #[test]
     fn test_predicate_similarity_related_type() {
-        assert_eq!(
-            predicate_similarity(EdgeType::Actor, EdgeType::Object),
-            0.7
-        );
+        assert_eq!(predicate_similarity(EdgeType::Actor, EdgeType::Object), 0.7);
     }
 
     #[test]
@@ -370,7 +372,8 @@ mod tests {
         };
 
         // Intermediate nodes (2, 3) have high degree
-        let high_centrality = calc.calculate_reward(&path, &|n| if n == 2 || n == 3 { 100 } else { 1 });
+        let high_centrality =
+            calc.calculate_reward(&path, &|n| if n == 2 || n == 3 { 100 } else { 1 });
         // Intermediate nodes have low degree
         let low_centrality = calc.calculate_reward(&path, &|_| 1);
 
@@ -395,19 +398,30 @@ mod tests {
         assert_eq!(config.similarity(EdgeType::Actor, EdgeType::Actor), 1.0);
         // Related (same group) → 0.7
         assert_eq!(config.similarity(EdgeType::Actor, EdgeType::Object), 0.7);
-        assert_eq!(config.similarity(EdgeType::CausedBy, EdgeType::Supersedes), 0.7);
-        assert_eq!(config.similarity(EdgeType::RelatesTo, EdgeType::HasProperty), 0.7);
+        assert_eq!(
+            config.similarity(EdgeType::CausedBy, EdgeType::Supersedes),
+            0.7
+        );
+        assert_eq!(
+            config.similarity(EdgeType::RelatesTo, EdgeType::HasProperty),
+            0.7
+        );
         // Unrelated (different groups) → 0.3
-        assert_eq!(config.similarity(EdgeType::RelatesTo, EdgeType::ConflictsWith), 0.3);
+        assert_eq!(
+            config.similarity(EdgeType::RelatesTo, EdgeType::ConflictsWith),
+            0.3
+        );
         assert_eq!(config.similarity(EdgeType::Actor, EdgeType::CausedBy), 0.3);
     }
 
     #[test]
     fn test_custom_coherence_config_scores() {
-        let mut config = PredicateCoherenceConfig::default();
-        config.same_score = 1.0;
-        config.related_score = 0.9;
-        config.unrelated_score = 0.1;
+        let config = PredicateCoherenceConfig {
+            same_score: 1.0,
+            related_score: 0.9,
+            unrelated_score: 0.1,
+            ..Default::default()
+        };
 
         assert_eq!(config.similarity(EdgeType::Actor, EdgeType::Actor), 1.0);
         assert_eq!(config.similarity(EdgeType::Actor, EdgeType::Object), 0.9);
@@ -432,7 +446,10 @@ mod tests {
         // CausedBy and Actor are now related (same custom group)
         assert_eq!(config.similarity(EdgeType::CausedBy, EdgeType::Actor), 0.8);
         // RelatesTo is in a different group
-        assert_eq!(config.similarity(EdgeType::RelatesTo, EdgeType::CausedBy), 0.2);
+        assert_eq!(
+            config.similarity(EdgeType::RelatesTo, EdgeType::CausedBy),
+            0.2
+        );
     }
 
     #[test]
@@ -451,15 +468,20 @@ mod tests {
         // Unmapped edge type defaults to unrelated
         assert_eq!(config.similarity(EdgeType::Actor, EdgeType::CausedBy), 0.3);
         // Same type still returns same_score even if unmapped
-        assert_eq!(config.similarity(EdgeType::CausedBy, EdgeType::CausedBy), 1.0);
+        assert_eq!(
+            config.similarity(EdgeType::CausedBy, EdgeType::CausedBy),
+            1.0
+        );
     }
 
     #[test]
     fn test_calculator_with_custom_coherence_config() {
-        let mut config = PredicateCoherenceConfig::default();
-        config.same_score = 1.0;
-        config.related_score = 0.5; // Lower than default 0.7
-        config.unrelated_score = 0.0; // Stricter than default 0.3
+        let config = PredicateCoherenceConfig {
+            same_score: 1.0,
+            related_score: 0.5,   // Lower than default 0.7
+            unrelated_score: 0.0, // Stricter than default 0.3
+            ..Default::default()
+        };
 
         let calc = PathRewardCalculator::with_coherence_config(1.0, 1.0, 0.0, config);
 
@@ -488,9 +510,9 @@ mod tests {
         let path = PathWithEdges {
             nodes: vec![1, 2, 3, 4, 5],
             edge_types: vec![
-                EdgeType::Actor,         // → Actor (same)
-                EdgeType::Actor,         // → Object (related)
-                EdgeType::Object,        // → CausedBy (unrelated)
+                EdgeType::Actor,  // → Actor (same)
+                EdgeType::Actor,  // → Object (related)
+                EdgeType::Object, // → CausedBy (unrelated)
                 EdgeType::CausedBy,
             ],
         };

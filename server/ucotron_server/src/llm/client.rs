@@ -7,8 +7,8 @@ use std::pin::Pin;
 
 use async_trait::async_trait;
 use futures_util::{Stream, StreamExt};
-use reqwest::Client;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -74,6 +74,7 @@ struct OpenAIChatRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct OpenAIChatResponse {
     id: String,
     model: String,
@@ -88,12 +89,14 @@ struct OpenAIChoice {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct OpenAIMessageContent {
     role: String,
     content: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct OpenAIUsage {
     prompt_tokens: u32,
     completion_tokens: u32,
@@ -133,6 +136,7 @@ struct AnthropicRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct AnthropicResponse {
     id: String,
     type_: String,
@@ -142,6 +146,7 @@ struct AnthropicResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct AnthropicContentBlock {
     #[serde(rename = "type")]
     type_: String,
@@ -319,41 +324,42 @@ impl LLMClient for OpenAIClient {
             )));
         }
 
-        let stream = response.bytes_stream().map(move |chunk_result: Result<bytes::Bytes, reqwest::Error>| {
-            chunk_result
-                .map_err(|e| AppError::internal(format!("OpenAI stream read error: {}", e)))
-                .and_then(|bytes: bytes::Bytes| {
-                    let text = String::from_utf8_lossy(&bytes);
-                    let mut content = String::new();
-                    let mut finish_reason = None;
+        let stream = response.bytes_stream().map(
+            move |chunk_result: Result<bytes::Bytes, reqwest::Error>| {
+                chunk_result
+                    .map_err(|e| AppError::internal(format!("OpenAI stream read error: {}", e)))
+                    .map(|bytes: bytes::Bytes| {
+                        let text = String::from_utf8_lossy(&bytes);
+                        let mut content = String::new();
+                        let mut finish_reason = None;
 
-                    for line in text.lines() {
-                        if line.starts_with("data: ") {
-                            let data = &line[6..];
-                            if data == "[DONE]" {
-                                finish_reason = Some("stop".to_string());
-                                continue;
-                            }
-                            if let Ok(event) = serde_json::from_str::<OpenAISSEvent>(data) {
-                                if let Some(choice) = event.choices.into_iter().next() {
-                                    if let Some(c) = choice.delta.content {
-                                        content.push_str(&c);
-                                    }
-                                    if choice.finish_reason.is_some() {
-                                        finish_reason = choice.finish_reason;
+                        for line in text.lines() {
+                            if let Some(data) = line.strip_prefix("data: ") {
+                                if data == "[DONE]" {
+                                    finish_reason = Some("stop".to_string());
+                                    continue;
+                                }
+                                if let Ok(event) = serde_json::from_str::<OpenAISSEvent>(data) {
+                                    if let Some(choice) = event.choices.into_iter().next() {
+                                        if let Some(c) = choice.delta.content {
+                                            content.push_str(&c);
+                                        }
+                                        if choice.finish_reason.is_some() {
+                                            finish_reason = choice.finish_reason;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    Ok(StreamingChunk {
-                        content: content.clone(),
-                        delta: content,
-                        finish_reason,
+                        StreamingChunk {
+                            content: content.clone(),
+                            delta: content,
+                            finish_reason,
+                        }
                     })
-                })
-        });
+            },
+        );
 
         Ok(Box::pin(stream))
     }
@@ -424,10 +430,9 @@ impl LLMClient for AnthropicClient {
             )));
         }
 
-        let anthropic_response: AnthropicResponse = response
-            .json()
-            .await
-            .map_err(|e| AppError::internal(format!("Failed to parse Anthropic response: {}", e)))?;
+        let anthropic_response: AnthropicResponse = response.json().await.map_err(|e| {
+            AppError::internal(format!("Failed to parse Anthropic response: {}", e))
+        })?;
 
         let content = anthropic_response
             .content
@@ -485,7 +490,9 @@ impl LLMClient for AnthropicClient {
             .json(&anthropic_request)
             .send()
             .await
-            .map_err(|e| AppError::internal(format!("Anthropic streaming request failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::internal(format!("Anthropic streaming request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -496,41 +503,42 @@ impl LLMClient for AnthropicClient {
             )));
         }
 
-        let stream = response.bytes_stream().map(move |chunk_result: Result<bytes::Bytes, reqwest::Error>| {
-            chunk_result
-                .map_err(|e| AppError::internal(format!("Anthropic stream read error: {}", e)))
-                .and_then(|bytes: bytes::Bytes| {
-                    let text = String::from_utf8_lossy(&bytes);
-                    let mut content = String::new();
-                    let mut finish_reason = None;
+        let stream = response.bytes_stream().map(
+            move |chunk_result: Result<bytes::Bytes, reqwest::Error>| {
+                chunk_result
+                    .map_err(|e| AppError::internal(format!("Anthropic stream read error: {}", e)))
+                    .map(|bytes: bytes::Bytes| {
+                        let text = String::from_utf8_lossy(&bytes);
+                        let mut content = String::new();
+                        let mut finish_reason = None;
 
-                    for line in text.lines() {
-                        if line.starts_with("data: ") {
-                            let data = &line[6..];
-                            if let Ok(event) = serde_json::from_str::<AnthropicSSEvent>(data) {
-                                if event.type_ == "message_delta" {
-                                    if let Some(usage) = event.usage {
-                                        finish_reason = Some("end_turn".to_string());
-                                        let _ = usage;
-                                    }
-                                } else if event.type_ == "content_block_delta" {
-                                    if let Some(delta) = event.delta {
-                                        if let Some(text) = delta.text {
-                                            content.push_str(&text);
+                        for line in text.lines() {
+                            if let Some(data) = line.strip_prefix("data: ") {
+                                if let Ok(event) = serde_json::from_str::<AnthropicSSEvent>(data) {
+                                    if event.type_ == "message_delta" {
+                                        if let Some(usage) = event.usage {
+                                            finish_reason = Some("end_turn".to_string());
+                                            let _ = usage;
+                                        }
+                                    } else if event.type_ == "content_block_delta" {
+                                        if let Some(delta) = event.delta {
+                                            if let Some(text) = delta.text {
+                                                content.push_str(&text);
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    Ok(StreamingChunk {
-                        content: content.clone(),
-                        delta: content,
-                        finish_reason,
+                        StreamingChunk {
+                            content: content.clone(),
+                            delta: content,
+                            finish_reason,
+                        }
                     })
-                })
-        });
+            },
+        );
 
         Ok(Box::pin(stream))
     }
@@ -606,10 +614,9 @@ impl LLMClient for FireworksClient {
             )));
         }
 
-        let chat_response: OpenAIChatResponse = response
-            .json()
-            .await
-            .map_err(|e| AppError::internal(format!("Failed to parse Fireworks response: {}", e)))?;
+        let chat_response: OpenAIChatResponse = response.json().await.map_err(|e| {
+            AppError::internal(format!("Failed to parse Fireworks response: {}", e))
+        })?;
 
         let choice = chat_response
             .choices
@@ -664,7 +671,9 @@ impl LLMClient for FireworksClient {
             .json(&chat_request)
             .send()
             .await
-            .map_err(|e| AppError::internal(format!("Fireworks streaming request failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::internal(format!("Fireworks streaming request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -675,41 +684,42 @@ impl LLMClient for FireworksClient {
             )));
         }
 
-        let stream = response.bytes_stream().map(move |chunk_result: Result<bytes::Bytes, reqwest::Error>| {
-            chunk_result
-                .map_err(|e| AppError::internal(format!("Fireworks stream read error: {}", e)))
-                .and_then(|bytes: bytes::Bytes| {
-                    let text = String::from_utf8_lossy(&bytes);
-                    let mut content = String::new();
-                    let mut finish_reason = None;
+        let stream = response.bytes_stream().map(
+            move |chunk_result: Result<bytes::Bytes, reqwest::Error>| {
+                chunk_result
+                    .map_err(|e| AppError::internal(format!("Fireworks stream read error: {}", e)))
+                    .map(|bytes: bytes::Bytes| {
+                        let text = String::from_utf8_lossy(&bytes);
+                        let mut content = String::new();
+                        let mut finish_reason = None;
 
-                    for line in text.lines() {
-                        if line.starts_with("data: ") {
-                            let data = &line[6..];
-                            if data == "[DONE]" {
-                                finish_reason = Some("stop".to_string());
-                                continue;
-                            }
-                            if let Ok(event) = serde_json::from_str::<OpenAISSEvent>(data) {
-                                if let Some(choice) = event.choices.into_iter().next() {
-                                    if let Some(c) = choice.delta.content {
-                                        content.push_str(&c);
-                                    }
-                                    if choice.finish_reason.is_some() {
-                                        finish_reason = choice.finish_reason;
+                        for line in text.lines() {
+                            if let Some(data) = line.strip_prefix("data: ") {
+                                if data == "[DONE]" {
+                                    finish_reason = Some("stop".to_string());
+                                    continue;
+                                }
+                                if let Ok(event) = serde_json::from_str::<OpenAISSEvent>(data) {
+                                    if let Some(choice) = event.choices.into_iter().next() {
+                                        if let Some(c) = choice.delta.content {
+                                            content.push_str(&c);
+                                        }
+                                        if choice.finish_reason.is_some() {
+                                            finish_reason = choice.finish_reason;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    Ok(StreamingChunk {
-                        content: content.clone(),
-                        delta: content,
-                        finish_reason,
+                        StreamingChunk {
+                            content: content.clone(),
+                            delta: content,
+                            finish_reason,
+                        }
                     })
-                })
-        });
+            },
+        );
 
         Ok(Box::pin(stream))
     }
@@ -780,10 +790,9 @@ impl LLMClient for CustomClient {
             )));
         }
 
-        let chat_response: OpenAIChatResponse = response
-            .json()
-            .await
-            .map_err(|e| AppError::internal(format!("Failed to parse custom provider response: {}", e)))?;
+        let chat_response: OpenAIChatResponse = response.json().await.map_err(|e| {
+            AppError::internal(format!("Failed to parse custom provider response: {}", e))
+        })?;
 
         let choice = chat_response
             .choices
@@ -838,7 +847,9 @@ impl LLMClient for CustomClient {
             .json(&chat_request)
             .send()
             .await
-            .map_err(|e| AppError::internal(format!("Custom provider streaming request failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::internal(format!("Custom provider streaming request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -849,41 +860,44 @@ impl LLMClient for CustomClient {
             )));
         }
 
-        let stream = response.bytes_stream().map(move |chunk_result: Result<bytes::Bytes, reqwest::Error>| {
-            chunk_result
-                .map_err(|e| AppError::internal(format!("Custom provider stream read error: {}", e)))
-                .and_then(|bytes: bytes::Bytes| {
-                    let text = String::from_utf8_lossy(&bytes);
-                    let mut content = String::new();
-                    let mut finish_reason = None;
+        let stream = response.bytes_stream().map(
+            move |chunk_result: Result<bytes::Bytes, reqwest::Error>| {
+                chunk_result
+                    .map_err(|e| {
+                        AppError::internal(format!("Custom provider stream read error: {}", e))
+                    })
+                    .map(|bytes: bytes::Bytes| {
+                        let text = String::from_utf8_lossy(&bytes);
+                        let mut content = String::new();
+                        let mut finish_reason = None;
 
-                    for line in text.lines() {
-                        if line.starts_with("data: ") {
-                            let data = &line[6..];
-                            if data == "[DONE]" {
-                                finish_reason = Some("stop".to_string());
-                                continue;
-                            }
-                            if let Ok(event) = serde_json::from_str::<OpenAISSEvent>(data) {
-                                if let Some(choice) = event.choices.into_iter().next() {
-                                    if let Some(c) = choice.delta.content {
-                                        content.push_str(&c);
-                                    }
-                                    if choice.finish_reason.is_some() {
-                                        finish_reason = choice.finish_reason;
+                        for line in text.lines() {
+                            if let Some(data) = line.strip_prefix("data: ") {
+                                if data == "[DONE]" {
+                                    finish_reason = Some("stop".to_string());
+                                    continue;
+                                }
+                                if let Ok(event) = serde_json::from_str::<OpenAISSEvent>(data) {
+                                    if let Some(choice) = event.choices.into_iter().next() {
+                                        if let Some(c) = choice.delta.content {
+                                            content.push_str(&c);
+                                        }
+                                        if choice.finish_reason.is_some() {
+                                            finish_reason = choice.finish_reason;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    Ok(StreamingChunk {
-                        content: content.clone(),
-                        delta: content,
-                        finish_reason,
+                        StreamingChunk {
+                            content: content.clone(),
+                            delta: content,
+                            finish_reason,
+                        }
                     })
-                })
-        });
+            },
+        );
 
         Ok(Box::pin(stream))
     }

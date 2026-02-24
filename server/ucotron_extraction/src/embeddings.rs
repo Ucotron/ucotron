@@ -77,8 +77,9 @@ impl OnnxEmbeddingPipeline {
             .with_context(|| format!("Failed to load ONNX model from {:?}", model_path))?;
 
         // Load tokenizer
-        let mut tokenizer = Tokenizer::from_file(tokenizer_path)
-            .map_err(|e| anyhow::anyhow!("Failed to load tokenizer from {:?}: {}", tokenizer_path, e))?;
+        let mut tokenizer = Tokenizer::from_file(tokenizer_path).map_err(|e| {
+            anyhow::anyhow!("Failed to load tokenizer from {:?}: {}", tokenizer_path, e)
+        })?;
 
         // Configure tokenizer: disable default padding so we control it per-batch
         // The tokenizer.json has padding=128 by default, but we want dynamic padding
@@ -115,12 +116,17 @@ impl OnnxEmbeddingPipeline {
             .context("Failed to create token_type_ids tensor")?;
 
         // Run inference
-        let mut session = self.session.lock().map_err(|e| anyhow::anyhow!("Session lock poisoned: {}", e))?;
-        let outputs = session.run(ort::inputs![
-            "input_ids" => ids_tensor,
-            "attention_mask" => mask_tensor,
-            "token_type_ids" => type_tensor
-        ]).context("ONNX inference failed")?;
+        let mut session = self
+            .session
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Session lock poisoned: {}", e))?;
+        let outputs = session
+            .run(ort::inputs![
+                "input_ids" => ids_tensor,
+                "attention_mask" => mask_tensor,
+                "token_type_ids" => type_tensor
+            ])
+            .context("ONNX inference failed")?;
 
         // Extract token embeddings: shape [batch_size, seq_len, 384]
         let token_embeddings = outputs["last_hidden_state"]
@@ -130,9 +136,15 @@ impl OnnxEmbeddingPipeline {
         // Get raw flat slice and work with it directly (avoids ndarray version issues)
         let emb_shape = token_embeddings.shape();
         anyhow::ensure!(
-            emb_shape.len() == 3 && emb_shape[0] == batch_size && emb_shape[1] == seq_len && emb_shape[2] == EMBEDDING_DIM,
+            emb_shape.len() == 3
+                && emb_shape[0] == batch_size
+                && emb_shape[1] == seq_len
+                && emb_shape[2] == EMBEDDING_DIM,
             "Expected output shape [{}, {}, {}], got {:?}",
-            batch_size, seq_len, EMBEDDING_DIM, emb_shape
+            batch_size,
+            seq_len,
+            EMBEDDING_DIM,
+            emb_shape
         );
 
         // Mean pooling with attention mask
@@ -171,14 +183,21 @@ impl OnnxEmbeddingPipeline {
 
 impl EmbeddingPipeline for OnnxEmbeddingPipeline {
     fn embed_text(&self, text: &str) -> Result<Vec<f32>> {
-        let tokenizer = self.tokenizer.lock().map_err(|e| anyhow::anyhow!("Tokenizer lock poisoned: {}", e))?;
+        let tokenizer = self
+            .tokenizer
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Tokenizer lock poisoned: {}", e))?;
 
         let encoding = tokenizer
             .encode(text, true)
             .map_err(|e| anyhow::anyhow!("Tokenization failed: {}", e))?;
 
         let input_ids: Vec<i64> = encoding.get_ids().iter().map(|&id| id as i64).collect();
-        let attention_mask: Vec<i64> = encoding.get_attention_mask().iter().map(|&m| m as i64).collect();
+        let attention_mask: Vec<i64> = encoding
+            .get_attention_mask()
+            .iter()
+            .map(|&m| m as i64)
+            .collect();
         let token_type_ids: Vec<i64> = encoding.get_type_ids().iter().map(|&t| t as i64).collect();
         let seq_len = input_ids.len();
 
@@ -193,7 +212,10 @@ impl EmbeddingPipeline for OnnxEmbeddingPipeline {
             return Ok(Vec::new());
         }
 
-        let tokenizer = self.tokenizer.lock().map_err(|e| anyhow::anyhow!("Tokenizer lock poisoned: {}", e))?;
+        let tokenizer = self
+            .tokenizer
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Tokenizer lock poisoned: {}", e))?;
 
         // Tokenize all texts
         let encodings: Vec<_> = texts
@@ -208,7 +230,11 @@ impl EmbeddingPipeline for OnnxEmbeddingPipeline {
         drop(tokenizer); // Release lock before inference
 
         // Find max sequence length for padding
-        let max_len = encodings.iter().map(|e| e.get_ids().len()).max().unwrap_or(0);
+        let max_len = encodings
+            .iter()
+            .map(|e| e.get_ids().len())
+            .max()
+            .unwrap_or(0);
         let batch_size = encodings.len();
 
         // Pad and flatten into contiguous arrays
@@ -234,7 +260,13 @@ impl EmbeddingPipeline for OnnxEmbeddingPipeline {
             token_type_ids.extend(std::iter::repeat_n(0i64, pad_count));
         }
 
-        self.run_inference(input_ids, attention_mask, token_type_ids, batch_size, max_len)
+        self.run_inference(
+            input_ids,
+            attention_mask,
+            token_type_ids,
+            batch_size,
+            max_len,
+        )
     }
 }
 
@@ -357,9 +389,10 @@ impl EmbeddingPipeline for ParallelEmbeddingPipeline {
                 let worker = &self.workers[batch_idx % num_workers];
                 let batch_owned: Vec<&str> = batch.to_vec();
 
-                handles.push((batch_idx, scope.spawn(move || {
-                    worker.embed_batch(&batch_owned)
-                })));
+                handles.push((
+                    batch_idx,
+                    scope.spawn(move || worker.embed_batch(&batch_owned)),
+                ));
             }
 
             for (batch_idx, handle) in handles {
@@ -423,12 +456,8 @@ mod tests {
     fn create_pipeline() -> Option<OnnxEmbeddingPipeline> {
         let dir = model_dir()?;
         Some(
-            OnnxEmbeddingPipeline::new(
-                dir.join("model.onnx"),
-                dir.join("tokenizer.json"),
-                4,
-            )
-            .expect("Failed to create pipeline"),
+            OnnxEmbeddingPipeline::new(dir.join("model.onnx"), dir.join("tokenizer.json"), 4)
+                .expect("Failed to create pipeline"),
         )
     }
 
@@ -450,7 +479,11 @@ mod tests {
         let mut v: Vec<f32> = (0..384).map(|i| i as f32).collect();
         l2_normalize(&mut v);
         let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 1e-5, "Expected unit norm, got {}", norm);
+        assert!(
+            (norm - 1.0).abs() < 1e-5,
+            "Expected unit norm, got {}",
+            norm
+        );
     }
 
     // ---- Tests requiring ONNX model (skip gracefully if models absent) ----
@@ -471,7 +504,9 @@ mod tests {
             eprintln!("Skipping test: embedding model not found. Run scripts/download_models.sh");
             return;
         };
-        let embedding = pipeline.embed_text("The quick brown fox jumps over the lazy dog.").unwrap();
+        let embedding = pipeline
+            .embed_text("The quick brown fox jumps over the lazy dog.")
+            .unwrap();
         let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
         assert!(
             (norm - 1.0).abs() < 1e-4,
@@ -499,7 +534,9 @@ mod tests {
         };
         let e_dog = pipeline.embed_text("The dog runs in the park").unwrap();
         let e_cat = pipeline.embed_text("The cat plays in the garden").unwrap();
-        let e_code = pipeline.embed_text("Rust programming language features").unwrap();
+        let e_code = pipeline
+            .embed_text("Rust programming language features")
+            .unwrap();
 
         let sim_animals = cosine_sim(&e_dog, &e_cat);
         let sim_dog_code = cosine_sim(&e_dog, &e_code);
@@ -616,7 +653,10 @@ mod tests {
         // norm = sqrt(2) * 1e-20 ≈ 1.41e-20 which is < f32::EPSILON → stays as-is
         // Actually norm of [1e-20, 1e-20] = sqrt(2e-40) = ~1.41e-20 which IS > f32::EPSILON
         // Let's just verify the function doesn't panic and produces finite output
-        assert!(v.iter().all(|x| x.is_finite()), "All values should be finite");
+        assert!(
+            v.iter().all(|x| x.is_finite()),
+            "All values should be finite"
+        );
     }
 
     #[test]
@@ -648,9 +688,18 @@ mod tests {
             let embedding = pipeline.embed_text(text).unwrap();
             assert_eq!(embedding.len(), EMBEDDING_DIM, "Wrong dim for: {}", text);
             let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-            assert!((norm - 1.0).abs() < 1e-3, "Not normalized for: {} (norm={})", text, norm);
+            assert!(
+                (norm - 1.0).abs() < 1e-3,
+                "Not normalized for: {} (norm={})",
+                text,
+                norm
+            );
             // Ensure no NaN or Inf
-            assert!(embedding.iter().all(|x| x.is_finite()), "NaN/Inf in embedding for: {}", text);
+            assert!(
+                embedding.iter().all(|x| x.is_finite()),
+                "NaN/Inf in embedding for: {}",
+                text
+            );
         }
     }
 
@@ -678,7 +727,10 @@ mod tests {
 
     // ---- ParallelEmbeddingPipeline tests (require ONNX model) ----
 
-    fn create_parallel_pipeline(num_workers: usize, batch_size: usize) -> Option<ParallelEmbeddingPipeline> {
+    fn create_parallel_pipeline(
+        num_workers: usize,
+        batch_size: usize,
+    ) -> Option<ParallelEmbeddingPipeline> {
         let dir = model_dir()?;
         Some(
             ParallelEmbeddingPipeline::new(
@@ -799,7 +851,12 @@ mod tests {
 
         // Generate test data: 32 texts
         let texts: Vec<String> = (0..32)
-            .map(|i| format!("This is test sentence number {} for benchmark measurement.", i))
+            .map(|i| {
+                format!(
+                    "This is test sentence number {} for benchmark measurement.",
+                    i
+                )
+            })
             .collect();
         let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
 

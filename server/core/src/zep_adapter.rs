@@ -411,10 +411,7 @@ pub fn parse_zep_json(json: &str) -> anyhow::Result<ZepExport> {
         }
 
         // Empty envelope is still valid.
-        if envelope.entities.is_some()
-            || envelope.sessions.is_some()
-            || envelope.facts.is_some()
-        {
+        if envelope.entities.is_some() || envelope.sessions.is_some() || envelope.facts.is_some() {
             return Ok(envelope);
         }
     }
@@ -514,7 +511,11 @@ fn parse_iso_timestamp(ts: &str) -> u64 {
         }
     }
 
-    if epoch < 0 { 0 } else { epoch as u64 }
+    if epoch < 0 {
+        0
+    } else {
+        epoch as u64
+    }
 }
 
 fn is_leap_year(year: u32) -> bool {
@@ -524,10 +525,7 @@ fn is_leap_year(year: u32) -> bool {
 /// Flatten a serde_json::Value object to a HashMap.
 fn flatten_metadata(val: &serde_json::Value) -> HashMap<String, serde_json::Value> {
     match val {
-        serde_json::Value::Object(map) => map
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect(),
+        serde_json::Value::Object(map) => map.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
         _ => HashMap::new(),
     }
 }
@@ -536,10 +534,7 @@ fn flatten_metadata(val: &serde_json::Value) -> HashMap<String, serde_json::Valu
 ///
 /// Handles both Graphiti (temporal KG) and Zep v2 (session-based) formats.
 /// All temporal metadata is preserved as node/edge metadata with `zep_` prefix.
-pub fn zep_to_ucotron(
-    data: &ZepExport,
-    options: &ZepImportOptions,
-) -> ZepParseResult {
+pub fn zep_to_ucotron(data: &ZepExport, options: &ZepImportOptions) -> ZepParseResult {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -593,9 +588,10 @@ pub fn zep_to_ucotron(
                 .map(parse_iso_timestamp)
                 .unwrap_or(now);
 
-            let content = entity.summary.clone().unwrap_or_else(|| {
-                entity.name.clone().unwrap_or_else(|| entity.uuid.clone())
-            });
+            let content = entity
+                .summary
+                .clone()
+                .unwrap_or_else(|| entity.name.clone().unwrap_or_else(|| entity.uuid.clone()));
 
             nodes.push(ExportNode {
                 id: format!("ucotron:node/{}", idx + 1),
@@ -762,8 +758,7 @@ pub fn zep_to_ucotron(
                 let mut metadata: HashMap<String, serde_json::Value> = HashMap::new();
                 metadata.insert("_import_source".into(), serde_json::json!("zep"));
                 metadata.insert("zep_data_type".into(), serde_json::json!("message"));
-                metadata
-                    .insert("zep_session_id".into(), serde_json::json!(session_id));
+                metadata.insert("zep_session_id".into(), serde_json::json!(session_id));
 
                 if let Some(ref uuid) = msg.uuid {
                     metadata.insert("zep_original_id".into(), serde_json::json!(uuid));
@@ -830,8 +825,7 @@ pub fn zep_to_ucotron(
                 let mut metadata: HashMap<String, serde_json::Value> = HashMap::new();
                 metadata.insert("_import_source".into(), serde_json::json!("zep"));
                 metadata.insert("zep_data_type".into(), serde_json::json!("fact"));
-                metadata
-                    .insert("zep_session_id".into(), serde_json::json!(session_id));
+                metadata.insert("zep_session_id".into(), serde_json::json!(session_id));
 
                 if let Some(ref uuid) = fact.uuid {
                     metadata.insert("zep_original_id".into(), serde_json::json!(uuid));
@@ -1132,18 +1126,16 @@ mod tests {
     #[test]
     fn test_convert_graphiti_entities() {
         let data = ZepExport {
-            entities: Some(vec![
-                GraphitiEntity {
-                    uuid: "ent-001".into(),
-                    name: Some("Alice".into()),
-                    group_id: Some("g1".into()),
-                    labels: vec!["Person".into()],
-                    created_at: Some("2024-07-01T12:00:00Z".into()),
-                    summary: Some("Software engineer".into()),
-                    attributes: Some(serde_json::json!({"occupation": "engineer"})),
-                    name_embedding: None,
-                },
-            ]),
+            entities: Some(vec![GraphitiEntity {
+                uuid: "ent-001".into(),
+                name: Some("Alice".into()),
+                group_id: Some("g1".into()),
+                labels: vec!["Person".into()],
+                created_at: Some("2024-07-01T12:00:00Z".into()),
+                summary: Some("Software engineer".into()),
+                attributes: Some(serde_json::json!({"occupation": "engineer"})),
+                name_embedding: None,
+            }]),
             episodes: None,
             edges: None,
             episode_edges: None,
@@ -1196,19 +1188,17 @@ mod tests {
                     ..default_graphiti_entity()
                 },
             ]),
-            edges: Some(vec![
-                GraphitiEdge {
-                    uuid: "edge-001".into(),
-                    source_node_uuid: Some("ent-001".into()),
-                    target_node_uuid: Some("ent-002".into()),
-                    fact: Some("Alice works at Google".into()),
-                    name: Some("works_at".into()),
-                    valid_at: Some("2024-01-01T00:00:00Z".into()),
-                    invalid_at: None,
-                    created_at: Some("2024-07-01T12:00:00Z".into()),
-                    ..default_graphiti_edge()
-                },
-            ]),
+            edges: Some(vec![GraphitiEdge {
+                uuid: "edge-001".into(),
+                source_node_uuid: Some("ent-001".into()),
+                target_node_uuid: Some("ent-002".into()),
+                fact: Some("Alice works at Google".into()),
+                name: Some("works_at".into()),
+                valid_at: Some("2024-01-01T00:00:00Z".into()),
+                invalid_at: None,
+                created_at: Some("2024-07-01T12:00:00Z".into()),
+                ..default_graphiti_edge()
+            }]),
             episodes: None,
             episode_edges: None,
             sessions: None,
@@ -1251,16 +1241,14 @@ mod tests {
                     ..default_graphiti_entity()
                 },
             ]),
-            edges: Some(vec![
-                GraphitiEdge {
-                    uuid: "edge-exp".into(),
-                    source_node_uuid: Some("ent-001".into()),
-                    target_node_uuid: Some("ent-002".into()),
-                    fact: Some("Alice worked at StartupX".into()),
-                    invalid_at: Some("2023-06-01T00:00:00Z".into()),
-                    ..default_graphiti_edge()
-                },
-            ]),
+            edges: Some(vec![GraphitiEdge {
+                uuid: "edge-exp".into(),
+                source_node_uuid: Some("ent-001".into()),
+                target_node_uuid: Some("ent-002".into()),
+                fact: Some("Alice worked at StartupX".into()),
+                invalid_at: Some("2023-06-01T00:00:00Z".into()),
+                ..default_graphiti_edge()
+            }]),
             episodes: None,
             episode_edges: None,
             sessions: None,
@@ -1286,32 +1274,30 @@ mod tests {
     #[test]
     fn test_convert_zep_sessions() {
         let data = ZepExport {
-            sessions: Some(vec![
-                ZepSession {
-                    session_id: Some("sess-001".into()),
-                    user_id: Some("alice".into()),
-                    messages: vec![
-                        ZepMessage {
-                            uuid: Some("msg-001".into()),
-                            role: Some("user".into()),
-                            role_type: Some("human".into()),
-                            content: Some("I like coffee".into()),
-                            created_at: Some("2024-07-01T10:00:00Z".into()),
-                            ..default_zep_message()
-                        },
-                        ZepMessage {
-                            uuid: Some("msg-002".into()),
-                            role: Some("assistant".into()),
-                            role_type: Some("ai".into()),
-                            content: Some("Noted!".into()),
-                            created_at: Some("2024-07-01T10:01:00Z".into()),
-                            ..default_zep_message()
-                        },
-                    ],
-                    facts: vec![],
-                    ..default_zep_session()
-                },
-            ]),
+            sessions: Some(vec![ZepSession {
+                session_id: Some("sess-001".into()),
+                user_id: Some("alice".into()),
+                messages: vec![
+                    ZepMessage {
+                        uuid: Some("msg-001".into()),
+                        role: Some("user".into()),
+                        role_type: Some("human".into()),
+                        content: Some("I like coffee".into()),
+                        created_at: Some("2024-07-01T10:00:00Z".into()),
+                        ..default_zep_message()
+                    },
+                    ZepMessage {
+                        uuid: Some("msg-002".into()),
+                        role: Some("assistant".into()),
+                        role_type: Some("ai".into()),
+                        content: Some("Noted!".into()),
+                        created_at: Some("2024-07-01T10:01:00Z".into()),
+                        ..default_zep_message()
+                    },
+                ],
+                facts: vec![],
+                ..default_zep_session()
+            }]),
             entities: None,
             episodes: None,
             edges: None,
@@ -1355,29 +1341,23 @@ mod tests {
     #[test]
     fn test_convert_zep_session_with_facts() {
         let data = ZepExport {
-            sessions: Some(vec![
-                ZepSession {
-                    session_id: Some("sess-facts".into()),
-                    user_id: Some("alice".into()),
-                    messages: vec![
-                        ZepMessage {
-                            content: Some("I work at Google".into()),
-                            ..default_zep_message()
-                        },
-                    ],
-                    facts: vec![
-                        ZepFact {
-                            uuid: Some("fact-001".into()),
-                            fact: Some("Alice works at Google".into()),
-                            valid_at: Some("2024-01-01T00:00:00Z".into()),
-                            invalid_at: None,
-                            created_at: Some("2024-07-01T12:00:00Z".into()),
-                            rating: Some(0.95),
-                        },
-                    ],
-                    ..default_zep_session()
-                },
-            ]),
+            sessions: Some(vec![ZepSession {
+                session_id: Some("sess-facts".into()),
+                user_id: Some("alice".into()),
+                messages: vec![ZepMessage {
+                    content: Some("I work at Google".into()),
+                    ..default_zep_message()
+                }],
+                facts: vec![ZepFact {
+                    uuid: Some("fact-001".into()),
+                    fact: Some("Alice works at Google".into()),
+                    valid_at: Some("2024-01-01T00:00:00Z".into()),
+                    invalid_at: None,
+                    created_at: Some("2024-07-01T12:00:00Z".into()),
+                    rating: Some(0.95),
+                }],
+                ..default_zep_session()
+            }]),
             entities: None,
             episodes: None,
             edges: None,
@@ -1443,20 +1423,18 @@ mod tests {
                     ..default_graphiti_entity()
                 },
             ]),
-            edges: Some(vec![
-                GraphitiEdge {
-                    uuid: "edge-t1".into(),
-                    source_node_uuid: Some("ent-t1".into()),
-                    target_node_uuid: Some("ent-t2".into()),
-                    fact: Some("A relates to B".into()),
-                    valid_at: Some("2024-01-15T00:00:00Z".into()),
-                    invalid_at: Some("2024-06-01T00:00:00Z".into()),
-                    expired_at: Some("2024-06-01T00:00:00Z".into()),
-                    created_at: Some("2024-01-15T10:00:00Z".into()),
-                    episodes: vec!["ep-001".into(), "ep-002".into()],
-                    ..default_graphiti_edge()
-                },
-            ]),
+            edges: Some(vec![GraphitiEdge {
+                uuid: "edge-t1".into(),
+                source_node_uuid: Some("ent-t1".into()),
+                target_node_uuid: Some("ent-t2".into()),
+                fact: Some("A relates to B".into()),
+                valid_at: Some("2024-01-15T00:00:00Z".into()),
+                invalid_at: Some("2024-06-01T00:00:00Z".into()),
+                expired_at: Some("2024-06-01T00:00:00Z".into()),
+                created_at: Some("2024-01-15T10:00:00Z".into()),
+                episodes: vec!["ep-001".into(), "ep-002".into()],
+                ..default_graphiti_edge()
+            }]),
             episodes: None,
             episode_edges: None,
             sessions: None,
@@ -1541,7 +1519,7 @@ mod tests {
         // 2 entities + 1 episode = 3 nodes.
         assert_eq!(result.export.nodes.len(), 3);
         // 1 entity edge.
-        assert!(result.export.edges.len() >= 1);
+        assert!(!result.export.edges.is_empty());
 
         // Verify JSON-LD roundtrip.
         let json_export = crate::jsonld_export::export_to_json(&result.export).unwrap();
@@ -1567,13 +1545,11 @@ mod tests {
                     ..default_graphiti_entity()
                 },
             ]),
-            episodes: Some(vec![
-                GraphitiEpisode {
-                    uuid: "ep1".into(),
-                    content: Some("Episode 1".into()),
-                    ..default_graphiti_episode()
-                },
-            ]),
+            episodes: Some(vec![GraphitiEpisode {
+                uuid: "ep1".into(),
+                content: Some("Episode 1".into()),
+                ..default_graphiti_episode()
+            }]),
             edges: None,
             episode_edges: None,
             sessions: None,

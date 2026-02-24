@@ -51,7 +51,10 @@ impl PathCentralityCalculator {
             *degrees.entry(tgt).or_insert(0) += 1;
         }
         let max_degree = degrees.values().copied().max().unwrap_or(1).max(1);
-        Self { degrees, max_degree }
+        Self {
+            degrees,
+            max_degree,
+        }
     }
 
     /// Returns the raw degree for a node, or 0 if the node has no edges.
@@ -99,11 +102,7 @@ impl PathCentralityCalculator {
     ///
     /// This is a convenience method that provides the centrality-backed degree
     /// map to `PathRewardCalculator::calculate_reward`.
-    pub fn score_path(
-        &self,
-        calc: &PathRewardCalculator,
-        path: &PathWithEdges,
-    ) -> RewardScore {
+    pub fn score_path(&self, calc: &PathRewardCalculator, path: &PathWithEdges) -> RewardScore {
         calc.calculate_reward(path, &|node_id| self.degree(node_id))
     }
 
@@ -118,7 +117,11 @@ impl PathCentralityCalculator {
             .enumerate()
             .map(|(i, path)| (i, self.score_path(calc, path)))
             .collect();
-        scored.sort_by(|a, b| b.1.total.partial_cmp(&a.1.total).unwrap_or(std::cmp::Ordering::Equal));
+        scored.sort_by(|a, b| {
+            b.1.total
+                .partial_cmp(&a.1.total)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         scored
     }
 }
@@ -130,22 +133,12 @@ mod tests {
 
     fn make_star_edges() -> Vec<(NodeId, NodeId, f32)> {
         // Star graph: node 1 is the hub connected to 2,3,4,5
-        vec![
-            (1, 2, 1.0),
-            (1, 3, 1.0),
-            (1, 4, 1.0),
-            (1, 5, 1.0),
-        ]
+        vec![(1, 2, 1.0), (1, 3, 1.0), (1, 4, 1.0), (1, 5, 1.0)]
     }
 
     fn make_chain_edges() -> Vec<(NodeId, NodeId, f32)> {
         // Chain: 1-2-3-4-5
-        vec![
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 4, 1.0),
-            (4, 5, 1.0),
-        ]
+        vec![(1, 2, 1.0), (2, 3, 1.0), (3, 4, 1.0), (4, 5, 1.0)]
     }
 
     #[test]

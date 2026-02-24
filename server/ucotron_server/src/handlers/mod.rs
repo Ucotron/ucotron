@@ -45,7 +45,12 @@ fn record_search(state: &AppState) {
 ///
 /// Creates the media directory if it doesn't exist. Files are stored as `{node_id}.{ext}`.
 /// Returns the relative path `"{node_id}.{ext}"` on success.
-fn persist_media_file(state: &AppState, node_id: u64, ext: &str, data: &[u8]) -> Result<String, AppError> {
+fn persist_media_file(
+    state: &AppState,
+    node_id: u64,
+    ext: &str,
+    data: &[u8],
+) -> Result<String, AppError> {
     let media_dir = std::path::Path::new(state.config.storage.effective_media_dir());
     std::fs::create_dir_all(media_dir)
         .map_err(|e| AppError::internal(format!("Failed to create media directory: {}", e)))?;
@@ -93,9 +98,7 @@ fn content_type_for_ext(ext: &str) -> &'static str {
         (status = 200, description = "Server is healthy", body = HealthResponse)
     )
 )]
-pub async fn health_handler(
-    State(state): State<Arc<AppState>>,
-) -> Json<HealthResponse> {
+pub async fn health_handler(State(state): State<Arc<AppState>>) -> Json<HealthResponse> {
     Json(HealthResponse {
         status: "ok".into(),
         version: env!("CARGO_PKG_VERSION").into(),
@@ -126,9 +129,7 @@ pub async fn health_handler(
         (status = 200, description = "Server metrics", body = MetricsResponse)
     )
 )]
-pub async fn metrics_handler(
-    State(state): State<Arc<AppState>>,
-) -> Json<MetricsResponse> {
+pub async fn metrics_handler(State(state): State<Arc<AppState>>) -> Json<MetricsResponse> {
     Json(MetricsResponse {
         instance_id: state.instance_id.clone(),
         total_requests: state.total_requests.load(Ordering::Relaxed),
@@ -474,7 +475,11 @@ pub async fn delete_memory_handler(
         (status = 500, description = "Internal server error", body = ApiErrorResponse)
     )
 )]
-#[instrument(name = "search", skip(state, auth, headers, body), fields(namespace, query_len))]
+#[instrument(
+    name = "search",
+    skip(state, auth, headers, body),
+    fields(namespace, query_len)
+)]
 pub async fn search_handler(
     State(state): State<Arc<AppState>>,
     Extension(auth): Extension<AuthContext>,
@@ -483,7 +488,7 @@ pub async fn search_handler(
 ) -> Result<Json<SearchResponse>, AppError> {
     require_role(&auth, ucotron_config::AuthRole::Reader)?;
     let namespace = extract_namespace(&headers);
-    tracing::Span::current().record("namespace", &namespace.as_str());
+    tracing::Span::current().record("namespace", namespace.as_str());
     tracing::Span::current().record("query_len", body.query.len());
     require_namespace_access(&auth, &namespace)?;
     state.total_searches.fetch_add(1, Ordering::Relaxed);
@@ -709,12 +714,19 @@ pub async fn graph_handler(
                 }
             }
             // Get community assignment if filtering by community or for display.
-            let community_id = state
-                .registry
-                .graph()
-                .get_community(node.id)
-                .ok()
-                .and_then(|members| if members.is_empty() { None } else { Some(node.id) });
+            let community_id =
+                state
+                    .registry
+                    .graph()
+                    .get_community(node.id)
+                    .ok()
+                    .and_then(|members| {
+                        if members.is_empty() {
+                            None
+                        } else {
+                            Some(node.id)
+                        }
+                    });
 
             if let Some(cid) = params.community_id {
                 // Filter: only include nodes in the requested community.
@@ -789,7 +801,11 @@ pub async fn graph_handler(
         (status = 500, description = "Internal server error", body = ApiErrorResponse)
     )
 )]
-#[instrument(name = "augment", skip(state, auth, headers, query_params, body), fields(namespace, query_len))]
+#[instrument(
+    name = "augment",
+    skip(state, auth, headers, query_params, body),
+    fields(namespace, query_len)
+)]
 pub async fn augment_handler(
     State(state): State<Arc<AppState>>,
     Extension(auth): Extension<AuthContext>,
@@ -799,7 +815,7 @@ pub async fn augment_handler(
 ) -> Result<Json<AugmentResponse>, AppError> {
     require_role(&auth, ucotron_config::AuthRole::Reader)?;
     let namespace = extract_namespace(&headers);
-    tracing::Span::current().record("namespace", &namespace.as_str());
+    tracing::Span::current().record("namespace", namespace.as_str());
     tracing::Span::current().record("query_len", body.context.len());
     require_namespace_access(&auth, &namespace)?;
     state.total_searches.fetch_add(1, Ordering::Relaxed);
@@ -980,7 +996,7 @@ pub async fn augment_handler(
             .iter()
             .map(|m| {
                 // Approximate tokens: chars / 4 heuristic
-                let approx_tokens = (m.content.len() + 3) / 4;
+                let approx_tokens = m.content.len().div_ceil(4);
                 (m.id, approx_tokens)
             })
             .collect();
@@ -1035,7 +1051,11 @@ pub async fn augment_handler(
         (status = 500, description = "Internal server error", body = ApiErrorResponse)
     )
 )]
-#[instrument(name = "learn", skip(state, auth, headers, body), fields(namespace, text_len))]
+#[instrument(
+    name = "learn",
+    skip(state, auth, headers, body),
+    fields(namespace, text_len)
+)]
 pub async fn learn_handler(
     State(state): State<Arc<AppState>>,
     Extension(auth): Extension<AuthContext>,
@@ -1044,7 +1064,7 @@ pub async fn learn_handler(
 ) -> Result<(axum::http::StatusCode, Json<LearnResponse>), AppError> {
     require_role(&auth, ucotron_config::AuthRole::Writer)?;
     let ns = extract_namespace(&headers);
-    tracing::Span::current().record("namespace", &ns.as_str());
+    tracing::Span::current().record("namespace", ns.as_str());
     tracing::Span::current().record("text_len", body.output.len());
     require_namespace_access(&auth, &ns)?;
     if state.is_reader_only() {
@@ -1122,8 +1142,10 @@ pub async fn learn_handler(
 fn tag_nodes_with_namespace(state: &AppState, node_ids: &[u64], namespace: &str) {
     for &id in node_ids {
         if let Ok(Some(mut node)) = state.registry.graph().get_node(id) {
-            node.metadata
-                .insert("_namespace".into(), ucotron_core::Value::String(namespace.to_string()));
+            node.metadata.insert(
+                "_namespace".into(),
+                ucotron_core::Value::String(namespace.to_string()),
+            );
             let _ = state.registry.graph().upsert_nodes(&[node]);
         }
     }
@@ -1133,8 +1155,10 @@ fn tag_nodes_with_namespace(state: &AppState, node_ids: &[u64], namespace: &str)
 fn tag_nodes_with_conversation(state: &AppState, node_ids: &[u64], conversation_id: &str) {
     for &id in node_ids {
         if let Ok(Some(mut node)) = state.registry.graph().get_node(id) {
-            node.metadata
-                .insert("_conversation_id".into(), ucotron_core::Value::String(conversation_id.to_string()));
+            node.metadata.insert(
+                "_conversation_id".into(),
+                ucotron_core::Value::String(conversation_id.to_string()),
+            );
             let _ = state.registry.graph().upsert_nodes(&[node]);
         }
     }
@@ -1669,10 +1693,9 @@ pub async fn transcribe_handler(
         return Err(AppError::read_only());
     }
 
-    let transcriber = state
-        .transcriber
-        .as_ref()
-        .ok_or_else(|| AppError::not_implemented("Audio transcription not available — Whisper model not loaded"))?;
+    let transcriber = state.transcriber.as_ref().ok_or_else(|| {
+        AppError::not_implemented("Audio transcription not available — Whisper model not loaded")
+    })?;
 
     // Extract the audio file from multipart form data
     let mut audio_data: Option<Vec<u8>> = None;
@@ -1686,17 +1709,15 @@ pub async fn transcribe_handler(
         let name = field.name().unwrap_or("").to_string();
         match name.as_str() {
             "file" | "audio" => {
-                let data = field
-                    .bytes()
-                    .await
-                    .map_err(|e| AppError::bad_request(format!("Failed to read file data: {}", e)))?;
+                let data = field.bytes().await.map_err(|e| {
+                    AppError::bad_request(format!("Failed to read file data: {}", e))
+                })?;
                 audio_data = Some(data.to_vec());
             }
             "ingest" => {
-                let text = field
-                    .text()
-                    .await
-                    .map_err(|e| AppError::bad_request(format!("Failed to read ingest field: {}", e)))?;
+                let text = field.text().await.map_err(|e| {
+                    AppError::bad_request(format!("Failed to read ingest field: {}", e))
+                })?;
                 should_ingest = text != "false" && text != "0";
             }
             _ => {}
@@ -1850,12 +1871,9 @@ pub async fn index_image_handler(
         return Err(AppError::read_only());
     }
 
-    let image_embedder = state
-        .image_embedder
-        .as_ref()
-        .ok_or_else(|| {
-            AppError::not_implemented("Image embedding not available — CLIP model not loaded")
-        })?;
+    let image_embedder = state.image_embedder.as_ref().ok_or_else(|| {
+        AppError::not_implemented("Image embedding not available — CLIP model not loaded")
+    })?;
 
     // Extract multipart fields
     let mut image_data: Option<Vec<u8>> = None;
@@ -1869,21 +1887,15 @@ pub async fn index_image_handler(
         let name = field.name().unwrap_or("").to_string();
         match name.as_str() {
             "file" | "image" => {
-                let data = field
-                    .bytes()
-                    .await
-                    .map_err(|e| {
-                        AppError::bad_request(format!("Failed to read image data: {}", e))
-                    })?;
+                let data = field.bytes().await.map_err(|e| {
+                    AppError::bad_request(format!("Failed to read image data: {}", e))
+                })?;
                 image_data = Some(data.to_vec());
             }
             "description" => {
-                description = field
-                    .text()
-                    .await
-                    .map_err(|e| {
-                        AppError::bad_request(format!("Failed to read description: {}", e))
-                    })?;
+                description = field.text().await.map_err(|e| {
+                    AppError::bad_request(format!("Failed to read description: {}", e))
+                })?;
             }
             _ => {}
         }
@@ -1922,10 +1934,7 @@ pub async fn index_image_handler(
     };
 
     let mut metadata = std::collections::HashMap::new();
-    metadata.insert(
-        "_namespace".into(),
-        ucotron_core::Value::String(namespace),
-    );
+    metadata.insert("_namespace".into(), ucotron_core::Value::String(namespace));
     metadata.insert(
         "_media_type".into(),
         ucotron_core::Value::String("image".to_string()),
@@ -1975,7 +1984,10 @@ pub async fn index_image_handler(
         visual_backend
             .upsert_visual_embeddings(&[(node_id, embedding.clone())])
             .map_err(|e| {
-                AppError::internal(format!("Failed to store image embedding in visual index: {}", e))
+                AppError::internal(format!(
+                    "Failed to store image embedding in visual index: {}",
+                    e
+                ))
             })?;
     } else {
         // Fallback: store in text vector backend if no visual backend available.
@@ -1984,9 +1996,7 @@ pub async fn index_image_handler(
             .registry
             .vector()
             .upsert_embeddings(&[(node_id, embedding)])
-            .map_err(|e| {
-                AppError::internal(format!("Failed to store image embedding: {}", e))
-            })?;
+            .map_err(|e| AppError::internal(format!("Failed to store image embedding: {}", e)))?;
     }
 
     state.total_ingestions.fetch_add(1, Ordering::Relaxed);
@@ -2026,14 +2036,9 @@ pub async fn image_search_handler(
     Json(req): Json<ImageSearchRequest>,
 ) -> Result<Json<ImageSearchResponse>, AppError> {
     require_role(&auth, ucotron_config::AuthRole::Reader)?;
-    let cross_modal = state
-        .cross_modal_encoder
-        .as_ref()
-        .ok_or_else(|| {
-            AppError::not_implemented(
-                "Cross-modal search not available — CLIP text model not loaded",
-            )
-        })?;
+    let cross_modal = state.cross_modal_encoder.as_ref().ok_or_else(|| {
+        AppError::not_implemented("Cross-modal search not available — CLIP text model not loaded")
+    })?;
 
     let namespace = extract_namespace(&headers);
     let limit = req.limit.unwrap_or(10);
@@ -2137,12 +2142,9 @@ pub async fn ocr_handler(
         return Err(AppError::read_only());
     }
 
-    let ocr_pipeline = state
-        .ocr_pipeline
-        .as_ref()
-        .ok_or_else(|| {
-            AppError::not_implemented("Document OCR not available — pipeline not loaded")
-        })?;
+    let ocr_pipeline = state.ocr_pipeline.as_ref().ok_or_else(|| {
+        AppError::not_implemented("Document OCR not available — pipeline not loaded")
+    })?;
 
     // Extract the document file from multipart form data
     let mut doc_data: Option<Vec<u8>> = None;
@@ -2158,26 +2160,17 @@ pub async fn ocr_handler(
         match name.as_str() {
             "file" | "document" => {
                 // Capture filename from the field
-                let field_filename = field
-                    .file_name()
-                    .unwrap_or("document.pdf")
-                    .to_string();
-                let data = field
-                    .bytes()
-                    .await
-                    .map_err(|e| {
-                        AppError::bad_request(format!("Failed to read file data: {}", e))
-                    })?;
+                let field_filename = field.file_name().unwrap_or("document.pdf").to_string();
+                let data = field.bytes().await.map_err(|e| {
+                    AppError::bad_request(format!("Failed to read file data: {}", e))
+                })?;
                 filename = Some(field_filename);
                 doc_data = Some(data.to_vec());
             }
             "ingest" => {
-                let text = field
-                    .text()
-                    .await
-                    .map_err(|e| {
-                        AppError::bad_request(format!("Failed to read ingest field: {}", e))
-                    })?;
+                let text = field.text().await.map_err(|e| {
+                    AppError::bad_request(format!("Failed to read ingest field: {}", e))
+                })?;
                 should_ingest = text != "false" && text != "0";
             }
             _ => {}
@@ -2265,9 +2258,7 @@ pub async fn ocr_handler(
                         );
                         node.metadata.insert(
                             "_document_format".to_string(),
-                            ucotron_core::Value::String(
-                                result.metadata.format.to_string(),
-                            ),
+                            ucotron_core::Value::String(result.metadata.format.to_string()),
                         );
                         let _ = state.registry.graph().upsert_nodes(&[node]);
                     }
@@ -2332,7 +2323,8 @@ pub async fn list_namespaces_handler(
         .map_err(|e| AppError::internal(format!("Failed to get nodes: {}", e)))?;
 
     // Aggregate per-namespace stats.
-    let mut ns_map: std::collections::HashMap<String, NamespaceInfo> = std::collections::HashMap::new();
+    let mut ns_map: std::collections::HashMap<String, NamespaceInfo> =
+        std::collections::HashMap::new();
 
     for node in &all_nodes {
         let ns_name = match node.metadata.get("_namespace") {
@@ -2340,13 +2332,15 @@ pub async fn list_namespaces_handler(
             _ => "default".to_string(),
         };
 
-        let entry = ns_map.entry(ns_name.clone()).or_insert_with(|| NamespaceInfo {
-            name: ns_name,
-            memory_count: 0,
-            entity_count: 0,
-            total_nodes: 0,
-            last_activity: 0,
-        });
+        let entry = ns_map
+            .entry(ns_name.clone())
+            .or_insert_with(|| NamespaceInfo {
+                name: ns_name,
+                memory_count: 0,
+                entity_count: 0,
+                total_nodes: 0,
+                last_activity: 0,
+            });
 
         entry.total_nodes += 1;
         if node.timestamp > entry.last_activity {
@@ -2360,13 +2354,15 @@ pub async fn list_namespaces_handler(
     }
 
     // Ensure "default" namespace always appears.
-    ns_map.entry("default".to_string()).or_insert_with(|| NamespaceInfo {
-        name: "default".to_string(),
-        memory_count: 0,
-        entity_count: 0,
-        total_nodes: 0,
-        last_activity: 0,
-    });
+    ns_map
+        .entry("default".to_string())
+        .or_insert_with(|| NamespaceInfo {
+            name: "default".to_string(),
+            memory_count: 0,
+            entity_count: 0,
+            total_nodes: 0,
+            last_activity: 0,
+        });
 
     let mut namespaces: Vec<NamespaceInfo> = ns_map.into_values().collect();
     namespaces.sort_by(|a, b| a.name.cmp(&b.name));
@@ -2407,10 +2403,15 @@ pub async fn create_namespace_handler(
         return Err(AppError::bad_request("Namespace name cannot be empty"));
     }
     if name.len() > 64 {
-        return Err(AppError::bad_request("Namespace name must be 64 characters or fewer"));
+        return Err(AppError::bad_request(
+            "Namespace name must be 64 characters or fewer",
+        ));
     }
     // Only allow alphanumeric, hyphens, and underscores.
-    if !name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+    if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
         return Err(AppError::bad_request(
             "Namespace name must contain only alphanumeric characters, hyphens, and underscores",
         ));
@@ -2418,9 +2419,7 @@ pub async fn create_namespace_handler(
 
     // Check allowed namespaces config.
     let ns_config = &state.config.namespaces;
-    if !ns_config.allowed_namespaces.is_empty()
-        && !ns_config.allowed_namespaces.contains(&name)
-    {
+    if !ns_config.allowed_namespaces.is_empty() && !ns_config.allowed_namespaces.contains(&name) {
         return Err(AppError::bad_request(format!(
             "Namespace '{}' is not in the allowed list",
             name
@@ -2465,10 +2464,7 @@ pub async fn create_namespace_handler(
         "_namespace".into(),
         ucotron_core::Value::String(name.clone()),
     );
-    metadata.insert(
-        "_sentinel".into(),
-        ucotron_core::Value::Bool(true),
-    );
+    metadata.insert("_sentinel".into(), ucotron_core::Value::Bool(true));
 
     let sentinel = ucotron_core::Node {
         id: node_id,
@@ -2627,7 +2623,10 @@ pub async fn get_namespace_handler(
     }
 
     if info.total_nodes == 0 && name != "default" {
-        return Err(AppError::not_found(format!("Namespace '{}' not found", name)));
+        return Err(AppError::not_found(format!(
+            "Namespace '{}' not found",
+            name
+        )));
     }
 
     Ok(Json(info))
@@ -2771,8 +2770,18 @@ pub async fn gdpr_forget_handler(
         });
     }
 
-    let user_id = params.user_id.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty()).map(String::from);
-    let email = params.email.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty()).map(String::from);
+    let user_id = params
+        .user_id
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(String::from);
+    let email = params
+        .email
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(String::from);
 
     if user_id.is_none() && email.is_none() {
         return Err(AppError::bad_request(
@@ -2790,13 +2799,13 @@ pub async fn gdpr_forget_handler(
     let user_node_ids: Vec<u64> = all_nodes
         .iter()
         .filter(|n| {
-            let matches_user_id = user_id.as_ref().map_or(false, |uid| {
+            let matches_user_id = user_id.as_ref().is_some_and(|uid| {
                 matches!(
                     n.metadata.get("_user_id"),
                     Some(ucotron_core::Value::String(s)) if s == uid
                 )
             });
-            let matches_email = email.as_ref().map_or(false, |em| {
+            let matches_email = email.as_ref().is_some_and(|em| {
                 matches!(
                     n.metadata.get("_email"),
                     Some(ucotron_core::Value::String(s)) if s == em
@@ -2867,7 +2876,8 @@ pub async fn gdpr_forget_handler(
         .unwrap_or_default()
         .as_secs();
 
-    let total_items_removed = memories_deleted + entities_deleted + edges_removed + embeddings_deleted;
+    let total_items_removed =
+        memories_deleted + entities_deleted + edges_removed + embeddings_deleted;
 
     // Build target identifier string for audit trail.
     let target_desc = match (&user_id, &email) {
@@ -2880,10 +2890,7 @@ pub async fn gdpr_forget_handler(
     // Record audit entry in node metadata (append-only audit trail — keep audit, delete data).
     let audit_node_id = state.alloc_next_node_id();
     let mut audit_meta = std::collections::HashMap::new();
-    audit_meta.insert(
-        "_gdpr_audit".into(),
-        ucotron_core::Value::Bool(true),
-    );
+    audit_meta.insert("_gdpr_audit".into(), ucotron_core::Value::Bool(true));
     audit_meta.insert(
         "_gdpr_operation".into(),
         ucotron_core::Value::String("forget".into()),
@@ -2986,8 +2993,7 @@ pub async fn gdpr_export_handler(
         })
         .collect();
 
-    let user_id_set: std::collections::HashSet<u64> =
-        user_nodes.iter().map(|n| n.id).collect();
+    let user_id_set: std::collections::HashSet<u64> = user_nodes.iter().map(|n| n.id).collect();
 
     let all_edges = state
         .registry
@@ -3006,8 +3012,10 @@ pub async fn gdpr_export_handler(
         })
         .collect();
 
-    let node_responses: Vec<MemoryResponse> =
-        user_nodes.iter().map(|n| node_to_memory_response(n)).collect();
+    let node_responses: Vec<MemoryResponse> = user_nodes
+        .iter()
+        .map(|n| node_to_memory_response(n))
+        .collect();
 
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -3018,8 +3026,14 @@ pub async fn gdpr_export_handler(
     let audit_node_id = state.alloc_next_node_id();
     let mut audit_meta = std::collections::HashMap::new();
     audit_meta.insert("_gdpr_audit".into(), ucotron_core::Value::Bool(true));
-    audit_meta.insert("_gdpr_operation".into(), ucotron_core::Value::String("export".into()));
-    audit_meta.insert("_gdpr_target".into(), ucotron_core::Value::String(user_id.clone()));
+    audit_meta.insert(
+        "_gdpr_operation".into(),
+        ucotron_core::Value::String("export".into()),
+    );
+    audit_meta.insert(
+        "_gdpr_target".into(),
+        ucotron_core::Value::String(user_id.clone()),
+    );
     audit_meta.insert(
         "_gdpr_details".into(),
         ucotron_core::Value::String(format!(
@@ -3028,7 +3042,10 @@ pub async fn gdpr_export_handler(
             user_edges.len()
         )),
     );
-    audit_meta.insert("_namespace".into(), ucotron_core::Value::String("_gdpr_audit".into()));
+    audit_meta.insert(
+        "_namespace".into(),
+        ucotron_core::Value::String("_gdpr_audit".into()),
+    );
 
     let audit_node = ucotron_core::Node {
         id: audit_node_id,
@@ -3222,8 +3239,14 @@ pub async fn gdpr_retention_sweep_handler(
     let audit_node_id = state.alloc_next_node_id();
     let mut audit_meta = std::collections::HashMap::new();
     audit_meta.insert("_gdpr_audit".into(), ucotron_core::Value::Bool(true));
-    audit_meta.insert("_gdpr_operation".into(), ucotron_core::Value::String("retention_sweep".into()));
-    audit_meta.insert("_gdpr_target".into(), ucotron_core::Value::String("*".into()));
+    audit_meta.insert(
+        "_gdpr_operation".into(),
+        ucotron_core::Value::String("retention_sweep".into()),
+    );
+    audit_meta.insert(
+        "_gdpr_target".into(),
+        ucotron_core::Value::String("*".into()),
+    );
     audit_meta.insert(
         "_gdpr_details".into(),
         ucotron_core::Value::String(format!(
@@ -3232,7 +3255,10 @@ pub async fn gdpr_retention_sweep_handler(
             namespaces_seen.len()
         )),
     );
-    audit_meta.insert("_namespace".into(), ucotron_core::Value::String("_gdpr_audit".into()));
+    audit_meta.insert(
+        "_namespace".into(),
+        ucotron_core::Value::String("_gdpr_audit".into()),
+    );
 
     let audit_node = ucotron_core::Node {
         id: audit_node_id,
@@ -3268,7 +3294,8 @@ fn get_process_rss() -> u64 {
         use std::mem;
         let mut info: libc::mach_task_basic_info = unsafe { mem::zeroed() };
         let mut count = (mem::size_of::<libc::mach_task_basic_info>()
-            / mem::size_of::<libc::natural_t>()) as libc::mach_msg_type_number_t;
+            / mem::size_of::<libc::natural_t>())
+            as libc::mach_msg_type_number_t;
         let kr = unsafe {
             libc::task_info(
                 libc::mach_task_self(),
@@ -3355,11 +3382,15 @@ pub async fn list_api_keys_handler(
     State(state): State<Arc<AppState>>,
     request: axum::extract::Request,
 ) -> Result<Json<ListApiKeysResponse>, AppError> {
-    let ctx = request.extensions().get::<AuthContext>().cloned().unwrap_or(AuthContext {
-        role: ucotron_config::AuthRole::Admin,
-        namespace_scope: None,
-        key_name: None,
-    });
+    let ctx = request
+        .extensions()
+        .get::<AuthContext>()
+        .cloned()
+        .unwrap_or(AuthContext {
+            role: ucotron_config::AuthRole::Admin,
+            namespace_scope: None,
+            key_name: None,
+        });
     require_role(&ctx, ucotron_config::AuthRole::Admin)?;
 
     let keys: Vec<ApiKeyInfo> = {
@@ -3397,11 +3428,15 @@ pub async fn create_api_key_handler(
 ) -> Result<Json<CreateApiKeyResponse>, AppError> {
     // Parse body manually since we also need extensions.
     let (parts, body) = request.into_parts();
-    let ctx = parts.extensions.get::<AuthContext>().cloned().unwrap_or(AuthContext {
-        role: ucotron_config::AuthRole::Admin,
-        namespace_scope: None,
-        key_name: None,
-    });
+    let ctx = parts
+        .extensions
+        .get::<AuthContext>()
+        .cloned()
+        .unwrap_or(AuthContext {
+            role: ucotron_config::AuthRole::Admin,
+            namespace_scope: None,
+            key_name: None,
+        });
     require_role(&ctx, ucotron_config::AuthRole::Admin)?;
 
     let bytes = axum::body::to_bytes(body, 1024 * 64)
@@ -3481,11 +3516,15 @@ pub async fn revoke_api_key_handler(
     Path(name): Path<String>,
     request: axum::extract::Request,
 ) -> Result<Json<RevokeApiKeyResponse>, AppError> {
-    let ctx = request.extensions().get::<AuthContext>().cloned().unwrap_or(AuthContext {
-        role: ucotron_config::AuthRole::Admin,
-        namespace_scope: None,
-        key_name: None,
-    });
+    let ctx = request
+        .extensions()
+        .get::<AuthContext>()
+        .cloned()
+        .unwrap_or(AuthContext {
+            role: ucotron_config::AuthRole::Admin,
+            namespace_scope: None,
+            key_name: None,
+        });
     require_role(&ctx, ucotron_config::AuthRole::Admin)?;
 
     // Deactivate the key in the runtime api_keys list.
@@ -3500,7 +3539,10 @@ pub async fn revoke_api_key_handler(
     };
 
     if !revoked {
-        return Err(AppError::not_found(format!("API key '{}' not found.", name)));
+        return Err(AppError::not_found(format!(
+            "API key '{}' not found.",
+            name
+        )));
     }
 
     Ok(Json(RevokeApiKeyResponse {
@@ -3551,11 +3593,15 @@ pub async fn audit_query_handler(
     Query(filter): Query<crate::audit::AuditFilter>,
     request: axum::extract::Request,
 ) -> Result<Json<AuditQueryResponse>, AppError> {
-    let ctx = request.extensions().get::<AuthContext>().cloned().unwrap_or(AuthContext {
-        role: ucotron_config::AuthRole::Admin,
-        namespace_scope: None,
-        key_name: None,
-    });
+    let ctx = request
+        .extensions()
+        .get::<AuthContext>()
+        .cloned()
+        .unwrap_or(AuthContext {
+            role: ucotron_config::AuthRole::Admin,
+            namespace_scope: None,
+            key_name: None,
+        });
     require_role(&ctx, ucotron_config::AuthRole::Admin)?;
 
     let entries = state.audit_log.query(&filter);
@@ -3580,11 +3626,15 @@ pub async fn audit_export_handler(
     State(state): State<Arc<AppState>>,
     request: axum::extract::Request,
 ) -> Result<Json<AuditExportResponse>, AppError> {
-    let ctx = request.extensions().get::<AuthContext>().cloned().unwrap_or(AuthContext {
-        role: ucotron_config::AuthRole::Admin,
-        namespace_scope: None,
-        key_name: None,
-    });
+    let ctx = request
+        .extensions()
+        .get::<AuthContext>()
+        .cloned()
+        .unwrap_or(AuthContext {
+            role: ucotron_config::AuthRole::Admin,
+            namespace_scope: None,
+            key_name: None,
+        });
     require_role(&ctx, ucotron_config::AuthRole::Admin)?;
 
     let entries = state.audit_log.export_all();
@@ -3639,11 +3689,8 @@ pub async fn generate_dataset_handler(
         seed: body.seed.unwrap_or(42),
     };
 
-    let result = ucotron_extraction::fine_tuning::generate_dataset(
-        &state.registry,
-        &config,
-    )
-    .map_err(|e| AppError::internal(format!("Dataset generation failed: {}", e)))?;
+    let result = ucotron_extraction::fine_tuning::generate_dataset(&state.registry, &config)
+        .map_err(|e| AppError::internal(format!("Dataset generation failed: {}", e)))?;
 
     // Convert to SFT messages format
     let train_samples: Vec<serde_json::Value> = result
@@ -3721,7 +3768,10 @@ pub async fn create_agent_handler(
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    let owner = auth.key_name.clone().unwrap_or_else(|| format!("{:?}", auth.role));
+    let owner = auth
+        .key_name
+        .clone()
+        .unwrap_or_else(|| format!("{:?}", auth.role));
 
     // Convert JSON config values to core Value type.
     let config: std::collections::HashMap<String, ucotron_core::Value> = body
@@ -3744,8 +3794,7 @@ pub async fn create_agent_handler(
         })
         .collect();
 
-    let agent = Agent::new(&agent_id, body.name.trim(), &owner, created_at)
-        .with_config(config);
+    let agent = Agent::new(&agent_id, body.name.trim(), &owner, created_at).with_config(config);
 
     state
         .registry
@@ -3974,14 +4023,33 @@ fn parse_mindset_tag(s: &str) -> Option<ucotron_core::MindsetTag> {
 /// Build a [`MindsetDetector`] from the server's mindset config.
 ///
 /// Returns `None` if mindset auto-detection is disabled in the config.
-fn build_mindset_detector(config: &ucotron_config::MindsetDetectorConfig) -> Option<ucotron_core::MindsetDetector> {
+fn build_mindset_detector(
+    config: &ucotron_config::MindsetDetectorConfig,
+) -> Option<ucotron_core::MindsetDetector> {
     if !config.enabled {
         return None;
     }
-    let alg: Vec<&str> = config.algorithmic_keywords.iter().map(|s| s.as_str()).collect();
-    let div: Vec<&str> = config.divergent_keywords.iter().map(|s| s.as_str()).collect();
-    let con: Vec<&str> = config.convergent_keywords.iter().map(|s| s.as_str()).collect();
-    Some(ucotron_core::MindsetDetector::from_keyword_lists(&alg, &div, &con, &[]))
+    let alg: Vec<&str> = config
+        .algorithmic_keywords
+        .iter()
+        .map(|s| s.as_str())
+        .collect();
+    let div: Vec<&str> = config
+        .divergent_keywords
+        .iter()
+        .map(|s| s.as_str())
+        .collect();
+    let con: Vec<&str> = config
+        .convergent_keywords
+        .iter()
+        .map(|s| s.as_str())
+        .collect();
+    Some(ucotron_core::MindsetDetector::from_keyword_lists(
+        &alg,
+        &div,
+        &con,
+        &[],
+    ))
 }
 
 /// Clone an agent's graph into a new namespace with optional filters.
@@ -4095,9 +4163,7 @@ pub async fn clone_agent_handler(
                 .registry
                 .vector()
                 .upsert_embeddings(&emb_items)
-                .map_err(|e| {
-                    AppError::internal(format!("Failed to clone embeddings: {}", e))
-                })?;
+                .map_err(|e| AppError::internal(format!("Failed to clone embeddings: {}", e)))?;
         }
     }
 
@@ -4186,11 +4252,7 @@ pub async fn merge_agent_handler(
     // Sync embeddings for newly copied nodes to the vector backend
     if result.nodes_copied > 0 {
         // Fetch newly created nodes to get their embeddings
-        let all_nodes = state
-            .registry
-            .graph()
-            .get_all_nodes()
-            .unwrap_or_default();
+        let all_nodes = state.registry.graph().get_all_nodes().unwrap_or_default();
         let emb_items: Vec<(u64, Vec<f32>)> = all_nodes
             .iter()
             .filter(|n| {
@@ -4276,10 +4338,7 @@ pub async fn create_share_handler(
         .get_agent(&body.target_agent_id)
         .map_err(|e| AppError::internal(format!("Failed to get agent: {}", e)))?
         .ok_or_else(|| {
-            AppError::not_found(format!(
-                "Target agent '{}' not found",
-                body.target_agent_id
-            ))
+            AppError::not_found(format!("Target agent '{}' not found", body.target_agent_id))
         })?;
 
     // Cannot share with self
@@ -4435,10 +4494,7 @@ pub async fn delete_share_handler(
         .get_share(&id, &target)
         .map_err(|e| AppError::internal(format!("Failed to get share: {}", e)))?
         .ok_or_else(|| {
-            AppError::not_found(format!(
-                "Share from '{}' to '{}' not found",
-                id, target
-            ))
+            AppError::not_found(format!("Share from '{}' to '{}' not found", id, target))
         })?;
 
     state
@@ -4595,14 +4651,9 @@ pub async fn create_audio_memory_handler(
         return Err(AppError::read_only());
     }
 
-    let transcriber = state
-        .transcriber
-        .as_ref()
-        .ok_or_else(|| {
-            AppError::not_implemented(
-                "Audio transcription not available — Whisper model not loaded",
-            )
-        })?;
+    let transcriber = state.transcriber.as_ref().ok_or_else(|| {
+        AppError::not_implemented("Audio transcription not available — Whisper model not loaded")
+    })?;
 
     // Extract audio file from multipart form data.
     let mut audio_data: Option<Vec<u8>> = None;
@@ -4615,12 +4666,9 @@ pub async fn create_audio_memory_handler(
         let name = field.name().unwrap_or("").to_string();
         match name.as_str() {
             "file" | "audio" => {
-                let data = field
-                    .bytes()
-                    .await
-                    .map_err(|e| {
-                        AppError::bad_request(format!("Failed to read file data: {}", e))
-                    })?;
+                let data = field.bytes().await.map_err(|e| {
+                    AppError::bad_request(format!("Failed to read file data: {}", e))
+                })?;
                 audio_data = Some(data.to_vec());
             }
             _ => {}
@@ -4780,12 +4828,9 @@ pub async fn create_image_memory_handler(
         return Err(AppError::read_only());
     }
 
-    let image_embedder = state
-        .image_embedder
-        .as_ref()
-        .ok_or_else(|| {
-            AppError::not_implemented("Image embedding not available — CLIP model not loaded")
-        })?;
+    let image_embedder = state.image_embedder.as_ref().ok_or_else(|| {
+        AppError::not_implemented("Image embedding not available — CLIP model not loaded")
+    })?;
 
     // Extract multipart fields: image file + optional description.
     let mut image_data: Option<Vec<u8>> = None;
@@ -4799,21 +4844,15 @@ pub async fn create_image_memory_handler(
         let name = field.name().unwrap_or("").to_string();
         match name.as_str() {
             "file" | "image" => {
-                let data = field
-                    .bytes()
-                    .await
-                    .map_err(|e| {
-                        AppError::bad_request(format!("Failed to read image data: {}", e))
-                    })?;
+                let data = field.bytes().await.map_err(|e| {
+                    AppError::bad_request(format!("Failed to read image data: {}", e))
+                })?;
                 image_data = Some(data.to_vec());
             }
             "description" => {
-                description = field
-                    .text()
-                    .await
-                    .map_err(|e| {
-                        AppError::bad_request(format!("Failed to read description: {}", e))
-                    })?;
+                description = field.text().await.map_err(|e| {
+                    AppError::bad_request(format!("Failed to read description: {}", e))
+                })?;
             }
             _ => {}
         }
@@ -4900,17 +4939,13 @@ pub async fn create_image_memory_handler(
     if let Some(visual) = state.registry.visual() {
         visual
             .upsert_visual_embeddings(&[(node_id, embedding)])
-            .map_err(|e| {
-                AppError::internal(format!("Failed to store visual embedding: {}", e))
-            })?;
+            .map_err(|e| AppError::internal(format!("Failed to store visual embedding: {}", e)))?;
     } else {
         state
             .registry
             .vector()
             .upsert_embeddings(&[(node_id, embedding)])
-            .map_err(|e| {
-                AppError::internal(format!("Failed to store image embedding: {}", e))
-            })?;
+            .map_err(|e| AppError::internal(format!("Failed to store image embedding: {}", e)))?;
     }
 
     state.total_ingestions.fetch_add(1, Ordering::Relaxed);
@@ -5021,21 +5056,15 @@ pub async fn create_video_memory_handler(
     }
 
     // Require both video pipeline and image embedder.
-    let video_pipeline = state
-        .video_pipeline
-        .as_ref()
-        .ok_or_else(|| {
-            AppError::not_implemented("Video pipeline not available — FFmpeg pipeline not loaded")
-        })?;
+    let video_pipeline = state.video_pipeline.as_ref().ok_or_else(|| {
+        AppError::not_implemented("Video pipeline not available — FFmpeg pipeline not loaded")
+    })?;
 
-    let image_embedder = state
-        .image_embedder
-        .as_ref()
-        .ok_or_else(|| {
-            AppError::not_implemented(
-                "Image embedding not available — CLIP model not loaded (required for video)",
-            )
-        })?;
+    let image_embedder = state.image_embedder.as_ref().ok_or_else(|| {
+        AppError::not_implemented(
+            "Image embedding not available — CLIP model not loaded (required for video)",
+        )
+    })?;
 
     // Extract video file from multipart form data.
     let mut video_data: Option<Vec<u8>> = None;
@@ -5048,12 +5077,9 @@ pub async fn create_video_memory_handler(
         let name = field.name().unwrap_or("").to_string();
         match name.as_str() {
             "file" | "video" => {
-                let data = field
-                    .bytes()
-                    .await
-                    .map_err(|e| {
-                        AppError::bad_request(format!("Failed to read video data: {}", e))
-                    })?;
+                let data = field.bytes().await.map_err(|e| {
+                    AppError::bad_request(format!("Failed to read video data: {}", e))
+                })?;
                 video_data = Some(data.to_vec());
             }
             _ => {}
@@ -5184,9 +5210,7 @@ pub async fn create_video_memory_handler(
             .registry
             .vector()
             .upsert_embeddings(&[(parent_id, parent_embedding)])
-            .map_err(|e| {
-                AppError::internal(format!("Failed to store parent embedding: {}", e))
-            })?;
+            .map_err(|e| AppError::internal(format!("Failed to store parent embedding: {}", e)))?;
     }
 
     // Step 4: Create segment nodes with CLIP embeddings.
@@ -5258,9 +5282,7 @@ pub async fn create_video_memory_handler(
             .registry
             .graph()
             .upsert_nodes(&[seg_node])
-            .map_err(|e| {
-                AppError::internal(format!("Failed to store segment node: {}", e))
-            })?;
+            .map_err(|e| AppError::internal(format!("Failed to store segment node: {}", e)))?;
 
         // Store visual embedding.
         if let Some(visual) = state.registry.visual() {
@@ -5360,11 +5382,7 @@ pub async fn create_video_memory_handler(
         let mut id_lock = state.next_node_id.lock().unwrap();
         // parent_id + segment_node_ids were already allocated via alloc_next_node_id
         // but ensure the counter is past the max used.
-        let max_used = segment_node_ids
-            .last()
-            .copied()
-            .unwrap_or(parent_id)
-            + 1;
+        let max_used = segment_node_ids.last().copied().unwrap_or(parent_id) + 1;
         if max_used > *id_lock {
             *id_lock = max_used;
         }
@@ -5442,11 +5460,7 @@ pub async fn multimodal_search_handler(
     };
 
     // Build the orchestrator from available pipelines in state.
-    let mut searcher = CrossModalSearch::new(
-        &state.registry,
-        state.embedder.as_ref(),
-        config,
-    );
+    let mut searcher = CrossModalSearch::new(&state.registry, state.embedder.as_ref(), config);
 
     if let Some(ref img_emb) = state.image_embedder {
         searcher = searcher.with_image_embedder(img_emb.as_ref());
@@ -5507,14 +5521,14 @@ pub async fn multimodal_search_handler(
         }
     };
 
-    let search_response = response
-        .map_err(|e| AppError::internal(format!("Multimodal search failed: {}", e)))?;
+    let search_response =
+        response.map_err(|e| AppError::internal(format!("Multimodal search failed: {}", e)))?;
 
     // Normalize media_filter values to lowercase for comparison.
     // "video" also matches "video_segment" for user convenience.
-    let media_filters: Option<Vec<String>> = req.media_filter.map(|filters| {
-        filters.iter().map(|s| s.to_lowercase()).collect()
-    });
+    let media_filters: Option<Vec<String>> = req
+        .media_filter
+        .map(|filters| filters.iter().map(|s| s.to_lowercase()).collect());
 
     // Enrich results with node content and apply namespace + media_filter + time_range.
     let mut results = Vec::new();
@@ -5535,13 +5549,11 @@ pub async fn multimodal_search_handler(
                     ucotron_core::Value::String(s) => Some(s.clone()),
                     _ => None,
                 })
-                .unwrap_or_else(|| {
-                    match node.media_type {
-                        Some(ucotron_core::MediaType::Audio) => "audio".to_string(),
-                        Some(ucotron_core::MediaType::Image) => "image".to_string(),
-                        Some(ucotron_core::MediaType::VideoSegment) => "video_segment".to_string(),
-                        _ => "text".to_string(),
-                    }
+                .unwrap_or_else(|| match node.media_type {
+                    Some(ucotron_core::MediaType::Audio) => "audio".to_string(),
+                    Some(ucotron_core::MediaType::Image) => "image".to_string(),
+                    Some(ucotron_core::MediaType::VideoSegment) => "video_segment".to_string(),
+                    _ => "text".to_string(),
                 });
 
             // Apply media_filter if specified. "video" matches both "video" and "video_segment".
@@ -5566,13 +5578,10 @@ pub async fn multimodal_search_handler(
                 }
             }
 
-            let media_uri = node
-                .metadata
-                .get("_media_uri")
-                .and_then(|v| match v {
-                    ucotron_core::Value::String(s) => Some(s.clone()),
-                    _ => None,
-                });
+            let media_uri = node.metadata.get("_media_uri").and_then(|v| match v {
+                ucotron_core::Value::String(s) => Some(s.clone()),
+                _ => None,
+            });
 
             let source_str = match r.source {
                 ResultSource::TextIndex => "text_index",
@@ -5689,7 +5698,11 @@ pub async fn get_video_segments_handler(
                 start_ms,
                 end_ms,
                 media_uri: seg.media_uri.clone(),
-                prev_segment_id: if i > 0 { Some(segments[i - 1].id) } else { None },
+                prev_segment_id: if i > 0 {
+                    Some(segments[i - 1].id)
+                } else {
+                    None
+                },
                 next_segment_id: segments.get(i + 1).map(|s| s.id),
             }
         })
@@ -5716,9 +5729,7 @@ fn embed_frame_rgb(
 ) -> Result<Vec<f32>, AppError> {
     // Encode the raw RGB bytes to PNG in-memory, then pass to embed_image_bytes.
     let img = image::RgbImage::from_raw(frame.width, frame.height, frame.rgb_data.clone())
-        .ok_or_else(|| {
-            AppError::internal("Failed to construct image from frame RGB data")
-        })?;
+        .ok_or_else(|| AppError::internal("Failed to construct image from frame RGB data"))?;
     let mut buf = std::io::Cursor::new(Vec::new());
     image::DynamicImage::ImageRgb8(img)
         .write_to(&mut buf, image::ImageFormat::Png)
@@ -5824,10 +5835,7 @@ pub async fn get_media_handler(
                 // 416 Range Not Satisfiable
                 return Ok((
                     StatusCode::RANGE_NOT_SATISFIABLE,
-                    [(
-                        header::CONTENT_RANGE,
-                        format!("bytes */{}", file_size),
-                    )],
+                    [(header::CONTENT_RANGE, format!("bytes */{}", file_size))],
                 )
                     .into_response());
             }
@@ -5890,9 +5898,10 @@ pub async fn trigger_connector_sync_handler(
 ) -> Result<Json<ConnectorSyncTriggerResponse>, AppError> {
     require_role(&auth, ucotron_config::AuthRole::Writer)?;
 
-    let cron_scheduler = state.cron_scheduler.as_ref().ok_or_else(|| {
-        AppError::bad_request("Connector scheduling is not enabled")
-    })?;
+    let cron_scheduler = state
+        .cron_scheduler
+        .as_ref()
+        .ok_or_else(|| AppError::bad_request("Connector scheduling is not enabled"))?;
 
     match cron_scheduler.trigger_sync(&connector_id).await {
         Ok(()) => Ok(Json(ConnectorSyncTriggerResponse {
@@ -5900,10 +5909,7 @@ pub async fn trigger_connector_sync_handler(
             connector_id,
             message: "Sync triggered successfully".to_string(),
         })),
-        Err(e) => Err(AppError::internal(format!(
-            "Failed to trigger sync: {}",
-            e
-        ))),
+        Err(e) => Err(AppError::internal(format!("Failed to trigger sync: {}", e))),
     }
 }
 
@@ -5916,19 +5922,17 @@ pub async fn list_connector_schedules_handler(
 ) -> Result<Json<Vec<ConnectorScheduleResponse>>, AppError> {
     require_role(&auth, ucotron_config::AuthRole::Reader)?;
 
-    let cron_scheduler = state.cron_scheduler.as_ref().ok_or_else(|| {
-        AppError::bad_request("Connector scheduling is not enabled")
-    })?;
+    let cron_scheduler = state
+        .cron_scheduler
+        .as_ref()
+        .ok_or_else(|| AppError::bad_request("Connector scheduling is not enabled"))?;
 
     let sched = cron_scheduler.state().read().await;
     let schedules: Vec<ConnectorScheduleResponse> = sched
         .list_schedules()
         .iter()
         .map(|s| {
-            let next = s
-                .cron_expression
-                .as_deref()
-                .and_then(next_fire_time);
+            let next = s.cron_expression.as_deref().and_then(next_fire_time);
             ConnectorScheduleResponse {
                 connector_id: s.connector_id.clone(),
                 cron_expression: s.cron_expression.clone(),
@@ -5958,9 +5962,10 @@ pub async fn webhook_handler(
         .await
         .map_err(|e| AppError::bad_request(format!("Failed to read webhook body: {}", e)))?;
 
-    let cron_scheduler = state.cron_scheduler.as_ref().ok_or_else(|| {
-        AppError::bad_request("Connector scheduling is not enabled")
-    })?;
+    let cron_scheduler = state
+        .cron_scheduler
+        .as_ref()
+        .ok_or_else(|| AppError::bad_request("Connector scheduling is not enabled"))?;
 
     // Build WebhookPayload from request.
     let content_type = headers
@@ -6000,10 +6005,7 @@ pub async fn webhook_handler(
 
     // Trigger incremental sync after processing webhook items.
     let sync_triggered = if items_count > 0 {
-        cron_scheduler
-            .trigger_sync(&connector_id)
-            .await
-            .is_ok()
+        cron_scheduler.trigger_sync(&connector_id).await.is_ok()
     } else {
         false
     };
@@ -6027,9 +6029,10 @@ pub async fn connector_sync_history_handler(
 ) -> Result<Json<ConnectorSyncHistoryResponse>, AppError> {
     require_role(&auth, ucotron_config::AuthRole::Reader)?;
 
-    let cron_scheduler = state.cron_scheduler.as_ref().ok_or_else(|| {
-        AppError::bad_request("Connector scheduling is not enabled")
-    })?;
+    let cron_scheduler = state
+        .cron_scheduler
+        .as_ref()
+        .ok_or_else(|| AppError::bad_request("Connector scheduling is not enabled"))?;
 
     let sched = cron_scheduler.state().read().await;
     let history = sched.get_history(&connector_id);
@@ -6111,10 +6114,7 @@ pub async fn list_conversations_handler(
             if let Some(ucotron_core::Value::String(conv_id)) =
                 node.metadata.get("_conversation_id")
             {
-                conversations
-                    .entry(conv_id.clone())
-                    .or_default()
-                    .push(node);
+                conversations.entry(conv_id.clone()).or_default().push(node);
             }
         }
     }

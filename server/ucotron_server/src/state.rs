@@ -17,7 +17,8 @@ use crate::llm::registry::LLMProvider;
 use crate::metrics::PrometheusMetrics;
 use crate::telemetry::metrics_bridge::OtelMetrics;
 
-pub type LlmProviderStatsMap = Arc<RwLock<std::collections::HashMap<String, crate::llm::router::ProviderStats>>>;
+pub type LlmProviderStatsMap =
+    Arc<RwLock<std::collections::HashMap<String, crate::llm::router::ProviderStats>>>;
 
 /// Shared application state threaded through Axum handlers.
 ///

@@ -210,8 +210,12 @@ pub fn derive_action(method: &str, path: &str) -> String {
         ("POST", "images/search") => "images.search".into(),
         ("POST", "ocr") => "ocr".into(),
         ("GET", p) if p.starts_with("admin/") => format!("admin.{}", p[6..].replace('/', ".")),
-        ("POST", p) if p.starts_with("admin/") => format!("admin.{}.create", p[6..].replace('/', ".")),
-        ("DELETE", p) if p.starts_with("admin/") => format!("admin.{}.delete", p[6..].replace('/', ".")),
+        ("POST", p) if p.starts_with("admin/") => {
+            format!("admin.{}.create", p[6..].replace('/', "."))
+        }
+        ("DELETE", p) if p.starts_with("admin/") => {
+            format!("admin.{}.delete", p[6..].replace('/', "."))
+        }
         ("DELETE", p) if p.starts_with("gdpr/") => format!("gdpr.{}", p[5..].replace('/', ".")),
         ("GET", p) if p.starts_with("gdpr/") => format!("gdpr.{}", p[5..].replace('/', ".")),
         ("POST", p) if p.starts_with("gdpr/") => format!("gdpr.{}", p[5..].replace('/', ".")),
@@ -228,9 +232,7 @@ pub fn derive_action(method: &str, path: &str) -> String {
 
 /// Extract a resource ID from a path like "/api/v1/memories/42".
 pub fn extract_resource_id(path: &str) -> Option<String> {
-    let clean = path
-        .strip_prefix("/api/v1/")
-        .unwrap_or(path);
+    let clean = path.strip_prefix("/api/v1/").unwrap_or(path);
     let parts: Vec<&str> = clean.split('/').collect();
     // Patterns: memories/{id}, entities/{id}, admin/namespaces/{name}, auth/keys/{name}
     match parts.as_slice() {
@@ -266,10 +268,7 @@ pub async fn audit_middleware(
     }
 
     // Extract auth context (set by auth middleware that runs before us).
-    let auth_ctx = request
-        .extensions()
-        .get::<AuthContext>()
-        .cloned();
+    let auth_ctx = request.extensions().get::<AuthContext>().cloned();
 
     let user = auth_ctx.as_ref().and_then(|c| c.key_name.clone());
     let role = auth_ctx
@@ -286,9 +285,8 @@ pub async fn audit_middleware(
         .get("X-Ucotron-Namespace")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
-    let namespace = header_namespace.or_else(|| {
-        auth_ctx.as_ref().and_then(|c| c.namespace_scope.clone())
-    });
+    let namespace =
+        header_namespace.or_else(|| auth_ctx.as_ref().and_then(|c| c.namespace_scope.clone()));
 
     let action = derive_action(&method, &path);
     let resource_id = extract_resource_id(&path);
@@ -457,23 +455,41 @@ mod tests {
         assert_eq!(derive_action("POST", "/api/v1/memories"), "memories.create");
         assert_eq!(derive_action("GET", "/api/v1/memories"), "memories.list");
         assert_eq!(derive_action("GET", "/api/v1/memories/42"), "memories.get");
-        assert_eq!(derive_action("PUT", "/api/v1/memories/42"), "memories.update");
-        assert_eq!(derive_action("DELETE", "/api/v1/memories/42"), "memories.delete");
+        assert_eq!(
+            derive_action("PUT", "/api/v1/memories/42"),
+            "memories.update"
+        );
+        assert_eq!(
+            derive_action("DELETE", "/api/v1/memories/42"),
+            "memories.delete"
+        );
         assert_eq!(derive_action("POST", "/api/v1/memories/search"), "search");
         assert_eq!(derive_action("GET", "/api/v1/entities"), "entities.list");
         assert_eq!(derive_action("POST", "/api/v1/augment"), "augment");
         assert_eq!(derive_action("POST", "/api/v1/learn"), "learn");
-        assert_eq!(derive_action("POST", "/api/v1/auth/keys"), "auth.keys.create");
-        assert_eq!(derive_action("DELETE", "/api/v1/auth/keys/mykey"), "auth.keys.revoke");
+        assert_eq!(
+            derive_action("POST", "/api/v1/auth/keys"),
+            "auth.keys.create"
+        );
+        assert_eq!(
+            derive_action("DELETE", "/api/v1/auth/keys/mykey"),
+            "auth.keys.revoke"
+        );
         assert_eq!(derive_action("GET", "/api/v1/audit"), "audit.query");
         assert_eq!(derive_action("GET", "/api/v1/audit/export"), "audit.export");
     }
 
     #[test]
     fn test_extract_resource_id() {
-        assert_eq!(extract_resource_id("/api/v1/memories/42"), Some("42".into()));
+        assert_eq!(
+            extract_resource_id("/api/v1/memories/42"),
+            Some("42".into())
+        );
         assert_eq!(extract_resource_id("/api/v1/entities/7"), Some("7".into()));
-        assert_eq!(extract_resource_id("/api/v1/auth/keys/mykey"), Some("mykey".into()));
+        assert_eq!(
+            extract_resource_id("/api/v1/auth/keys/mykey"),
+            Some("mykey".into())
+        );
         assert_eq!(extract_resource_id("/api/v1/memories"), None);
         assert_eq!(extract_resource_id("/api/v1/health"), None);
     }

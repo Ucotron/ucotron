@@ -346,7 +346,11 @@ mod tests {
         }
         let config = PathFinderConfig::with_max_hops(4);
         let paths = find_paths(&g, 1, 4, &config).unwrap();
-        assert!(paths.len() >= 2, "Expected at least 2 paths, got {}", paths.len());
+        assert!(
+            paths.len() >= 2,
+            "Expected at least 2 paths, got {}",
+            paths.len()
+        );
 
         // Verify edge types are correctly tracked
         for p in &paths {
@@ -361,7 +365,10 @@ mod tests {
         // max_hops = 2 should NOT find path from 1 to 5
         let config = PathFinderConfig::with_max_hops(2);
         let paths = find_paths(&g, 1, 5, &config).unwrap();
-        assert!(paths.is_empty(), "Should not find 4-hop path with max_hops=2");
+        assert!(
+            paths.is_empty(),
+            "Should not find 4-hop path with max_hops=2"
+        );
 
         // max_hops = 4 should find it
         let config = PathFinderConfig::with_max_hops(4);
@@ -423,7 +430,10 @@ mod tests {
         let config = PathFinderConfig::with_max_hops(2);
         // Find path from 2 to 1 (reverse direction)
         let paths = find_paths(&g, 2, 1, &config).unwrap();
-        assert!(!paths.is_empty(), "Should find reverse path via bidirectional edges");
+        assert!(
+            !paths.is_empty(),
+            "Should find reverse path via bidirectional edges"
+        );
     }
 
     #[test]
@@ -570,7 +580,10 @@ mod tests {
         assert!(!paths.is_empty());
         let p = &paths[0];
         assert_eq!(p.nodes, vec![1, 2, 3]);
-        assert_eq!(p.edge_types, vec![EdgeType::CausedBy, EdgeType::HasProperty]);
+        assert_eq!(
+            p.edge_types,
+            vec![EdgeType::CausedBy, EdgeType::HasProperty]
+        );
     }
 
     #[test]

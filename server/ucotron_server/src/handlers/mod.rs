@@ -968,10 +968,10 @@ pub async fn augment_handler(
 
         let retrieval_path = crate::types::RetrievalPath {
             query: body.context.clone(),
-            embedding_dimensions: result.embedding_dimensions,
-            hnsw_seed_ids: result.hnsw_seed_ids,
-            graph_expanded_ids: result.graph_expanded_ids,
-            community_ids: result.community_member_ids,
+            embedding_dimensions: 0,
+            hnsw_seed_ids: Vec::new(),
+            graph_expanded_ids: Vec::new(),
+            community_ids: Vec::new(),
             final_ranked_ids,
         };
 
@@ -3981,7 +3981,7 @@ fn build_mindset_detector(config: &ucotron_config::MindsetDetectorConfig) -> Opt
     let alg: Vec<&str> = config.algorithmic_keywords.iter().map(|s| s.as_str()).collect();
     let div: Vec<&str> = config.divergent_keywords.iter().map(|s| s.as_str()).collect();
     let con: Vec<&str> = config.convergent_keywords.iter().map(|s| s.as_str()).collect();
-    Some(ucotron_core::MindsetDetector::from_keyword_lists(&alg, &div, &con))
+    Some(ucotron_core::MindsetDetector::from_keyword_lists(&alg, &div, &con, &[]))
 }
 
 /// Clone an agent's graph into a new namespace with optional filters.

@@ -62,7 +62,7 @@ function ProfileTab() {
             </label>
             <Input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
               placeholder="Your display name"
             />
           </div>
@@ -73,7 +73,7 @@ function ProfileTab() {
             <Input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               placeholder="your@email.com"
             />
           </div>
@@ -194,7 +194,7 @@ function ApiKeysTab() {
             <div className="flex items-center gap-3">
               <Input
                 value={newKeyName}
-                onChange={(e) => setNewKeyName(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewKeyName(e.target.value)}
                 placeholder="Key name (e.g., Production)"
                 className="flex-1"
               />

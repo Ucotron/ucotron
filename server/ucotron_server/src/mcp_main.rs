@@ -71,7 +71,6 @@ async fn main() -> anyhow::Result<()> {
         None,
         None,
         config,
-        None,
     ));
 
     // Create MCP server and serve via stdio.

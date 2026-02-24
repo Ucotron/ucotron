@@ -1870,9 +1870,6 @@ fn default_height() -> String {
 fn default_accent_color() -> String {
     "#6366f1".to_string()
 }
-fn default_true() -> bool {
-    true
-}
 
 /// POST /api/v1/frames/{id}/embed-key — response.
 #[derive(Debug, Serialize, ToSchema)]

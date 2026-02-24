@@ -95,10 +95,6 @@ use crate::types::*;
         handlers::multimodal_search_handler,
         handlers::get_video_segments_handler,
         handlers::get_media_handler,
-        handlers::storage::upload_handler,
-        handlers::storage::download_handler,
-        handlers::storage::delete_handler,
-        handlers::storage::presign_handler,
     ),
     components(schemas(
         CreateMemoryRequest,
@@ -200,11 +196,6 @@ use crate::types::*;
         MultimodalSearchResultItem,
         MultimodalSearchResponse,
         MultimodalSearchMetrics,
-        handlers::storage::UploadResponse,
-        handlers::storage::DownloadResponse,
-        handlers::storage::PresignedUrlResponse,
-        handlers::storage::DeleteResponse,
-        handlers::storage::StorageApiErrorResponse,
         FrameEmbedKeyResponse,
     ))
 )]

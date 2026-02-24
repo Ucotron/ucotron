@@ -319,10 +319,10 @@ impl LLMClient for OpenAIClient {
             )));
         }
 
-        let stream = response.bytes_stream().map(move |chunk_result| {
+        let stream = response.bytes_stream().map(move |chunk_result: Result<bytes::Bytes, reqwest::Error>| {
             chunk_result
                 .map_err(|e| AppError::internal(format!("OpenAI stream read error: {}", e)))
-                .and_then(|bytes| {
+                .and_then(|bytes: bytes::Bytes| {
                     let text = String::from_utf8_lossy(&bytes);
                     let mut content = String::new();
                     let mut finish_reason = None;
@@ -496,10 +496,10 @@ impl LLMClient for AnthropicClient {
             )));
         }
 
-        let stream = response.bytes_stream().map(move |chunk_result| {
+        let stream = response.bytes_stream().map(move |chunk_result: Result<bytes::Bytes, reqwest::Error>| {
             chunk_result
                 .map_err(|e| AppError::internal(format!("Anthropic stream read error: {}", e)))
-                .and_then(|bytes| {
+                .and_then(|bytes: bytes::Bytes| {
                     let text = String::from_utf8_lossy(&bytes);
                     let mut content = String::new();
                     let mut finish_reason = None;
@@ -675,10 +675,10 @@ impl LLMClient for FireworksClient {
             )));
         }
 
-        let stream = response.bytes_stream().map(move |chunk_result| {
+        let stream = response.bytes_stream().map(move |chunk_result: Result<bytes::Bytes, reqwest::Error>| {
             chunk_result
                 .map_err(|e| AppError::internal(format!("Fireworks stream read error: {}", e)))
-                .and_then(|bytes| {
+                .and_then(|bytes: bytes::Bytes| {
                     let text = String::from_utf8_lossy(&bytes);
                     let mut content = String::new();
                     let mut finish_reason = None;
@@ -849,10 +849,10 @@ impl LLMClient for CustomClient {
             )));
         }
 
-        let stream = response.bytes_stream().map(move |chunk_result| {
+        let stream = response.bytes_stream().map(move |chunk_result: Result<bytes::Bytes, reqwest::Error>| {
             chunk_result
                 .map_err(|e| AppError::internal(format!("Custom provider stream read error: {}", e)))
-                .and_then(|bytes| {
+                .and_then(|bytes: bytes::Bytes| {
                     let text = String::from_utf8_lossy(&bytes);
                     let mut content = String::new();
                     let mut finish_reason = None;

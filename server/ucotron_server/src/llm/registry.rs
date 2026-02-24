@@ -161,7 +161,7 @@ pub fn decrypt_api_key(encrypted: &[u8], encryption_key: &[u8; ENCRYPTION_KEY_SI
     String::from_utf8(plaintext).ok()
 }
 
-fn get_encryption_key(config: &ucotron_config::UcotronConfig) -> [u8; ENCRYPTION_KEY_SIZE] {
+pub(crate) fn get_encryption_key(config: &ucotron_config::UcotronConfig) -> [u8; ENCRYPTION_KEY_SIZE] {
     let mut key = [0u8; ENCRYPTION_KEY_SIZE];
     let key_source = config
         .auth

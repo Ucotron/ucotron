@@ -80,7 +80,7 @@ mongodb = "3.1"
 heed = "0.22"
 
 # HTTP client (SDK)
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
 tokio = { version = "1", features = ["full"] }
 
 # MCP (Model Context Protocol) server SDK

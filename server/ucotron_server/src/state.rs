@@ -13,11 +13,11 @@ use ucotron_extraction::{
 use ucotron_connectors::CronScheduler;
 
 use crate::audit::AuditLog;
-use crate::llm::LLMProvider;
+use crate::llm::registry::LLMProvider;
 use crate::metrics::PrometheusMetrics;
 use crate::telemetry::metrics_bridge::OtelMetrics;
 
-pub type LlmProviderStatsMap = Arc<RwLock<std::collections::HashMap<String, serde_json::Value>>>;
+pub type LlmProviderStatsMap = Arc<RwLock<std::collections::HashMap<String, crate::llm::router::ProviderStats>>>;
 
 /// Shared application state threaded through Axum handlers.
 ///

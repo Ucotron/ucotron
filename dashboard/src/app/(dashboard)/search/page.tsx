@@ -18,7 +18,7 @@ import {
   Zap,
   ArrowRight,
 } from "lucide-react";
-import { Card, StatCard } from "@ucotron/ui";
+import { Card, StatCard } from "@/components/card";
 import { Input, Textarea } from "@ucotron/ui";
 import { Button } from "@ucotron/ui";
 import {
@@ -516,10 +516,10 @@ export default function SearchPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
                 placeholder="Ask a question or search..."
                 className="pl-10 pr-10"
-                onKeyDown={(e) => {
+                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                   if (e.key === "Enter") {
                     handleSearch();
                   }

@@ -180,6 +180,20 @@ export async function deleteMemory(
   }
 }
 
+export async function getRecentMemories(
+  limitOrParams?: number | { limit?: number },
+  namespace?: string
+): Promise<MemoryResponse[]> {
+  const limit = typeof limitOrParams === "number" ? limitOrParams : limitOrParams?.limit;
+  const query = new URLSearchParams();
+  if (limit) query.set("limit", String(limit));
+  query.set("sort", "recent");
+  const qs = query.toString();
+  const headers: Record<string, string> = {};
+  if (namespace) headers["X-Ucotron-Namespace"] = namespace;
+  return apiFetch(`/memories${qs ? `?${qs}` : ""}`, { headers });
+}
+
 // ---------------------------------------------------------------------------
 // Graph Visualization
 // ---------------------------------------------------------------------------
@@ -502,6 +516,21 @@ export async function triggerConnectorSync(
   return apiFetch(`/connectors/${encodeURIComponent(id)}/sync`, {
     method: "POST",
   });
+}
+
+export async function deleteConnector(
+  id: string
+): Promise<{ connector_id: string; deleted: boolean }> {
+  const url = `${API_URL}/api/v1/connectors/${encodeURIComponent(id)}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`API error ${res.status}: ${body}`);
+  }
+  return res.json();
 }
 
 // ---------------------------------------------------------------------------

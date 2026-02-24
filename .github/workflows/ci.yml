@@ -327,8 +327,14 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Install UI package dependencies
+        run: npm install --prefix ../packages/ui --legacy-peer-deps
+
       - name: Build dashboard
         run: npm run build
+        env:
+          BETTER_AUTH_SECRET: ci-build-placeholder
+          BETTER_AUTH_URL: http://localhost:3000
 
   # ─── Integration Tests ─────────────────────────────────────────────────────
   integration:

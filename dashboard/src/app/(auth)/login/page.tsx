@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams.get("callbackUrl") || "/overview";
@@ -229,5 +229,13 @@ function MicrosoftIcon() {
       <path fill="#7FBA00" d="M13 1h10v10H13z" />
       <path fill="#FFB900" d="M13 13h10v10H13z" />
     </svg>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

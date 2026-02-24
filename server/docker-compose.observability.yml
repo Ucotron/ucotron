@@ -1,0 +1,82 @@
+# =============================================================================
+# Ucotron Observability Stack — Prometheus + Grafana Tempo + Grafana
+# =============================================================================
+# Usage (extend the base docker-compose):
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up
+#
+# Endpoints:
+#   Ucotron REST:  http://localhost:8420
+#   Grafana:       http://localhost:3000  (admin/admin)
+#   Prometheus:    http://localhost:9090
+#   Tempo:         http://localhost:3200  (OTLP gRPC: localhost:4317)
+#
+# The Ucotron server sends traces via OTLP gRPC to Tempo on port 4317,
+# and Prometheus scrapes metrics from /metrics on port 8420.
+# =============================================================================
+
+services:
+  ucotron:
+    environment:
+      - UCOTRON_TELEMETRY_ENABLED=true
+      - UCOTRON_TELEMETRY_OTLP_ENDPOINT=http://tempo:4317
+      - UCOTRON_TELEMETRY_EXPORT_TRACES=true
+      - UCOTRON_TELEMETRY_EXPORT_METRICS=true
+      - UCOTRON_TELEMETRY_SAMPLE_RATE=1.0
+    depends_on:
+      tempo:
+        condition: service_started
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: ucotron-tempo
+    command: ["-config.file=/etc/tempo/tempo.yml"]
+    ports:
+      - "3200:3200"   # Tempo HTTP API
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+    volumes:
+      - tempo_data:/var/tempo
+      - ./tempo.yml:/etc/tempo/tempo.yml:ro
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: ucotron-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-remote-write-receiver"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: ucotron-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../deploy/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../deploy/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../deploy/grafana:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - tempo
+    restart: unless-stopped
+
+volumes:
+  tempo_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local

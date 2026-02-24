@@ -1,0 +1,34 @@
+# Build artifacts
+target/
+*.bin
+
+# Data and models (mounted as volumes at runtime)
+data/
+models/
+
+# Archive
+_archive/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation (not needed in image)
+*.md
+!README.md
+RESULTS.md
+DECISION.md
+ERGONOMIA.md
+
+# Benchmarks and tests not needed in production image
+ralph/
+
+# Temporary files
+*.tmp
+*.bak

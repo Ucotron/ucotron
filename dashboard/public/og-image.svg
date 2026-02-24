@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#050A14" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="line-fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#00F0FF" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#00F0FF" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#00F0FF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#050A14"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Subtle grid lines -->
+  <line x1="0" y1="315" x2="1200" y2="315" stroke="url(#line-fade)" stroke-width="1"/>
+  <line x1="600" y1="0" x2="600" y2="630" stroke="url(#line-fade)" stroke-width="1"/>
+
+  <!-- Circuit-node logo (centered, larger) -->
+  <g transform="translate(600, 250)">
+    <circle cx="0" cy="0" r="40" fill="none" stroke="#00F0FF" stroke-width="2.5"/>
+    <circle cx="0" cy="0" r="16" fill="#00F0FF" fill-opacity="0.9"/>
+    <line x1="0" y1="-65" x2="0" y2="-42" stroke="#00F0FF" stroke-width="2.5"/>
+    <line x1="0" y1="42" x2="0" y2="65" stroke="#00F0FF" stroke-width="2.5"/>
+    <line x1="-65" y1="0" x2="-42" y2="0" stroke="#00F0FF" stroke-width="2.5"/>
+    <line x1="42" y1="0" x2="65" y2="0" stroke="#00F0FF" stroke-width="2.5"/>
+    <!-- Corner nodes -->
+    <circle cx="0" cy="-65" r="4" fill="#00F0FF"/>
+    <circle cx="0" cy="65" r="4" fill="#00F0FF"/>
+    <circle cx="-65" cy="0" r="4" fill="#00F0FF"/>
+    <circle cx="65" cy="0" r="4" fill="#00F0FF"/>
+  </g>
+
+  <!-- Brand text -->
+  <text x="600" y="390" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="700" fill="#E2E8F0" text-anchor="middle" letter-spacing="0.1em">UCOTRON</text>
+
+  <!-- Tagline -->
+  <text x="600" y="435" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="400" fill="#94A3B8" text-anchor="middle" letter-spacing="0.05em">Cognitive memory infrastructure for AI agents</text>
+
+  <!-- Bottom accent line -->
+  <rect x="500" y="580" width="200" height="2" rx="1" fill="#00F0FF" opacity="0.4"/>
+</svg>

@@ -1,0 +1,28 @@
+[package]
+name = "ucotron-sdk"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Rust SDK client for the Ucotron cognitive memory framework"
+
+[features]
+default = []
+otel = ["opentelemetry", "opentelemetry_sdk"]
+
+[dependencies]
+ucotron-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }
+
+# Optional: OpenTelemetry W3C trace context propagation
+opentelemetry = { workspace = true, optional = true }
+opentelemetry_sdk = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true }

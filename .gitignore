@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+target/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Build output
+.next/
+out/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+data/
+models/
+*.bin
+
+# Logs
+*.log
+
+# Test
+coverage/
+.nyc_output/
+
+# Misc
+*.pdf
+.playwright-mcp/

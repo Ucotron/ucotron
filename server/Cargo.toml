@@ -1,0 +1,115 @@
+[workspace]
+members = [
+    "core",
+    "helix_impl",
+    "bench_runner",
+    "ucotron_config",
+    "ucotron_extraction",
+    "ucotron_server",
+    "ucotron_sdk",
+    "ucotron_connectors",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Ucotron Team"]
+
+[workspace.dependencies]
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bincode = "1"
+
+# Random number generation (reproducible)
+rand = "0.8"
+rand_chacha = "0.3"
+
+# Pin rayon to <1.11 due to graph_builder 0.4.1 incompatibility with rayon 1.11
+# (Box<[T]>::into_par_iter() changed from yielding &T to T)
+rayon = ">=1.7, <1.11"
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# Benchmarking
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# HNSW vector index
+instant-distance = { version = "0.6", features = ["with-serde"] }
+
+# Arena allocation for graph traversal
+bumpalo = { version = "3.19", features = ["collections"] }
+
+# Graph algorithms (Leiden community detection)
+graphrs = "0.11"
+
+# ONNX Runtime for ML inference
+ort = "=2.0.0-rc.11"
+
+# HuggingFace tokenizers
+tokenizers = "0.21"
+
+# N-dimensional arrays (matching ort's ndarray version)
+ndarray = "0.17"
+
+# Audio processing (WAV reading)
+hound = "3.5"
+
+# Image processing (CLIP preprocessing)
+image = "0.25"
+
+# Video processing (frame extraction, keyframe detection)
+ffmpeg-next = "8.0"
+
+# Async Postgres (sqlx)
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres"] }
+
+# MongoDB driver
+mongodb = "3.1"
+
+# HTTP client (SDK)
+reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
+
+# MCP (Model Context Protocol) server SDK
+rmcp = { version = "0.15", features = ["server", "transport-io", "transport-streamable-http-server"] }
+schemars = "1.0"
+
+# OpenAPI documentation
+utoipa = { version = "5", features = ["axum_extras"] }
+utoipa-swagger-ui = { version = "9", features = ["axum"] }
+
+# Cron expression parsing (connector scheduling)
+cron = "0.15"
+
+# Prometheus metrics
+prometheus-client = "0.22"
+
+# OpenTelemetry (distributed tracing, metrics, logs)
+opentelemetry = "0.27"
+opentelemetry_sdk = { version = "0.27", features = ["rt-tokio", "metrics"] }
+opentelemetry-otlp = { version = "0.27", features = ["metrics"] }
+opentelemetry-semantic-conventions = "0.27"
+tracing-opentelemetry = "0.28"
+
+# Internal crates
+ucotron-core = { path = "core" }
+ucotron-helix = { path = "helix_impl" }
+ucotron-config = { path = "ucotron_config" }
+
+# Release profile optimized for benchmarking
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = "symbols"
+
+[profile.bench]
+lto = true
+codegen-units = 1

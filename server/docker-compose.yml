@@ -1,0 +1,54 @@
+# =============================================================================
+# Ucotron Server — Single Instance Docker Compose
+# =============================================================================
+# Usage:
+#   docker compose up              # Build and start server
+#   docker compose up -d           # Start in background
+#   docker compose down            # Stop and remove containers
+#   docker compose logs -f ucotron # Follow logs
+#
+# The server will be available at:
+#   REST API:  http://localhost:8420
+#   Health:    http://localhost:8420/api/v1/health
+#
+# Models are baked into the image by default (~678MB).
+# To use a local models directory instead (faster rebuilds):
+#   1. Run: ./setup.sh
+#   2. Uncomment the models volume mount below
+#
+# To use a published image instead of building locally:
+#   image: ghcr.io/ucotron/ucotron/ucotron-server:latest
+# =============================================================================
+
+services:
+  ucotron:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Alternatively, use a published image:
+    # image: ghcr.io/ucotron/ucotron/ucotron-server:latest
+    container_name: ucotron-server
+    ports:
+      - "8420:8420"
+    volumes:
+      # Persistent LMDB storage
+      - ucotron_data:/app/data
+      # Uncomment to use local models directory (skip model download in build):
+      # - ./models:/app/models:ro
+    environment:
+      - UCOTRON_SERVER_HOST=0.0.0.0
+      - UCOTRON_SERVER_PORT=8420
+      - UCOTRON_STORAGE_MODE=embedded
+      - UCOTRON_MODELS_DIR=/app/models
+      - RUST_LOG=info
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8420/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  ucotron_data:
+    driver: local

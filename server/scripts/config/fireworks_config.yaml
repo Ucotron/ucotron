@@ -1,0 +1,216 @@
+# =============================================================================
+# Fireworks.ai Configuration for Ucotron Fine-Tuning Pipeline
+# =============================================================================
+#
+# This file configures all Fireworks.ai API interactions for:
+#   - Dataset generation (via GLM models)
+#   - Supervised Fine-Tuning (SFT) jobs
+#   - Direct Preference Optimization (DPO) jobs
+#   - Model evaluation and inference
+#
+# SECURITY NOTE:
+#   API keys and secrets MUST be set via environment variables, NOT in this file.
+#   Required env vars:
+#     FIREWORKS_API_KEY      - Fireworks.ai API key (required)
+#     FIREWORKS_ACCOUNT_ID   - Fireworks.ai account ID (required for fine-tuning)
+#   Optional env vars:
+#     WANDB_API_KEY          - Weights & Biases API key (for experiment tracking)
+#
+# Usage:
+#   from scripts.config import load_fireworks_config
+#   config = load_fireworks_config("scripts/config/fireworks_config.yaml")
+#
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# API Connection Settings
+# ---------------------------------------------------------------------------
+api:
+  # Base URL for fine-tuning operations (dataset upload, job management)
+  fine_tuning_base_url: "https://api.fireworks.ai/v1"
+
+  # Base URL for inference operations (chat completions, generation)
+  inference_base_url: "https://api.fireworks.ai/inference/v1"
+
+  # HTTP request timeout in seconds
+  timeout: 120.0
+
+  # Maximum number of retry attempts for transient errors (5xx, rate limits)
+  max_retries: 3
+
+  # Initial retry delay in seconds (doubles on each retry via exponential backoff)
+  retry_delay: 2.0
+
+# ---------------------------------------------------------------------------
+# Model Definitions
+# ---------------------------------------------------------------------------
+# Three tiers of models for fine-tuning, plus a generation model for datasets.
+
+models:
+  # Model used for synthetic dataset generation (RE, DPO, contradiction, entity resolution)
+  generation:
+    model_id: "accounts/fireworks/models/glm-4-plus"
+    display_name: "GLM-4 Plus"
+    use_case: "Dataset generation via structured prompts"
+
+  # Fine-tuning targets (smallest to largest)
+  fine_tuning:
+    # Edge/on-device model (0.5B parameters)
+    slm:
+      model_id: "accounts/fireworks/models/qwen2p5-0.5b-instruct"
+      display_name: "Qwen 2.5 0.5B (Edge SLM)"
+      params: "0.5B"
+      use_case: "Edge deployment, on-device inference"
+
+    # Balanced model (1.5B parameters)
+    small:
+      model_id: "accounts/fireworks/models/qwen2p5-1.5b-instruct"
+      display_name: "Qwen 2.5 1.5B"
+      params: "1.5B"
+      use_case: "Balanced quality and latency"
+
+    # Cloud model (7B parameters)
+    medium:
+      model_id: "accounts/fireworks/models/qwen2p5-7b-instruct"
+      display_name: "Qwen 2.5 7B (Cloud LLM)"
+      params: "7B"
+      use_case: "Cloud deployment, high quality"
+
+# ---------------------------------------------------------------------------
+# Training Hyperparameters
+# ---------------------------------------------------------------------------
+# Per-model defaults for SFT and DPO training jobs.
+
+training:
+  # Supervised Fine-Tuning (SFT) defaults per model tier
+  sft:
+    slm:
+      epochs: 3
+      learning_rate: 2.0e-4
+      lora_rank: 8
+      max_context_length: 2048
+      batch_size: null  # null = Fireworks auto-selects
+
+    small:
+      epochs: 3
+      learning_rate: 2.0e-4
+      lora_rank: 16
+      max_context_length: 2048
+      batch_size: null
+
+    medium:
+      epochs: 2
+      learning_rate: 1.0e-4
+      lora_rank: 16
+      max_context_length: 4096
+      batch_size: null
+
+  # Direct Preference Optimization (DPO) defaults
+  dpo:
+    slm:
+      epochs: 2
+      learning_rate: 5.0e-5
+      lora_rank: 8
+      max_context_length: 2048
+      batch_size: null
+
+    small:
+      epochs: 2
+      learning_rate: 5.0e-5
+      lora_rank: 16
+      max_context_length: 2048
+      batch_size: null
+
+    medium:
+      epochs: 1
+      learning_rate: 3.0e-5
+      lora_rank: 16
+      max_context_length: 4096
+      batch_size: null
+
+# ---------------------------------------------------------------------------
+# Generation Settings
+# ---------------------------------------------------------------------------
+# Parameters for LLM-based dataset generation calls.
+
+generation:
+  # Default settings for all generation calls
+  defaults:
+    max_tokens: 2048
+    temperature: 0.7
+    top_p: 0.9
+
+  # Task-specific overrides (merged with defaults)
+  tasks:
+    # Relation extraction dataset generation
+    relation_extraction:
+      temperature: 0.7
+      max_tokens: 2048
+      target_samples: 10000
+
+    # DPO preference pair generation
+    preference:
+      # "Chosen" extraction: thorough, deterministic
+      chosen:
+        temperature: 0.0
+        max_tokens: 300
+      # "Rejected" extraction: quick, more random
+      rejected:
+        temperature: 0.7
+        max_tokens: 150
+      target_samples: 5000
+
+    # Contradiction detection dataset
+    contradiction:
+      temperature: 0.7
+      max_tokens: 1024
+      target_samples: 3000
+
+    # Entity resolution dataset
+    entity_resolution:
+      temperature: 0.8
+      max_tokens: 512
+      target_samples: 2000
+
+# ---------------------------------------------------------------------------
+# Experiment Tracking (Optional)
+# ---------------------------------------------------------------------------
+# Weights & Biases integration for monitoring training runs.
+# Set WANDB_API_KEY env var to enable.
+
+tracking:
+  enabled: false
+  wandb_project: "ucotron-finetune"
+  # wandb_entity: null  # defaults to your W&B username
+
+# ---------------------------------------------------------------------------
+# Job Polling Settings
+# ---------------------------------------------------------------------------
+# Controls how the fine-tuning client polls for job status updates.
+
+polling:
+  # Seconds between status checks
+  interval: 30
+
+  # Maximum time to wait for a job to complete (seconds)
+  # 0 = wait indefinitely
+  timeout: 0
+
+  # Print progress updates to console
+  verbose: true
+
+# ---------------------------------------------------------------------------
+# Output Settings
+# ---------------------------------------------------------------------------
+# Where generated datasets and trained model artifacts are stored.
+
+output:
+  # Directory for generated JSONL datasets
+  data_dir: "data/training"
+
+  # Directory for exported ONNX models after fine-tuning
+  model_dir: "models/fine_tuned"
+
+  # Naming convention for output models on Fireworks
+  # Placeholders: {task}, {model_tier}, {timestamp}
+  model_name_template: "ucotron-{task}-{model_tier}"

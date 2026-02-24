@@ -1,0 +1,8 @@
+{
+  "name": "ucotron-arena",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "dashboard"
+  ]
+}

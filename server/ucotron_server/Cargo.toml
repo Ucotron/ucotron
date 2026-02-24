@@ -1,0 +1,70 @@
+[package]
+name = "ucotron-server"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Ucotron cognitive memory server — REST API and MCP server (Axum)"
+
+[lib]
+name = "ucotron_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ucotron_server"
+path = "src/main.rs"
+
+[[bin]]
+name = "ucotron_mcp"
+path = "src/mcp_main.rs"
+
+[dependencies]
+ucotron-core = { workspace = true }
+ucotron-config = { path = "../ucotron_config" }
+ucotron-extraction = { path = "../ucotron_extraction" }
+ucotron-connectors = { path = "../ucotron_connectors" }
+ucotron-helix = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.8", features = ["multipart"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+rmcp = { workspace = true }
+schemars = { workspace = true }
+clap = { workspace = true }
+utoipa = { workspace = true }
+utoipa-swagger-ui = { workspace = true }
+prometheus-client = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+tempfile = "3"
+image = { workspace = true }
+base64 = "0.22"
+regex = "1"
+once_cell = "1"
+aes-gcm = "0.10"
+rand = "0.8"
+uuid = { version = "1", features = ["v4"] }
+sha2 = "0.10"
+hex = "0.4"
+heed = { workspace = true }
+reqwest = { workspace = true }
+futures-util = "0.3"
+async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+hound = { workspace = true }

@@ -1,0 +1,26 @@
+[package]
+name = "ucotron-helix"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "HelixDB (Heed/LMDB) StorageEngine implementation for Ucotron"
+
+[dependencies]
+ucotron-core = { workspace = true }
+ucotron-config = { workspace = true }
+serde = { workspace = true }
+bincode = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+heed = { version = "0.22", features = ["serde-bincode"] }
+instant-distance = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+tempfile = "3"
+
+[[bench]]
+name = "hnsw_rebuild"
+harness = false

@@ -1,0 +1,37 @@
+[package]
+name = "ucotron-extraction"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Extraction pipeline for Ucotron: embeddings, NER (GLiNER), relation extraction (Qwen3), and document OCR"
+
+[features]
+default = []
+# Enable LLM-based relation extraction via llama.cpp.
+# Requires llama-cpp-2 crate and a GGUF model file.
+llm = []
+
+[dependencies]
+ucotron-core = { workspace = true }
+ucotron-config = { path = "../ucotron_config" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+ort = { workspace = true }
+tokenizers = { workspace = true }
+ndarray = { workspace = true }
+hound = { workspace = true }
+image = { workspace = true }
+ffmpeg-next = { workspace = true }
+tracing = "0.1"
+tokio = { version = "1", features = ["rt", "sync", "time", "macros"] }
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+# PDF text extraction (pure Rust)
+pdf-extract = "0.10"
+# Temporary files for Tesseract OCR processing
+tempfile = "3"
+
+[dev-dependencies]
+tempfile = "3"
+tracing-subscriber = { version = "0.3", features = ["registry"] }

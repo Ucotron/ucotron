@@ -1,0 +1,116 @@
+# =============================================================================
+# Ucotron Server — Multi-Instance Docker Compose
+# =============================================================================
+# Usage:
+#   docker compose -f docker-compose.multi.yml up              # Start all instances
+#   docker compose -f docker-compose.multi.yml up -d           # Start in background
+#   docker compose -f docker-compose.multi.yml down            # Stop all
+#   docker compose -f docker-compose.multi.yml logs -f         # Follow all logs
+#
+# Architecture:
+#   - ucotron-writer:   Single writer instance (port 8420)
+#   - ucotron-reader-1: Read-only instance (port 8421)
+#   - ucotron-reader-2: Read-only instance (port 8422)
+#
+# All instances share the same LMDB data volume.
+# LMDB is single-writer: only the writer instance can modify data.
+# Reader instances serve search/augment requests using read-only LMDB access.
+# =============================================================================
+
+services:
+  # Writer instance — the only instance that can modify storage
+  ucotron-writer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ucotron-writer
+    ports:
+      - "8420:8420"
+    volumes:
+      - ucotron_shared_data:/app/data
+    environment:
+      - UCOTRON_SERVER_HOST=0.0.0.0
+      - UCOTRON_SERVER_PORT=8420
+      - UCOTRON_STORAGE_MODE=shared
+      - UCOTRON_STORAGE_SHARED_DATA_DIR=/app/data
+      - UCOTRON_MODELS_DIR=/app/models
+      - UCOTRON_INSTANCE_ID=writer-1
+      - UCOTRON_INSTANCE_ROLE=writer
+      - UCOTRON_INSTANCE_ID_RANGE_START=1000000
+      - UCOTRON_INSTANCE_ID_RANGE_SIZE=1000000
+      - RUST_LOG=info
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8420/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  # Reader instance 1 — read-only access to shared storage
+  ucotron-reader-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ucotron-reader-1
+    ports:
+      - "8421:8420"
+    volumes:
+      - ucotron_shared_data:/app/data:ro
+    environment:
+      - UCOTRON_SERVER_HOST=0.0.0.0
+      - UCOTRON_SERVER_PORT=8420
+      - UCOTRON_STORAGE_MODE=shared
+      - UCOTRON_STORAGE_SHARED_DATA_DIR=/app/data
+      - UCOTRON_MODELS_DIR=/app/models
+      - UCOTRON_INSTANCE_ID=reader-1
+      - UCOTRON_INSTANCE_ROLE=reader
+      - UCOTRON_INSTANCE_ID_RANGE_START=2000000
+      - UCOTRON_INSTANCE_ID_RANGE_SIZE=1000000
+      - RUST_LOG=info
+    restart: unless-stopped
+    depends_on:
+      ucotron-writer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8420/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  # Reader instance 2 — read-only access to shared storage
+  ucotron-reader-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ucotron-reader-2
+    ports:
+      - "8422:8420"
+    volumes:
+      - ucotron_shared_data:/app/data:ro
+    environment:
+      - UCOTRON_SERVER_HOST=0.0.0.0
+      - UCOTRON_SERVER_PORT=8420
+      - UCOTRON_STORAGE_MODE=shared
+      - UCOTRON_STORAGE_SHARED_DATA_DIR=/app/data
+      - UCOTRON_MODELS_DIR=/app/models
+      - UCOTRON_INSTANCE_ID=reader-2
+      - UCOTRON_INSTANCE_ROLE=reader
+      - UCOTRON_INSTANCE_ID_RANGE_START=3000000
+      - UCOTRON_INSTANCE_ID_RANGE_SIZE=1000000
+      - RUST_LOG=info
+    restart: unless-stopped
+    depends_on:
+      ucotron-writer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8420/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  ucotron_shared_data:
+    driver: local

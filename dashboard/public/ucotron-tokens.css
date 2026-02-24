@@ -1,0 +1,75 @@
+/* ==========================================================================
+   Ucotron Design System — Shared Tokens
+   "Hyper-Structure" Cyber-Corporate aesthetic
+   ========================================================================== */
+
+:root {
+  /* ── Color Palette ── */
+  --color-primary: #00F0FF;
+  --color-primary-hover: #00B8CC;
+  --color-primary-muted: rgba(0, 240, 255, 0.15);
+  --color-primary-glow: rgba(0, 240, 255, 0.3);
+  --color-bg-void: #050A14;
+  --color-bg-panel: #0F1C2E;
+  --color-bg-elevated: #162236;
+  --color-bg-input: #0A1628;
+  --color-border: rgba(0, 240, 255, 0.12);
+  --color-border-active: rgba(0, 240, 255, 0.4);
+  --color-text-primary: #E2E8F0;
+  --color-text-secondary: #94A3B8;
+  --color-text-tertiary: #64748B;
+  --color-success: #00FF94;
+  --color-error: #FF2A6D;
+  --color-warning: #FFB800;
+  --color-info: #00F0FF;
+
+  /* ── Typography ── */
+  --font-display: "Chakra Petch", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* ── Shadows & Effects ── */
+  --shadow-glow: 0 0 20px rgba(0, 240, 255, 0.3);
+  --shadow-glow-sm: 0 0 10px rgba(0, 240, 255, 0.2);
+  --shadow-glow-lg: 0 0 40px rgba(0, 240, 255, 0.4);
+  --glass-bg: rgba(15, 28, 46, 0.6);
+  --glass-border: rgba(0, 240, 255, 0.08);
+  --glass-blur: blur(12px);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-dropdown: 0 8px 32px rgba(0, 0, 0, 0.6);
+
+  /* ── Transitions ── */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+
+  /* ── Layout ── */
+  --sidebar-width: 260px;
+  --container-max: 1280px;
+  --radius-card: 8px;
+  --radius-button: 6px;
+  --radius-input: 4px;
+  --page-padding: 24px;
+  --page-padding-mobile: 16px;
+}
+
+/* ── Animations ── */
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); }
+  50% { box-shadow: 0 0 25px rgba(0, 240, 255, 0.4); }
+}
+
+@keyframes circuit-dash {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scan-line {
+  0% { top: -2px; }
+  100% { top: 100%; }
+}

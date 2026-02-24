@@ -1,0 +1,13 @@
+[package]
+name = "ucotron-config"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Configuration system for Ucotron cognitive memory framework (TOML parsing, validation)"
+
+[dependencies]
+serde = { workspace = true }
+toml = "0.8"
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+hostname = "0.4"

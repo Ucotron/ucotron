@@ -1,0 +1,37 @@
+[server]
+host = "0.0.0.0"
+port = 8420
+log_level = "info"
+log_format = "json"
+
+[storage]
+mode = "embedded"
+
+[storage.vector]
+backend = "helix"
+data_dir = "data/vector"
+
+[storage.vector.hnsw]
+ef_construction = 200
+ef_search = 200
+
+[storage.graph]
+backend = "helix"
+data_dir = "data/graph"
+
+[models]
+models_dir = "models"
+embedding_model = "all-MiniLM-L6-v2"
+ner_model = "gliner_small-v2.1"
+
+[telemetry]
+enabled = true
+otlp_endpoint = "http://localhost:4317"
+service_name = "ucotron"
+sample_rate = 1.0
+export_traces = true
+export_metrics = true
+export_logs = false
+
+[auth]
+enabled = false

@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* ── Ucotron "Hyper-Structure" Design System ── */
+
+  /* Colors — dark-first (dashboard is always dark mode) */
+  --color-background: #050A14;
+  --color-foreground: #E2E8F0;
+  --color-muted: #0F1C2E;
+  --color-muted-foreground: #94A3B8;
+  --color-border: rgba(0, 240, 255, 0.12);
+  --color-card: rgba(15, 28, 46, 0.6);
+  --color-card-foreground: #E2E8F0;
+  --color-primary: #00F0FF;
+  --color-primary-foreground: #050A14;
+  --color-accent: rgba(0, 240, 255, 0.1);
+  --color-accent-foreground: #00F0FF;
+  --color-destructive: #FF2A6D;
+  --color-success: #00FF94;
+  --color-warning: #FFB800;
+
+  /* Typography */
+  --font-display: "Chakra Petch", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+@layer base {
+  .dark {
+    --color-background: #050A14;
+    --color-foreground: #E2E8F0;
+    --color-muted: #0F1C2E;
+    --color-muted-foreground: #94A3B8;
+    --color-border: rgba(0, 240, 255, 0.12);
+    --color-card: rgba(15, 28, 46, 0.6);
+    --color-card-foreground: #E2E8F0;
+    --color-accent: rgba(0, 240, 255, 0.1);
+    --color-accent-foreground: #00F0FF;
+  }
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* ── Glass card ── */
+.glass-card {
+  background: var(--color-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Neon glow button ── */
+.btn-neon {
+  background: transparent;
+  border: 1px solid #00F0FF;
+  color: #00F0FF;
+  transition: all 0.15s ease;
+}
+.btn-neon:hover {
+  background: rgba(0, 240, 255, 0.1);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ── Animations ── */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); }
+  50% { box-shadow: 0 0 25px rgba(0, 240, 255, 0.4); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes circuit-dash {
+  to { stroke-dashoffset: -20; }
+}
+
+/* ── Headings use display font ── */
+h1, h2 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}

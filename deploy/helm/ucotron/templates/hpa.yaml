@@ -1,0 +1,30 @@
+{{- if and .Values.multiInstance.enabled .Values.multiInstance.autoscaling.enabled -}}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "ucotron.readerName" . }}
+  labels:
+    {{- include "ucotron.readerLabels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "ucotron.readerName" . }}
+  minReplicas: {{ .Values.multiInstance.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.multiInstance.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.multiInstance.autoscaling.targetCPUUtilizationPercentage }}
+    {{- if .Values.multiInstance.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.multiInstance.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+{{- end }}

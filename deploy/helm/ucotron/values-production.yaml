@@ -1,0 +1,43 @@
+# =============================================================================
+# Production values override for Ucotron Helm Chart
+# =============================================================================
+# Usage: helm install ucotron ./deploy/helm/ucotron -f deploy/helm/ucotron/values-production.yaml
+# =============================================================================
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  hosts:
+    - host: api.ucotron.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: app.ucotron.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: docs.ucotron.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: traces.ucotron.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: ucotron-tls
+      hosts:
+        - app.ucotron.com
+        - api.ucotron.com
+        - docs.ucotron.com
+        - traces.ucotron.com
+
+config:
+  server:
+    logLevel: "info"
+  auth:
+    enabled: true

@@ -1,0 +1,72 @@
+{{- if .Values.multiInstance.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ucotron.writerConfigMapName" . }}
+  labels:
+    {{- include "ucotron.writerLabels" . | nindent 4 }}
+data:
+  ucotron.toml: |
+    [server]
+    host = {{ .Values.config.server.host | quote }}
+    port = {{ .Values.config.server.port }}
+    workers = {{ .Values.config.server.workers }}
+    log_level = {{ .Values.config.server.logLevel | quote }}
+
+    [storage]
+    mode = "shared"
+
+    [storage.vector]
+    backend = {{ .Values.config.storage.vector.backend | quote }}
+    data_dir = {{ .Values.config.storage.vector.dataDir | quote }}
+    max_db_size = {{ printf "%.0f" .Values.config.storage.vector.maxDbSize }}
+
+    [storage.vector.hnsw]
+    ef_construction = {{ .Values.config.storage.vector.hnsw.efConstruction }}
+    ef_search = {{ .Values.config.storage.vector.hnsw.efSearch }}
+    enabled = {{ .Values.config.storage.vector.hnsw.enabled }}
+
+    [storage.graph]
+    backend = {{ .Values.config.storage.graph.backend | quote }}
+    data_dir = {{ .Values.config.storage.graph.dataDir | quote }}
+    max_db_size = {{ printf "%.0f" .Values.config.storage.graph.maxDbSize }}
+    batch_size = {{ .Values.config.storage.graph.batchSize }}
+
+    [instance]
+    role = "writer"
+    instance_id = {{ .Values.multiInstance.writer.instanceId | quote }}
+    id_range_start = {{ printf "%.0f" .Values.multiInstance.writer.idRangeStart }}
+    id_range_size = {{ printf "%.0f" .Values.multiInstance.writer.idRangeSize }}
+
+    [models]
+    embedding_model = {{ .Values.config.models.embeddingModel | quote }}
+    ner_model = {{ .Values.config.models.nerModel | quote }}
+    llm_model = {{ .Values.config.models.llmModel | quote }}
+    llm_backend = {{ .Values.config.models.llmBackend | quote }}
+    models_dir = {{ .Values.config.models.modelsDir | quote }}
+    enable_ocr = {{ .Values.config.models.enableOcr }}
+    ocr_language = {{ .Values.config.models.ocrLanguage | quote }}
+
+    [consolidation]
+    trigger_interval = {{ .Values.config.consolidation.triggerInterval }}
+    enable_decay = {{ .Values.config.consolidation.enableDecay }}
+    decay_halflife_secs = {{ printf "%.0f" .Values.config.consolidation.decayHalflifeSecs }}
+
+    [mcp]
+    enabled = {{ .Values.config.mcp.enabled }}
+    transport = {{ .Values.config.mcp.transport | quote }}
+    port = {{ .Values.config.mcp.port }}
+
+    [namespaces]
+    default_namespace = {{ .Values.config.namespaces.defaultNamespace | quote }}
+    {{- if .Values.config.namespaces.allowedNamespaces }}
+    allowed_namespaces = [{{ range $i, $ns := .Values.config.namespaces.allowedNamespaces }}{{ if $i }}, {{ end }}{{ $ns | quote }}{{ end }}]
+    {{- end }}
+    max_namespaces = {{ .Values.config.namespaces.maxNamespaces }}
+
+    [auth]
+    enabled = {{ .Values.config.auth.enabled }}
+    {{- if .Values.config.auth.apiKey }}
+    api_key = {{ .Values.config.auth.apiKey | quote }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,210 @@
+# =============================================================================
+# Ucotron Deploy — Build images & deploy to EKS on push to main
+# =============================================================================
+# Triggered on push to main (after CI passes) or manual dispatch.
+#
+# Steps:
+#   1. Build ucotron-server Docker image (multi-stage Rust build)
+#   2. Build dashboard Docker image (Next.js standalone output)
+#   3. Push images to ECR
+#   4. Deploy to EKS via Helm upgrade
+#
+# Required secrets:
+#   AWS_ACCOUNT_ID        — AWS account ID for ECR
+#   AWS_REGION            — AWS region (e.g. us-east-1)
+#   AWS_ROLE_ARN          — IAM role ARN for GitHub OIDC
+#   EKS_CLUSTER_NAME      — EKS cluster name
+#   ENVIRONMENT           — Deployment environment (e.g. production, staging)
+# =============================================================================
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - staging
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+  ENVIRONMENT: ${{ inputs.environment || secrets.ENVIRONMENT || 'production' }}
+
+jobs:
+  # ─── Build & Push ucotron-server ───────────────────────────────────────────
+  build-server:
+    name: Build ucotron-server
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          REPO="${{ steps.ecr-login.outputs.registry }}/ucotron-server-${{ env.ENVIRONMENT }}"
+          TAG="${{ github.sha }}"
+          echo "image=${REPO}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache cargo registry & build (for Docker)
+        uses: actions/cache@v4
+        with:
+          path: |
+            /tmp/.buildx-cargo-cache
+          key: docker-cargo-${{ runner.os }}-${{ hashFiles('server/Cargo.lock') }}
+          restore-keys: |
+            docker-cargo-${{ runner.os }}-
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: server
+          file: server/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.image }}:latest
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,mode=max,scope=server
+          platforms: linux/amd64
+
+  # ─── Build & Push dashboard ────────────────────────────────────────────────
+  build-dashboard:
+    name: Build dashboard
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          REPO="${{ steps.ecr-login.outputs.registry }}/ucotron-dashboard-${{ env.ENVIRONMENT }}"
+          TAG="${{ github.sha }}"
+          echo "image=${REPO}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push dashboard image
+        uses: docker/build-push-action@v6
+        with:
+          context: dashboard
+          file: dashboard/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.image }}:latest
+          cache-from: type=gha,scope=dashboard
+          cache-to: type=gha,mode=max,scope=dashboard
+          platforms: linux/amd64
+
+  # ─── Deploy to EKS ────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to EKS (${{ needs.build-server.outputs.tag }})
+    runs-on: ubuntu-latest
+    needs: [build-server, build-dashboard]
+    environment: ${{ inputs.environment || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name "${{ secrets.EKS_CLUSTER_NAME }}" \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Deploy ucotron-server via Helm
+        run: |
+          helm upgrade --install ucotron-server deploy/helm/ucotron \
+            --namespace ucotron \
+            --create-namespace \
+            --set image.repository="${{ needs.build-server.outputs.image }}" \
+            --set image.tag="${{ needs.build-server.outputs.tag }}" \
+            --set environment="${{ env.ENVIRONMENT }}" \
+            --wait \
+            --timeout 10m
+
+      - name: Verify deployment rollout
+        run: |
+          kubectl rollout status deployment/ucotron-server \
+            -n ucotron \
+            --timeout=300s
+
+      - name: Run smoke test
+        run: |
+          kubectl wait --for=condition=available \
+            deployment/ucotron-server \
+            -n ucotron \
+            --timeout=120s
+
+          kubectl port-forward \
+            svc/ucotron-server 8420:8420 \
+            -n ucotron &
+          PF_PID=$!
+          sleep 5
+
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8420/health || echo "000")
+          kill $PF_PID 2>/dev/null || true
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Smoke test failed: health endpoint returned $HTTP_CODE"
+            kubectl logs deployment/ucotron-server -n ucotron --tail=50
+            exit 1
+          fi
+          echo "Smoke test passed: health endpoint returned 200"

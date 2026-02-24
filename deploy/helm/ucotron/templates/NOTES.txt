@@ -1,0 +1,60 @@
+Ucotron has been deployed!
+
+{{- if .Values.multiInstance.enabled }}
+
+Mode: MULTI-INSTANCE (writer + {{ .Values.multiInstance.reader.replicaCount }} readers)
+
+1. Access the writer (writes + reads):
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "ucotron.writerName" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+
+2. Access the reader service (reads only, load-balanced):
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "ucotron.readerName" . }} 8421:{{ .Values.service.port }}
+
+3. Check writer health:
+  curl http://localhost:{{ .Values.service.port }}/api/v1/health
+
+4. Check reader health:
+  curl http://localhost:8421/api/v1/health
+
+5. Verify all pods:
+  kubectl get pods -l "app.kubernetes.io/name={{ include "ucotron.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
+
+{{- if .Values.multiInstance.autoscaling.enabled }}
+
+6. HPA status:
+  kubectl get hpa {{ include "ucotron.readerName" . }} --namespace {{ .Release.Namespace }}
+  Reader auto-scaling: {{ .Values.multiInstance.autoscaling.minReplicas }}-{{ .Values.multiInstance.autoscaling.maxReplicas }} replicas (target CPU: {{ .Values.multiInstance.autoscaling.targetCPUUtilizationPercentage }}%)
+{{- end }}
+
+NOTE: Multi-instance mode requires RWX-capable storage (NFS, GlusterFS, Longhorn, etc.)
+      Configure persistence.storageClass to a RWX-capable provisioner.
+
+{{- else }}
+
+Mode: SINGLE-INSTANCE
+
+1. Get the application URL:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ (first $host.paths).path }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "ucotron.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+        Watch status with: kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "ucotron.fullname" . }}
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "ucotron.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.service.port }}
+{{- else }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "ucotron.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+  echo "Visit http://localhost:{{ .Values.service.port }}"
+{{- end }}
+
+2. Check health:
+  curl http://localhost:{{ .Values.service.port }}/api/v1/health
+
+3. Verify readiness:
+  kubectl get pods -l "app.kubernetes.io/name={{ include "ucotron.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
+{{- end }}

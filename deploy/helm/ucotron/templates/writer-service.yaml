@@ -1,0 +1,17 @@
+{{- if .Values.multiInstance.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ucotron.writerName" . }}
+  labels:
+    {{- include "ucotron.writerLabels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ucotron.writerSelectorLabels" . | nindent 4 }}
+{{- end }}

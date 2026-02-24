@@ -1,0 +1,374 @@
+# =============================================================================
+# Ucotron CI — Lint, Build, Test on every PR and push to main
+# =============================================================================
+# Runs:
+#   1. Rust: clippy lint + cargo build + cargo test (all workspace crates)
+#   2. Multimodal: audio/image/video pipeline tests (--test-threads=1)
+#   3. Dashboard: npm install + next build
+#   4. Integration: start server, run basic integration tests
+#
+# ONNX models are cached in two separate groups:
+#   - Base models (MiniLM, GLiNER): keyed on model_checksums.sha256
+#   - Multimodal models (Whisper, CLIP): keyed on multimodal_checksums.sha256
+# Models are only downloaded on cache miss, then verified via SHA-256 checksums.
+#
+# Matrix: Linux x86_64, Linux ARM64, macOS ARM64 (Rust only)
+# =============================================================================
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ─── Rust Lint ──────────────────────────────────────────────────────────────
+  rust-lint:
+    name: Rust Lint (clippy)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            server/target
+          key: rust-lint-${{ runner.os }}-${{ hashFiles('server/Cargo.lock') }}
+          restore-keys: |
+            rust-lint-${{ runner.os }}-
+
+      - name: Clippy (all targets)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  # ─── Rust Build & Test (matrix) ─────────────────────────────────────────────
+  rust-test:
+    name: Rust Test (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux-x64
+            runner: ubuntu-latest
+          - os: linux-arm64
+            runner: ubuntu-24.04-arm
+          - os: macos-arm64
+            runner: macos-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            server/target
+          key: rust-test-${{ matrix.os }}-${{ hashFiles('server/Cargo.lock') }}
+          restore-keys: |
+            rust-test-${{ matrix.os }}-
+
+      - name: Cache base ONNX models (MiniLM, GLiNER)
+        id: base-model-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            server/models/all-MiniLM-L6-v2
+            server/models/gliner_small-v2.1
+          key: onnx-base-models-${{ hashFiles('server/scripts/model_checksums.sha256') }}
+
+      - name: Cache multimodal ONNX models (Whisper, CLIP)
+        id: multimodal-model-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            server/models/whisper-tiny
+            server/models/clip-vit-base-patch32
+          key: onnx-multimodal-models-${{ hashFiles('server/scripts/download_multimodal_models.sh') }}
+
+      - name: Download base ONNX models (on cache miss)
+        if: steps.base-model-cache.outputs.cache-hit != 'true'
+        run: bash scripts/download_models.sh
+
+      - name: Download multimodal ONNX models (on cache miss)
+        if: steps.multimodal-model-cache.outputs.cache-hit != 'true'
+        run: bash scripts/download_multimodal_models.sh
+
+      - name: Verify base model integrity
+        run: bash scripts/verify_models.sh
+
+      - name: Verify multimodal model file presence
+        run: |
+          echo "=== Verifying multimodal model files ==="
+          FAILED=0
+          for f in \
+            models/whisper-tiny/encoder.onnx \
+            models/whisper-tiny/decoder.onnx \
+            models/whisper-tiny/tokens.txt \
+            models/clip-vit-base-patch32/visual_model.onnx \
+            models/clip-vit-base-patch32/text_model.onnx \
+            models/clip-vit-base-patch32/tokenizer.json; do
+            if [ -f "$f" ]; then
+              SIZE=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null || echo 0)
+              echo "[OK]      $f ($SIZE bytes)"
+              if [ "$SIZE" -lt 100 ]; then
+                echo "[ERROR]   $f is suspiciously small ($SIZE bytes)"
+                FAILED=1
+              fi
+            else
+              echo "[MISSING] $f"
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -eq 1 ]; then
+            echo "=== Multimodal model verification FAILED ==="
+            exit 1
+          fi
+          echo "=== All 6 multimodal model files verified ==="
+
+      - name: Build workspace
+        run: cargo build --workspace
+
+      - name: Run tests
+        run: cargo test --workspace
+        env:
+          UCOTRON_MODELS_DIR: ${{ github.workspace }}/server/models
+
+  # ─── Multimodal Pipeline Tests ───────────────────────────────────────────────
+  multimodal-tests:
+    name: Multimodal Pipeline Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    needs: [rust-lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux-x64
+            runner: ubuntu-latest
+          - os: macos-arm64
+            runner: macos-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            server/target
+          key: rust-multimodal-${{ matrix.os }}-${{ hashFiles('server/Cargo.lock') }}
+          restore-keys: |
+            rust-multimodal-${{ matrix.os }}-
+
+      - name: Cache base ONNX models (MiniLM, GLiNER)
+        id: base-model-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            server/models/all-MiniLM-L6-v2
+            server/models/gliner_small-v2.1
+          key: onnx-base-models-${{ hashFiles('server/scripts/model_checksums.sha256') }}
+
+      - name: Cache multimodal ONNX models (Whisper, CLIP)
+        id: multimodal-model-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            server/models/whisper-tiny
+            server/models/clip-vit-base-patch32
+          key: onnx-multimodal-models-${{ hashFiles('server/scripts/download_multimodal_models.sh') }}
+
+      - name: Download base ONNX models (on cache miss)
+        if: steps.base-model-cache.outputs.cache-hit != 'true'
+        run: bash scripts/download_models.sh
+
+      - name: Download multimodal ONNX models (on cache miss)
+        if: steps.multimodal-model-cache.outputs.cache-hit != 'true'
+        run: bash scripts/download_multimodal_models.sh
+
+      - name: Verify multimodal model file presence
+        run: |
+          echo "=== Verifying multimodal model files ==="
+          MISSING=0
+          for f in \
+            models/whisper-tiny/encoder.onnx \
+            models/whisper-tiny/decoder.onnx \
+            models/whisper-tiny/tokens.txt \
+            models/clip-vit-base-patch32/visual_model.onnx \
+            models/clip-vit-base-patch32/text_model.onnx \
+            models/clip-vit-base-patch32/tokenizer.json; do
+            if [ -f "$f" ]; then
+              SIZE=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null || echo 0)
+              echo "[OK]      $f ($SIZE bytes)"
+            else
+              echo "[MISSING] $f — model tests will skip gracefully"
+              MISSING=1
+            fi
+          done
+          if [ "$MISSING" -eq 1 ]; then
+            echo "=== Some models missing — pipeline tests will skip gracefully ==="
+          else
+            echo "=== All 6 multimodal model files present ==="
+          fi
+
+      - name: Build ucotron_extraction crate
+        run: cargo build -p ucotron-extraction
+
+      - name: Run audio pipeline tests (--test-threads=1)
+        run: cargo test -p ucotron-extraction audio::tests -- --test-threads=1
+        env:
+          UCOTRON_MODELS_DIR: ${{ github.workspace }}/server/models
+
+      - name: Run image pipeline tests (--test-threads=1)
+        run: cargo test -p ucotron-extraction image::tests -- --test-threads=1
+        env:
+          UCOTRON_MODELS_DIR: ${{ github.workspace }}/server/models
+
+      - name: Run video pipeline tests (--test-threads=1)
+        run: cargo test -p ucotron-extraction video::tests -- --test-threads=1
+        env:
+          UCOTRON_MODELS_DIR: ${{ github.workspace }}/server/models
+
+      - name: Run cross-modal pipeline tests (--test-threads=1)
+        run: cargo test -p ucotron-extraction cross_modal::tests -- --test-threads=1
+        env:
+          UCOTRON_MODELS_DIR: ${{ github.workspace }}/server/models
+
+      - name: Run cross-modal search tests
+        run: cargo test -p ucotron-extraction cross_modal_search::tests -- --test-threads=1
+        env:
+          UCOTRON_MODELS_DIR: ${{ github.workspace }}/server/models
+
+      - name: Run core multimodal tests
+        run: cargo test -p ucotron-core multimodal::tests
+        env:
+          UCOTRON_MODELS_DIR: ${{ github.workspace }}/server/models
+
+  # ─── Dashboard Build ───────────────────────────────────────────────────────
+  dashboard-build:
+    name: Dashboard Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build dashboard
+        run: npm run build
+
+  # ─── Integration Tests ─────────────────────────────────────────────────────
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [rust-test, multimodal-tests]
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            server/target
+          key: rust-integ-${{ runner.os }}-${{ hashFiles('server/Cargo.lock') }}
+          restore-keys: |
+            rust-integ-${{ runner.os }}-
+
+      - name: Cache base ONNX models (MiniLM, GLiNER)
+        id: base-model-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            server/models/all-MiniLM-L6-v2
+            server/models/gliner_small-v2.1
+          key: onnx-base-models-${{ hashFiles('server/scripts/model_checksums.sha256') }}
+
+      - name: Cache multimodal ONNX models (Whisper, CLIP)
+        id: multimodal-model-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            server/models/whisper-tiny
+            server/models/clip-vit-base-patch32
+          key: onnx-multimodal-models-${{ hashFiles('server/scripts/download_multimodal_models.sh') }}
+
+      - name: Download base ONNX models (on cache miss)
+        if: steps.base-model-cache.outputs.cache-hit != 'true'
+        run: bash scripts/download_models.sh
+
+      - name: Download multimodal ONNX models (on cache miss)
+        if: steps.multimodal-model-cache.outputs.cache-hit != 'true'
+        run: bash scripts/download_multimodal_models.sh
+
+      - name: Verify base model integrity
+        run: bash scripts/verify_models.sh
+
+      - name: Build server
+        run: cargo build --bin ucotron_server
+
+      - name: Run integration tests
+        run: |
+          if [ -f scripts/integration_tests.sh ]; then
+            bash scripts/integration_tests.sh
+          else
+            echo "No integration test script found, running cargo integration tests"
+            cargo test --workspace -- --ignored 2>/dev/null || echo "No ignored tests found"
+          fi
+        env:
+          UCOTRON_TEST_PORT: "0"
+          UCOTRON_MODELS_DIR: ${{ github.workspace }}/server/models

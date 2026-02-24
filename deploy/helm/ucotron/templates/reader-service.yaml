@@ -1,0 +1,17 @@
+{{- if .Values.multiInstance.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ucotron.readerName" . }}
+  labels:
+    {{- include "ucotron.readerLabels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ucotron.readerSelectorLabels" . | nindent 4 }}
+{{- end }}

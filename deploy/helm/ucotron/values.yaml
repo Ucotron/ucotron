@@ -1,0 +1,336 @@
+# =============================================================================
+# Ucotron Helm Chart — Default Values
+# =============================================================================
+
+# -- Number of replicas (single-instance mode uses 1)
+replicaCount: 1
+
+image:
+  # -- Container image registry and repository
+  repository: ghcr.io/ucotron/ucotron/ucotron-server
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+  # -- Image tag (defaults to Chart.appVersion)
+  tag: ""
+
+# -- Image pull secrets for private registries
+imagePullSecrets: []
+# -- Override the chart name
+nameOverride: ""
+# -- Override the full release name
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a ServiceAccount
+  create: true
+  # -- Annotations for the ServiceAccount
+  annotations: {}
+  # -- ServiceAccount name (auto-generated if empty)
+  name: ""
+
+# -- Pod annotations
+podAnnotations: {}
+
+# -- Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# -- Container security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  readOnlyRootFilesystem: false
+
+# =============================================================================
+# Service
+# =============================================================================
+service:
+  # -- Service type (ClusterIP, NodePort, LoadBalancer)
+  type: ClusterIP
+  # -- Service port
+  port: 8420
+
+# =============================================================================
+# Ingress
+# =============================================================================
+ingress:
+  # -- Enable Ingress resource
+  enabled: false
+  # -- Ingress class name (nginx, traefik, etc.)
+  className: ""
+  # -- Ingress annotations
+  annotations: {}
+    # nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+  hosts:
+    - host: ucotron.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- TLS configuration
+  tls: []
+  #  - secretName: ucotron-tls
+  #    hosts:
+  #      - ucotron.local
+
+# =============================================================================
+# Ucotron Configuration (ucotron.toml)
+# =============================================================================
+config:
+  server:
+    # -- Bind address
+    host: "0.0.0.0"
+    # -- HTTP port
+    port: 8420
+    # -- Worker thread count
+    workers: 4
+    # -- Log level (trace, debug, info, warn, error)
+    logLevel: "info"
+
+  storage:
+    # -- Storage mode (embedded, external, shared)
+    mode: "embedded"
+    vector:
+      # -- Vector backend (helix, qdrant, custom)
+      backend: "helix"
+      # -- Data directory inside the container
+      dataDir: "/app/data"
+      # -- Max LMDB database size in bytes (10GB)
+      maxDbSize: 10737418240
+      hnsw:
+        # -- HNSW ef_construction parameter
+        efConstruction: 200
+        # -- HNSW ef_search parameter
+        efSearch: 200
+        # -- Enable HNSW index (false = brute-force SIMD)
+        enabled: true
+    graph:
+      # -- Graph backend (helix, falkordb, custom)
+      backend: "helix"
+      # -- Data directory inside the container
+      dataDir: "/app/data"
+      # -- Max LMDB database size in bytes (10GB)
+      maxDbSize: 10737418240
+      # -- Batch size for bulk operations
+      batchSize: 10000
+
+  models:
+    # -- Embedding model name
+    embeddingModel: "all-MiniLM-L6-v2"
+    # -- NER model name
+    nerModel: "gliner-multi-v2.1"
+    # -- LLM model (set to "" to disable)
+    llmModel: "Qwen3-4B-GGUF"
+    # -- LLM backend (candle, llama_cpp)
+    llmBackend: "candle"
+    # -- Models directory inside the container
+    modelsDir: "/app/models"
+    # -- Enable document OCR pipeline
+    enableOcr: true
+    # -- Tesseract OCR language
+    ocrLanguage: "eng"
+
+  consolidation:
+    # -- Messages between consolidation runs
+    triggerInterval: 100
+    # -- Enable memory decay
+    enableDecay: true
+    # -- Decay half-life in seconds (30 days)
+    decayHalflifeSecs: 2592000
+
+  mcp:
+    # -- Enable MCP server
+    enabled: true
+    # -- MCP transport (stdio, sse)
+    transport: "stdio"
+    # -- MCP SSE port (only for transport=sse)
+    port: 8421
+
+  namespaces:
+    # -- Default namespace
+    defaultNamespace: "default"
+    # -- Allowed namespaces (empty = allow any)
+    allowedNamespaces: []
+    # -- Max namespaces (0 = unlimited)
+    maxNamespaces: 0
+
+  auth:
+    # -- Enable authentication
+    enabled: false
+    # -- API key for Bearer auth
+    apiKey: ""
+
+# =============================================================================
+# Persistence (LMDB data)
+# =============================================================================
+persistence:
+  # -- Enable persistent storage
+  enabled: true
+  # -- Storage class (empty = default)
+  storageClass: ""
+  # -- Access mode
+  accessMode: ReadWriteOnce
+  # -- Storage size
+  size: 10Gi
+  # -- Annotations for the PVC
+  annotations: {}
+  # -- Use existing PVC (overrides creation)
+  existingClaim: ""
+
+# =============================================================================
+# Resources
+# =============================================================================
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 4Gi
+
+# =============================================================================
+# Health Checks
+# =============================================================================
+livenessProbe:
+  # -- Enable liveness probe
+  enabled: true
+  # -- Probe type: tcpSocket on container port
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  # -- Enable readiness probe
+  enabled: true
+  httpGet:
+    path: /api/v1/health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+# =============================================================================
+# Node scheduling
+# =============================================================================
+
+# -- Node selector labels
+nodeSelector: {}
+
+# -- Tolerations
+tolerations: []
+
+# -- Affinity rules
+affinity: {}
+
+# =============================================================================
+# Extra environment variables
+# =============================================================================
+
+# -- Additional environment variables
+extraEnv: []
+#  - name: RUST_LOG
+#    value: "debug"
+#  - name: SOME_SECRET
+#    valueFrom:
+#      secretKeyRef:
+#        name: my-secret
+#        key: value
+
+# =============================================================================
+# Monitoring (Prometheus + Grafana)
+# =============================================================================
+monitoring:
+  # -- ServiceMonitor for Prometheus Operator auto-discovery
+  serviceMonitor:
+    # -- Enable ServiceMonitor creation
+    enabled: false
+    # -- Scrape interval
+    interval: "30s"
+    # -- Scrape timeout
+    scrapeTimeout: "10s"
+    # -- Additional labels for ServiceMonitor (e.g., for label-based selection)
+    labels: {}
+    # -- Additional annotations
+    annotations: {}
+
+  # -- PrometheusRule for alerting
+  prometheusRule:
+    # -- Enable PrometheusRule creation
+    enabled: false
+    # -- Additional labels for PrometheusRule
+    labels: {}
+    # -- Memory threshold in bytes for high-memory alert (default: ~3.2GB = 80% of 4GB limit)
+    memoryThresholdBytes: 3435973836
+
+# =============================================================================
+# Multi-Instance Mode
+# =============================================================================
+# When enabled, deploys a writer StatefulSet (1 replica) and reader Deployment
+# (N replicas) with shared storage. Replaces the single Deployment.
+# Requires RWX-capable storage (NFS, GlusterFS, Longhorn, etc.)
+multiInstance:
+  # -- Enable multi-instance mode (writer + N readers)
+  enabled: false
+
+  writer:
+    # -- Writer instance ID
+    instanceId: "writer-1"
+    # -- Node ID range start for writer
+    idRangeStart: 1000000
+    # -- Node ID range size for writer
+    idRangeSize: 1000000
+    # -- Writer resource requests/limits (overrides global resources)
+    resources: {}
+    #   requests:
+    #     cpu: "1"
+    #     memory: 2Gi
+    #   limits:
+    #     cpu: "4"
+    #     memory: 8Gi
+    # -- Writer node selector
+    nodeSelector: {}
+    # -- Writer tolerations
+    tolerations: []
+    # -- Writer affinity
+    affinity: {}
+
+  reader:
+    # -- Number of reader replicas (overridden by HPA if enabled)
+    replicaCount: 2
+    # -- Node ID range start for first reader (each reader offset by idRangeSize)
+    idRangeStart: 2000000
+    # -- Node ID range size per reader
+    idRangeSize: 1000000
+    # -- Reader resource requests/limits (overrides global resources)
+    resources: {}
+    #   requests:
+    #     cpu: 500m
+    #     memory: 1Gi
+    #   limits:
+    #     cpu: "2"
+    #     memory: 4Gi
+    # -- Reader node selector
+    nodeSelector: {}
+    # -- Reader tolerations
+    tolerations: []
+    # -- Reader affinity
+    affinity: {}
+
+  # -- Horizontal Pod Autoscaler for reader replicas
+  autoscaling:
+    # -- Enable HPA for readers
+    enabled: false
+    # -- Minimum reader replicas
+    minReplicas: 2
+    # -- Maximum reader replicas
+    maxReplicas: 10
+    # -- Target CPU utilization percentage
+    targetCPUUtilizationPercentage: 70
+    # -- Target memory utilization percentage (optional, empty = disabled)
+    targetMemoryUtilizationPercentage: ""

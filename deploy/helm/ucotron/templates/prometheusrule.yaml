@@ -1,0 +1,71 @@
+{{- if .Values.monitoring.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "ucotron.fullname" . }}
+  labels:
+    {{- include "ucotron.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: ucotron.rules
+      rules:
+        # Alert: P99 latency exceeds 500ms for 5 minutes
+        - alert: UcotronHighLatency
+          expr: histogram_quantile(0.99, sum(rate(ucotron_http_request_duration_seconds_bucket[5m])) by (le)) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Ucotron P99 latency is above 500ms"
+            description: "P99 request latency is {{ "{{ $value | humanizeDuration }}" }} (threshold: 500ms)"
+
+        # Alert: Error rate exceeds 1% for 5 minutes
+        - alert: UcotronHighErrorRate
+          expr: >-
+            sum(rate(ucotron_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(ucotron_http_requests_total[5m]))
+            > 0.01
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Ucotron server error rate exceeds 1%"
+            description: "Server error rate is {{ "{{ $value | humanizePercentage }}" }} (threshold: 1%)"
+
+        # Alert: Process memory exceeds 80% of limit
+        - alert: UcotronHighMemoryUsage
+          expr: ucotron_process_rss_bytes > {{ .Values.monitoring.prometheusRule.memoryThresholdBytes | default 3435973836 }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Ucotron memory usage is high"
+            description: "RSS memory is {{ "{{ $value | humanize1024 }}" }}B"
+
+        # Alert: Server is down (no metrics scraped)
+        - alert: UcotronDown
+          expr: up{job=~".*ucotron.*"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Ucotron server is down"
+            description: "Ucotron instance {{ "{{ $labels.instance }}" }} has been unreachable for 2 minutes"
+
+        # Alert: Ingestion stalled (zero ingestions for 30 minutes when previously active)
+        - alert: UcotronIngestionStalled
+          expr: >-
+            rate(ucotron_ingestions_total[30m]) == 0
+            and
+            ucotron_ingestions_total > 0
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Ucotron ingestion has stalled"
+            description: "No ingestion activity for 30 minutes (total ingestions: {{ "{{ $value }}" }})"
+{{- end }}

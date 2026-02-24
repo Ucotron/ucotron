@@ -1,0 +1,20 @@
+apiVersion: v2
+name: ucotron
+description: Cognitive memory framework for LLMs — single and multi-instance Helm chart
+type: application
+version: 0.2.0
+appVersion: "0.1.0"
+keywords:
+  - ucotron
+  - memory
+  - llm
+  - cognitive
+  - knowledge-graph
+  - vector-search
+home: https://github.com/ucotron/ucotron
+sources:
+  - https://github.com/ucotron/ucotron
+maintainers:
+  - name: Ucotron Team
+    email: team@ucotron.com
+icon: https://raw.githubusercontent.com/ucotron/ucotron/main/docs/public/icon.png

@@ -1,0 +1,292 @@
+# =============================================================================
+# Ucotron Release — Build & publish on git tag push
+# =============================================================================
+# Triggered on tags matching v* (e.g., v0.1.0, v2.0.0).
+#
+# Steps:
+#   1. Run full CI checks (lint + test) on Linux + macOS
+#   2. Build & push Docker image (multi-arch: linux/amd64, linux/arm64)
+#      - Pushes to GHCR (primary) and Docker Hub (optional, if secret set)
+#      - Tags: latest, vX.Y.Z, vX.Y, vX (semver hierarchy)
+#      - OCI labels for proper registry display
+#   3. Publish Rust crates to crates.io (ucotron-core, ucotron-config, ucotron-sdk)
+#   4. Create GitHub Release with conventional-commit changelog
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  CARGO_TERM_COLOR: always
+  GHCR_REGISTRY: ghcr.io
+  GHCR_IMAGE: ${{ github.repository }}/ucotron-server
+  DOCKERHUB_IMAGE: ucotron/server
+
+jobs:
+  # ─── Validate: run tests before release ─────────────────────────────────────
+  validate:
+    name: Validate (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: linux-x64
+            runner: ubuntu-latest
+          - os: macos-arm64
+            runner: macos-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            server/target
+          key: release-${{ matrix.os }}-${{ hashFiles('server/Cargo.lock') }}
+
+      - name: Cache base ONNX models (MiniLM, GLiNER)
+        id: base-model-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            server/models/all-MiniLM-L6-v2
+            server/models/gliner_small-v2.1
+          key: onnx-base-models-${{ hashFiles('server/scripts/model_checksums.sha256') }}
+
+      - name: Cache multimodal ONNX models (Whisper, CLIP)
+        id: multimodal-model-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            server/models/whisper-tiny
+            server/models/clip-vit-base-patch32
+          key: onnx-multimodal-models-${{ hashFiles('server/scripts/download_multimodal_models.sh') }}
+
+      - name: Download base ONNX models (on cache miss)
+        if: steps.base-model-cache.outputs.cache-hit != 'true'
+        run: bash scripts/download_models.sh
+
+      - name: Download multimodal ONNX models (on cache miss)
+        if: steps.multimodal-model-cache.outputs.cache-hit != 'true'
+        run: bash scripts/download_multimodal_models.sh
+
+      - name: Verify base model integrity
+        run: bash scripts/verify_models.sh
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace
+        env:
+          UCOTRON_MODELS_DIR: ${{ github.workspace }}/server/models
+
+  # ─── Docker Image (multi-arch, dual registry) ─────────────────────────────
+  docker:
+    name: Docker Image
+    runs-on: ubuntu-latest
+    needs: [validate]
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up QEMU (for ARM64 cross-compilation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract version metadata
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f1-2)
+          echo "full=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "major=$MAJOR" >> "$GITHUB_OUTPUT"
+          echo "minor=$MINOR" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=$( [[ "$VERSION" == *-* ]] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Docker tags
+        id: tags
+        run: |
+          TAGS=""
+          TAGS="${TAGS}${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}:${{ steps.version.outputs.full }}"
+          TAGS="${TAGS},${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}:${{ steps.version.outputs.minor }}"
+          if [ "${{ steps.version.outputs.is_prerelease }}" = "false" ]; then
+            TAGS="${TAGS},${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}:${{ steps.version.outputs.major }}"
+            TAGS="${TAGS},${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}:latest"
+          fi
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: server
+          file: server/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.title=Ucotron Server
+            org.opencontainers.image.description=Cognitive memory framework for LLMs — server with HelixDB, HNSW, GLiNER, REST API, and MCP
+            org.opencontainers.image.version=${{ steps.version.outputs.full }}
+            org.opencontainers.image.created=${{ steps.version.outputs.created }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.vendor=Ucotron
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Report image
+        run: |
+          echo "## Docker Image Published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Digest**: \`${{ steps.build.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Platforms**: linux/amd64, linux/arm64" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Tags**: ${{ steps.tags.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
+
+  # ─── Rust SDK (crates.io) ──────────────────────────────────────────────────
+  publish-rust:
+    name: Publish Rust Crates
+    runs-on: ubuntu-latest
+    needs: [validate]
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Sync crate versions from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Synchronizing workspace version to $VERSION"
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+          echo "  Updated Cargo.toml [workspace.package] → $VERSION"
+
+      - name: Publish ucotron-core
+        run: cargo publish -p ucotron-core --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+      - name: Wait for crates.io index
+        run: sleep 30
+
+      - name: Publish ucotron-config
+        run: cargo publish -p ucotron-config --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+      - name: Wait for crates.io index
+        run: sleep 30
+
+      - name: Publish ucotron-sdk
+        run: cargo publish -p ucotron-sdk --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+  # ─── GitHub Release ─────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate, docker, publish-rust]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"%s (%h)" "$PREV_TAG"..HEAD)
+          else
+            COMMITS=$(git log --pretty=format:"%s (%h)" HEAD~20..HEAD)
+          fi
+
+          FEATURES=$(echo "$COMMITS" | grep -i "^feat" | sed 's/^/- /' || true)
+          FIXES=$(echo "$COMMITS" | grep -i "^fix" | sed 's/^/- /' || true)
+          OTHER=$(echo "$COMMITS" | grep -iv "^feat\|^fix" | sed 's/^/- /' || true)
+
+          {
+            echo "## What's Changed"
+            echo ""
+            if [ -n "$FEATURES" ]; then
+              echo "### Features"
+              echo "$FEATURES"
+              echo ""
+            fi
+            if [ -n "$FIXES" ]; then
+              echo "### Bug Fixes"
+              echo "$FIXES"
+              echo ""
+            fi
+            if [ -n "$OTHER" ]; then
+              echo "### Other"
+              echo "$OTHER"
+              echo ""
+            fi
+            echo "## Packages"
+            echo ""
+            echo "| Package | Registry | Install |"
+            echo "|---------|----------|---------|"
+            echo "| Docker | GHCR | \`docker pull ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}:${{ steps.version.outputs.version }}\` |"
+            echo "| Rust SDK | crates.io | \`cargo add ucotron-sdk@${{ steps.version.outputs.version }}\` |"
+            echo "| TypeScript SDK | npm | \`npm install @ucotron/sdk@${{ steps.version.outputs.version }}\` |"
+            echo "| Python SDK | PyPI | \`pip install ucotron-sdk==${{ steps.version.outputs.version }}\` |"
+            echo "| Go SDK | proxy.golang.org | \`go get github.com/ucotron/ucotron-go@v${{ steps.version.outputs.version }}\` |"
+          } > /tmp/release_notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: /tmp/release_notes.md
+          generate_release_notes: false
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}

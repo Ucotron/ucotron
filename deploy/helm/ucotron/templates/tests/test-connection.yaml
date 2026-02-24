@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "ucotron.fullname" . }}-test-connection"
+  labels:
+    {{- include "ucotron.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox:1.36
+      command: ['sh', '-c']
+      args:
+        {{- if .Values.multiInstance.enabled }}
+        - |
+          echo "Testing writer..."
+          wget '{{ include "ucotron.writerName" . }}:{{ .Values.service.port }}/api/v1/health' -q -O - -T 10
+          echo ""
+          echo "Testing reader..."
+          wget '{{ include "ucotron.readerName" . }}:{{ .Values.service.port }}/api/v1/health' -q -O - -T 10
+        {{- else }}
+        - wget '{{ include "ucotron.fullname" . }}:{{ .Values.service.port }}/api/v1/health' -q -O - -T 10
+        {{- end }}
+  restartPolicy: Never

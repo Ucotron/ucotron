@@ -19,8 +19,9 @@ echo "=== Whisper tiny ONNX (audio transcription) ==="
 mkdir -p "$WHISPER_DIR"
 
 # Download Whisper encoder
-if [ -f "$WHISPER_DIR/encoder.onnx" ]; then
-    echo "[SKIP] whisper-tiny/encoder.onnx already exists"
+ENCODER_SIZE=$(stat -f%z "$WHISPER_DIR/encoder.onnx" 2>/dev/null || stat -c%s "$WHISPER_DIR/encoder.onnx" 2>/dev/null || echo 0)
+if [ -f "$WHISPER_DIR/encoder.onnx" ] && [ "$ENCODER_SIZE" -gt 1000 ]; then
+    echo "[SKIP] whisper-tiny/encoder.onnx already exists ($ENCODER_SIZE bytes)"
 else
     echo "[DOWNLOAD] Whisper tiny encoder (~36MB)..."
     curl -sL -o "$WHISPER_DIR/encoder.onnx" \
@@ -29,8 +30,9 @@ else
 fi
 
 # Download Whisper decoder
-if [ -f "$WHISPER_DIR/decoder.onnx" ]; then
-    echo "[SKIP] whisper-tiny/decoder.onnx already exists"
+DECODER_SIZE=$(stat -f%z "$WHISPER_DIR/decoder.onnx" 2>/dev/null || stat -c%s "$WHISPER_DIR/decoder.onnx" 2>/dev/null || echo 0)
+if [ -f "$WHISPER_DIR/decoder.onnx" ] && [ "$DECODER_SIZE" -gt 1000 ]; then
+    echo "[SKIP] whisper-tiny/decoder.onnx already exists ($DECODER_SIZE bytes)"
 else
     echo "[DOWNLOAD] Whisper tiny decoder (~185MB)..."
     curl -sL -o "$WHISPER_DIR/decoder.onnx" \
@@ -39,8 +41,9 @@ else
 fi
 
 # Download Whisper tokens
-if [ -f "$WHISPER_DIR/tokens.txt" ]; then
-    echo "[SKIP] whisper-tiny/tokens.txt already exists"
+TOKENS_SIZE=$(stat -f%z "$WHISPER_DIR/tokens.txt" 2>/dev/null || stat -c%s "$WHISPER_DIR/tokens.txt" 2>/dev/null || echo 0)
+if [ -f "$WHISPER_DIR/tokens.txt" ] && [ "$TOKENS_SIZE" -gt 1000 ]; then
+    echo "[SKIP] whisper-tiny/tokens.txt already exists ($TOKENS_SIZE bytes)"
 else
     echo "[DOWNLOAD] Whisper tiny tokens.txt..."
     curl -sL -o "$WHISPER_DIR/tokens.txt" \
@@ -57,8 +60,9 @@ echo "=== CLIP ViT-B/32 ONNX (image embedding + cross-modal search) ==="
 mkdir -p "$CLIP_DIR"
 
 # Download CLIP visual encoder
-if [ -f "$CLIP_DIR/visual_model.onnx" ]; then
-    echo "[SKIP] clip-vit-base-patch32/visual_model.onnx already exists"
+VISUAL_SIZE=$(stat -f%z "$CLIP_DIR/visual_model.onnx" 2>/dev/null || stat -c%s "$CLIP_DIR/visual_model.onnx" 2>/dev/null || echo 0)
+if [ -f "$CLIP_DIR/visual_model.onnx" ] && [ "$VISUAL_SIZE" -gt 1000 ]; then
+    echo "[SKIP] clip-vit-base-patch32/visual_model.onnx already exists ($VISUAL_SIZE bytes)"
 else
     echo "[DOWNLOAD] CLIP ViT-B/32 visual encoder (~350MB)..."
     curl -sL -o "$CLIP_DIR/visual_model.onnx" \
@@ -67,8 +71,9 @@ else
 fi
 
 # Download CLIP text encoder
-if [ -f "$CLIP_DIR/text_model.onnx" ]; then
-    echo "[SKIP] clip-vit-base-patch32/text_model.onnx already exists"
+TEXT_SIZE=$(stat -f%z "$CLIP_DIR/text_model.onnx" 2>/dev/null || stat -c%s "$CLIP_DIR/text_model.onnx" 2>/dev/null || echo 0)
+if [ -f "$CLIP_DIR/text_model.onnx" ] && [ "$TEXT_SIZE" -gt 1000 ]; then
+    echo "[SKIP] clip-vit-base-patch32/text_model.onnx already exists ($TEXT_SIZE bytes)"
 else
     echo "[DOWNLOAD] CLIP ViT-B/32 text encoder (~250MB)..."
     curl -sL -o "$CLIP_DIR/text_model.onnx" \
@@ -77,8 +82,9 @@ else
 fi
 
 # Download CLIP tokenizer
-if [ -f "$CLIP_DIR/tokenizer.json" ]; then
-    echo "[SKIP] clip-vit-base-patch32/tokenizer.json already exists"
+TOKENIZER_SIZE=$(stat -f%z "$CLIP_DIR/tokenizer.json" 2>/dev/null || stat -c%s "$CLIP_DIR/tokenizer.json" 2>/dev/null || echo 0)
+if [ -f "$CLIP_DIR/tokenizer.json" ] && [ "$TOKENIZER_SIZE" -gt 1000 ]; then
+    echo "[SKIP] clip-vit-base-patch32/tokenizer.json already exists ($TOKENIZER_SIZE bytes)"
 else
     echo "[DOWNLOAD] CLIP tokenizer.json..."
     curl -sL -o "$CLIP_DIR/tokenizer.json" \

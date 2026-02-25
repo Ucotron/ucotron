@@ -25,7 +25,7 @@ permissions:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
-  ENVIRONMENT: ${{ secrets.ENVIRONMENT || 'production' }}
+  ENVIRONMENT: ${{ vars.ENVIRONMENT || 'production' }}
   IMAGE_TAG: sha-${{ github.sha }}
 
 jobs:

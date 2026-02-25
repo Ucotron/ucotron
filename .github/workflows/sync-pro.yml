@@ -1,8 +1,11 @@
 # =============================================================================
-# Sync to Pro — Notify ucotron-pro when OSS main is updated
+# Sync to Pro — Notify ucotron-pro after successful OSS deploy
 # =============================================================================
 # Triggers a repository_dispatch event in ucotron-pro, which then fetches
 # the latest OSS changes and opens a PR for review.
+#
+# This runs AFTER the Deploy workflow succeeds, ensuring we only sync
+# code that has been built and deployed successfully.
 #
 # Required secrets:
 #   PRO_SYNC_PAT — A GitHub Personal Access Token (classic) with `repo` scope,
@@ -15,7 +18,9 @@
 name: Sync to Pro
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Deploy"]
+    types: [completed]
     branches: [main]
 
 permissions:
@@ -25,6 +30,7 @@ jobs:
   notify-pro:
     name: Open sync PR in ucotron-pro
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
         with:

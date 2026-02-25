@@ -11,8 +11,10 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      {/* Background grid effect */}
+    <div className="relative flex min-h-screen items-center justify-center bg-background">
+      {/* Radial gradient accent */}
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,240,255,0.08),transparent_50%)]" />
+      {/* Grid overlay */}
       <div
         className="pointer-events-none fixed inset-0 opacity-[0.03]"
         style={{

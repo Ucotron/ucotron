@@ -3,7 +3,7 @@
 # =============================================================================
 # Stage 1: Build Rust binaries (ucotron_server + ucotron_mcp)
 # Stage 2: Download ML models (all-MiniLM-L6-v2 + GLiNER)
-# Stage 3: Minimal runtime image (debian:bookworm-slim)
+# Stage 3: Minimal runtime image (debian:trixie-slim)
 #
 # Target image size: <2GB (binaries ~30MB + models ~673MB + runtime ~80MB)
 # Platforms: linux/amd64, linux/arm64
@@ -12,7 +12,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: Builder — compile Rust workspace in release mode
 # ---------------------------------------------------------------------------
-FROM rust:1.83-bookworm AS builder
+FROM rust:1.91-trixie AS builder
 
 WORKDIR /build
 
@@ -21,6 +21,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
     cmake \
+    libavutil-dev \
+    libavformat-dev \
+    libavcodec-dev \
+    libavfilter-dev \
+    libavdevice-dev \
+    libswscale-dev \
+    libswresample-dev \
+    clang \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy workspace manifests first for dependency caching
@@ -67,7 +75,7 @@ RUN cargo build --release --bin ucotron_server --bin ucotron_mcp
 # ---------------------------------------------------------------------------
 # Stage 2: Model downloader — fetch ONNX models from HuggingFace
 # ---------------------------------------------------------------------------
-FROM debian:bookworm-slim AS models
+FROM debian:trixie-slim AS models
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -95,7 +103,7 @@ RUN mkdir -p gliner_small-v2.1/onnx && \
 # ---------------------------------------------------------------------------
 # Stage 3: Runtime — minimal production image
 # ---------------------------------------------------------------------------
-FROM debian:bookworm-slim AS runtime
+FROM debian:trixie-slim AS runtime
 
 # OCI image labels (overridden by --label in docker build-push-action)
 LABEL org.opencontainers.image.title="Ucotron Server" \
@@ -107,6 +115,11 @@ LABEL org.opencontainers.image.title="Ucotron Server" \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
+    libavutil59 \
+    libavformat61 \
+    libavcodec61 \
+    libswscale8 \
+    libswresample5 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user

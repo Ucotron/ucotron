@@ -133,7 +133,7 @@ jobs:
       - name: Build and push dashboard image
         uses: docker/build-push-action@v6
         with:
-          context: dashboard
+          context: .
           file: dashboard/Dockerfile
           push: true
           tags: |

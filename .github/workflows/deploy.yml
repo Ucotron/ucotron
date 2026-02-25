@@ -1,20 +1,11 @@
 # =============================================================================
 # Ucotron Deploy — Build images & deploy to EKS on push to main
 # =============================================================================
-# Triggered on push to main (after CI passes) or manual dispatch.
+# Resources are managed by Pulumi (infra repo). This workflow only builds
+# Docker images, pushes to ECR, and updates container images in EKS.
 #
-# Steps:
-#   1. Build ucotron-server Docker image (multi-stage Rust build)
-#   2. Build dashboard Docker image (Next.js standalone output)
-#   3. Push images to ECR
-#   4. Deploy to EKS via Helm upgrade
-#
-# Required secrets:
-#   AWS_ACCOUNT_ID        — AWS account ID for ECR
-#   AWS_REGION            — AWS region (e.g. us-east-1)
-#   AWS_ROLE_ARN          — IAM role ARN for GitHub OIDC
-#   EKS_CLUSTER_NAME      — EKS cluster name
-#   ENVIRONMENT           — Deployment environment (e.g. production, staging)
+# Required secrets: AWS_ROLE_ARN, AWS_REGION, EKS_CLUSTER_NAME, ENVIRONMENT
+# Required vars: ECR_REGISTRY
 # =============================================================================
 
 name: Deploy
@@ -23,15 +14,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: "Deployment environment"
-        required: true
-        default: "production"
-        type: choice
-        options:
-          - production
-          - staging
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -43,16 +25,13 @@ permissions:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
-  ENVIRONMENT: ${{ inputs.environment || secrets.ENVIRONMENT || 'production' }}
+  ENVIRONMENT: ${{ secrets.ENVIRONMENT || 'production' }}
+  IMAGE_TAG: sha-${{ github.sha }}
 
 jobs:
-  # ─── Build & Push ucotron-server ───────────────────────────────────────────
   build-server:
     name: Build ucotron-server
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.meta.outputs.image }}
-      tag: ${{ steps.meta.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -63,25 +42,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Set image metadata
-        id: meta
-        run: |
-          REPO="${{ steps.ecr-login.outputs.registry }}/ucotron-server-${{ env.ENVIRONMENT }}"
-          TAG="${{ github.sha }}"
-          echo "image=${REPO}" >> "$GITHUB_OUTPUT"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-
-      - name: Cache cargo registry & build (for Docker)
-        uses: actions/cache@v4
-        with:
-          path: |
-            /tmp/.buildx-cargo-cache
-          key: docker-cargo-${{ runner.os }}-${{ hashFiles('server/Cargo.lock') }}
-          restore-keys: |
-            docker-cargo-${{ runner.os }}-
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -93,19 +54,15 @@ jobs:
           file: server/Dockerfile
           push: true
           tags: |
-            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
-            ${{ steps.meta.outputs.image }}:latest
+            ${{ vars.ECR_REGISTRY }}/ucotron-server-${{ env.ENVIRONMENT }}:${{ env.IMAGE_TAG }}
+            ${{ vars.ECR_REGISTRY }}/ucotron-server-${{ env.ENVIRONMENT }}:latest
           cache-from: type=gha,scope=server
           cache-to: type=gha,mode=max,scope=server
           platforms: linux/amd64
 
-  # ─── Build & Push dashboard ────────────────────────────────────────────────
   build-dashboard:
     name: Build dashboard
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.meta.outputs.image }}
-      tag: ${{ steps.meta.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -116,16 +73,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Set image metadata
-        id: meta
-        run: |
-          REPO="${{ steps.ecr-login.outputs.registry }}/ucotron-dashboard-${{ env.ENVIRONMENT }}"
-          TAG="${{ github.sha }}"
-          echo "image=${REPO}" >> "$GITHUB_OUTPUT"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -137,14 +85,12 @@ jobs:
           file: dashboard/Dockerfile
           push: true
           tags: |
-            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
-            ${{ steps.meta.outputs.image }}:latest
+            ${{ vars.ECR_REGISTRY }}/ucotron-dashboard-${{ env.ENVIRONMENT }}:${{ env.IMAGE_TAG }}
+            ${{ vars.ECR_REGISTRY }}/ucotron-dashboard-${{ env.ENVIRONMENT }}:latest
           cache-from: type=gha,scope=dashboard
           cache-to: type=gha,mode=max,scope=dashboard
           platforms: linux/amd64
 
-  # ─── Deploy to EKS ────────────────────────────────────────────────────────
-  # Resources are managed by Pulumi (infra repo). Deploy only updates images.
   deploy:
     name: Deploy to EKS
     runs-on: ubuntu-latest
@@ -164,15 +110,19 @@ jobs:
 
       - name: Deploy server
         run: |
+          IMAGE="${{ vars.ECR_REGISTRY }}/ucotron-server-${ENVIRONMENT}:${IMAGE_TAG}"
+          echo "Deploying server: ${IMAGE}"
           kubectl set image statefulset/ucotron-server \
-            server=${{ needs.build-server.outputs.image }}:${{ needs.build-server.outputs.tag }} \
+            server="${IMAGE}" \
             -n ucotron
           kubectl rollout status statefulset/ucotron-server -n ucotron --timeout=300s
 
       - name: Deploy dashboard
         run: |
+          IMAGE="${{ vars.ECR_REGISTRY }}/ucotron-dashboard-${ENVIRONMENT}:${IMAGE_TAG}"
+          echo "Deploying dashboard: ${IMAGE}"
           kubectl set image deployment/ucotron-dashboard \
-            dashboard=${{ needs.build-dashboard.outputs.image }}:${{ needs.build-dashboard.outputs.tag }} \
+            dashboard="${IMAGE}" \
             -n ucotron
           kubectl rollout status deployment/ucotron-dashboard -n ucotron --timeout=120s
 

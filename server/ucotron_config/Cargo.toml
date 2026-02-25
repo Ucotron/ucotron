@@ -6,7 +6,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-description = "Configuration system for Ucotron cognitive memory framework (TOML parsing, validation)"
+description = "Configuration system for Ucotron cognitive trust framework (TOML parsing, validation)"
 
 [dependencies]
 serde = { workspace = true }

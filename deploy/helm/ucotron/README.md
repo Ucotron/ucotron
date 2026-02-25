@@ -1,6 +1,6 @@
 # Ucotron Helm Chart
 
-Helm chart for deploying Ucotron (cognitive memory framework for LLMs) on Kubernetes.
+Helm chart for deploying Ucotron (cognitive trust infrastructure for AI) on Kubernetes.
 
 ## Prerequisites
 

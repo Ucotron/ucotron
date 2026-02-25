@@ -196,7 +196,7 @@ INGEST_START=$(date +%s%3N 2>/dev/null || python3 -c 'import time; print(int(tim
 
 for i in $(seq 1 "$NUM_DOCS"); do
     BODY=$(cat <<ENDJSON
-{"text": "Benchmark document $i for $PROVIDER cloud deployment test. This content tests ingestion throughput and latency for the Ucotron cognitive memory framework.", "metadata": {"benchmark_run": "$RUN_ID", "doc_index": $i}}
+{"text": "Benchmark document $i for $PROVIDER cloud deployment test. This content tests ingestion throughput and latency for the Ucotron cognitive trust framework.", "metadata": {"benchmark_run": "$RUN_ID", "doc_index": $i}}
 ENDJSON
 )
     OUTPUT=$(api_request POST "/api/v1/memories" "$BODY")

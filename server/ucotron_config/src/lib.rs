@@ -1,6 +1,6 @@
 //! # Ucotron Config
 //!
-//! Configuration system for the Ucotron cognitive memory framework.
+//! Configuration system for the Ucotron cognitive trust framework.
 //!
 //! Provides TOML-based configuration parsing and validation for the server,
 //! storage backends, model pipelines, consolidation settings, namespaces, and auth.
@@ -1548,7 +1548,7 @@ impl UcotronConfig {
             r#"# =============================================================================
 # Ucotron Configuration File
 # =============================================================================
-# This file configures the Ucotron cognitive memory server.
+# This file configures the Ucotron cognitive trust server.
 # All values shown below are defaults — uncomment and modify as needed.
 #
 # Environment variables override TOML values. Use the UCOTRON_ prefix:

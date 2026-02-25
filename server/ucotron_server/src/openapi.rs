@@ -13,7 +13,7 @@ use crate::types::*;
 #[openapi(
     info(
         title = "Ucotron API",
-        description = "Cognitive memory framework for LLMs — REST API for memory management, \
+        description = "Cognitive trust infrastructure for AI — REST API for memory management, \
                        semantic search, context augmentation, and knowledge graph operations.",
         version = "0.1.0",
         contact(name = "Ucotron Team"),

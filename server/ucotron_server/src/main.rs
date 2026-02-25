@@ -1,6 +1,6 @@
 //! # Ucotron Server
 //!
-//! The Ucotron cognitive memory server ("El Hipocampo").
+//! The Ucotron cognitive trust server ("El Hipocampo").
 //!
 //! Provides:
 //! - REST API (Axum) for memory CRUD, search, augment, and learn operations
@@ -54,10 +54,10 @@ use ucotron_server::state::AppState;
 use ucotron_server::telemetry;
 use ucotron_server::writer_lock::WriterLock;
 
-/// Ucotron cognitive memory server.
+/// Ucotron cognitive trust server.
 #[derive(Parser, Debug)]
 #[command(name = "ucotron_server")]
-#[command(about = "Ucotron cognitive memory server — REST API + MCP for LLM memory management")]
+#[command(about = "Ucotron cognitive trust server — REST API + MCP for LLM memory management")]
 #[command(version)]
 struct Cli {
     /// Path to ucotron.toml config file.

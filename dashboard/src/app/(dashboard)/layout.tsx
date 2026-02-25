@@ -1,7 +1,6 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { ThemeProvider } from "@/components/theme-provider";
 import { NamespaceProvider } from "@/components/namespace-context";
 import { LocaleProvider } from "@/components/locale-provider";
 import { Sidebar } from "@/components/sidebar";
@@ -34,12 +33,10 @@ export default function DashboardLayout({
   children: ReactNode;
 }) {
   return (
-    <ThemeProvider>
-      <NamespaceProvider>
-        <LocaleProvider>
-          <DashboardLayoutInner>{children}</DashboardLayoutInner>
-        </LocaleProvider>
-      </NamespaceProvider>
-    </ThemeProvider>
+    <NamespaceProvider>
+      <LocaleProvider>
+        <DashboardLayoutInner>{children}</DashboardLayoutInner>
+      </LocaleProvider>
+    </NamespaceProvider>
   );
 }

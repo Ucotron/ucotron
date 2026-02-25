@@ -6,7 +6,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-description = "Rust SDK client for the Ucotron cognitive memory framework"
+description = "Rust SDK client for the Ucotron cognitive trust framework"
 
 [features]
 default = []

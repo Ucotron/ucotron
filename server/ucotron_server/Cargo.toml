@@ -3,7 +3,7 @@ name = "ucotron-server"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-description = "Ucotron cognitive memory server — REST API and MCP server (Axum)"
+description = "Ucotron cognitive trust server — REST API and MCP server (Axum)"
 
 [lib]
 name = "ucotron_server"

@@ -1,4 +1,4 @@
-//! Ingestion flow orchestrator for the Ucotron cognitive memory framework.
+//! Ingestion flow orchestrator for the Ucotron cognitive trust framework.
 //!
 //! Implements the complete text-to-graph pipeline:
 //! 1. **Chunking** — Split input text into sentences

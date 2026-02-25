@@ -34,8 +34,8 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-[260px] flex-col border-r border-border bg-muted">
-      <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+    <aside className="glass-sidebar flex h-full w-[260px] flex-col">
+      <div className="flex items-center gap-3 border-b border-white/5 px-5 py-4">
         <Image
           src="/ucotron_logo.png"
           alt="Ucotron"
@@ -58,8 +58,8 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all",
                 active
-                  ? "border-l-2 border-primary bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  ? "bg-primary/10 text-primary shadow-[inset_3px_0_0_0_#00F0FF]"
+                  : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -69,7 +69,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-border p-4">
+      <div className="border-t border-white/5 p-4">
         <p className="text-xs text-muted-foreground">Ucotron Dashboard v0.1</p>
       </div>
     </aside>

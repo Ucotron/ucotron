@@ -99,7 +99,7 @@ FROM debian:bookworm-slim AS runtime
 
 # OCI image labels (overridden by --label in docker build-push-action)
 LABEL org.opencontainers.image.title="Ucotron Server" \
-      org.opencontainers.image.description="Cognitive memory framework for LLMs" \
+      org.opencontainers.image.description="Cognitive trust infrastructure for AI" \
       org.opencontainers.image.vendor="Ucotron" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.source="https://github.com/ucotron/ucotron"

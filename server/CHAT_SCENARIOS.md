@@ -1,4 +1,4 @@
-# Ucotron Chat Scenarios: 20 Multi-Turn Scenarios for Cognitive Memory Testing
+# Ucotron Chat Scenarios: 20 Multi-Turn Scenarios for Cognitive Trust Testing
 
 This document defines 20 comprehensive multi-turn chat scenarios across 7 industries to evaluate Ucotron's ability to maintain context, resolve contradictions, and recall information over extended conversations.
 

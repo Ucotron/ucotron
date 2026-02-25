@@ -1,6 +1,6 @@
 //! # Ucotron Core
 //!
-//! Core traits, types, and data generation for the Ucotron cognitive memory framework.
+//! Core traits, types, and data generation for the Ucotron cognitive trust framework.
 //!
 //! This crate defines the shared abstractions that storage engine implementations
 //! must conform to, as well as the data models for the tripartite memory system

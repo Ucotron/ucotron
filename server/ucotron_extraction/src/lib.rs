@@ -1,6 +1,6 @@
 //! # Ucotron Extraction
 //!
-//! Extraction pipeline for the Ucotron cognitive memory framework.
+//! Extraction pipeline for the Ucotron cognitive trust framework.
 //!
 //! This crate provides:
 //! - **Embedding generation** via ONNX Runtime (all-MiniLM-L6-v2) — [`embeddings::OnnxEmbeddingPipeline`]

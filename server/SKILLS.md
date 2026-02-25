@@ -1,6 +1,6 @@
 # Ucotron Skills Guide
 
-A complete usage guide for the Ucotron cognitive memory framework.
+A complete usage guide for the Ucotron cognitive trust framework.
 
 ---
 

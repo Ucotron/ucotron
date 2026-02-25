@@ -62,6 +62,34 @@ body {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
+/* ── Glass sidebar ── */
+.glass-sidebar {
+  background: rgba(8, 15, 28, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-right: 1px solid rgba(0, 240, 255, 0.06);
+}
+
+/* ── Glass header ── */
+.glass-header {
+  background: rgba(15, 28, 46, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 240, 255, 0.06);
+}
+
+/* ── Glass input ── */
+.glass-input {
+  background: rgba(15, 28, 46, 0.4);
+  border: 1px solid rgba(0, 240, 255, 0.1);
+  transition: all 0.2s ease;
+}
+.glass-input:focus {
+  border-color: rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.1);
+  outline: none;
+}
+
 /* ── Neon glow button ── */
 .btn-neon {
   background: transparent;

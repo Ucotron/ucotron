@@ -1,6 +1,6 @@
 apiVersion: v2
 name: ucotron
-description: Cognitive memory framework for LLMs — single and multi-instance Helm chart
+description: Cognitive trust infrastructure for AI — single and multi-instance Helm chart
 type: application
 version: 0.2.0
 appVersion: "0.1.0"

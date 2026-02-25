@@ -1,4 +1,4 @@
-//! Async consolidation worker ("Dreaming") for the Ucotron cognitive memory framework.
+//! Async consolidation worker ("Dreaming") for the Ucotron cognitive trust framework.
 //!
 //! Runs as a background `tokio::task` that periodically enriches the knowledge graph:
 //!

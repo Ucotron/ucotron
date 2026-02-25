@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Chakra_Petch, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { Shell } from "@/components/shell";
+import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProvider } from "@/components/auth-provider";
 
 const chakraPetch = Chakra_Petch({
   subsets: ["latin"],
@@ -24,7 +25,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Ucotron Dashboard",
-  description: "Memory graph administration for Ucotron",
+  description: "Cognitive trust infrastructure for AI",
 };
 
 export default function RootLayout({
@@ -35,7 +36,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${chakraPetch.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
-        <Shell>{children}</Shell>
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -116,7 +116,7 @@ pub struct LearnResult {
 // MCP Server
 // ---------------------------------------------------------------------------
 
-/// The Ucotron MCP server that exposes cognitive memory tools.
+/// The Ucotron MCP server that exposes cognitive trust tools.
 #[derive(Clone)]
 pub struct UcotronMcpServer {
     state: Arc<AppState>,
@@ -587,7 +587,7 @@ impl ServerHandler for UcotronMcpServer {
                 website_url: None,
             },
             instructions: Some(
-                "Ucotron is a cognitive memory server for LLMs. Use the tools to store, \
+                "Ucotron is a cognitive trust server for LLMs. Use the tools to store, \
                  search, and retrieve memories from a knowledge graph with semantic similarity \
                  and entity-relationship awareness."
                     .to_string(),
@@ -845,7 +845,7 @@ mod tests {
         let info = server.get_info();
         assert_eq!(info.server_info.name, "ucotron-server");
         assert!(info.instructions.is_some());
-        assert!(info.instructions.unwrap().contains("cognitive memory"));
+        assert!(info.instructions.unwrap().contains("cognitive trust"));
     }
 
     #[test]

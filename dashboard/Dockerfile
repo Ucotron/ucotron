@@ -13,7 +13,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm ci --production=false
+RUN npm ci
 
 # ─── Build Stage ─────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder

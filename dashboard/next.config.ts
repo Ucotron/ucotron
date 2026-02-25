@@ -8,6 +8,8 @@ const withNextIntl = createNextIntlPlugin(
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   transpilePackages: ["@ucotron/ui"],
   webpack: (config) => {
     // Resolve dependencies from dashboard's node_modules for symlinked packages

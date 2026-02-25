@@ -40,10 +40,11 @@ COPY ucotron_config/Cargo.toml ucotron_config/Cargo.toml
 COPY ucotron_extraction/Cargo.toml ucotron_extraction/Cargo.toml
 COPY ucotron_server/Cargo.toml ucotron_server/Cargo.toml
 COPY ucotron_sdk/Cargo.toml ucotron_sdk/Cargo.toml
+COPY ucotron_connectors/Cargo.toml ucotron_connectors/Cargo.toml
 
 # Create dummy source files for dependency caching
 RUN mkdir -p core/src helix_impl/src bench_runner/src ucotron_config/src \
-    ucotron_extraction/src ucotron_server/src ucotron_sdk/src && \
+    ucotron_extraction/src ucotron_server/src ucotron_sdk/src ucotron_connectors/src && \
     echo "pub fn dummy() {}" > core/src/lib.rs && \
     echo "pub fn dummy() {}" > helix_impl/src/lib.rs && \
     echo "fn main() {}" > bench_runner/src/main.rs && \
@@ -52,7 +53,8 @@ RUN mkdir -p core/src helix_impl/src bench_runner/src ucotron_config/src \
     echo "pub fn dummy() {}" > ucotron_server/src/lib.rs && \
     echo "fn main() {}" > ucotron_server/src/main.rs && \
     echo "fn main() {}" > ucotron_server/src/mcp_main.rs && \
-    echo "pub fn dummy() {}" > ucotron_sdk/src/lib.rs
+    echo "pub fn dummy() {}" > ucotron_sdk/src/lib.rs && \
+    echo "pub fn dummy() {}" > ucotron_connectors/src/lib.rs
 
 # Build dependencies only (cached layer)
 RUN cargo build --release --bin ucotron_server --bin ucotron_mcp 2>/dev/null || true
@@ -65,6 +67,7 @@ COPY ucotron_config/ ucotron_config/
 COPY ucotron_extraction/ ucotron_extraction/
 COPY ucotron_server/ ucotron_server/
 COPY ucotron_sdk/ ucotron_sdk/
+COPY ucotron_connectors/ ucotron_connectors/
 
 # Touch source files to invalidate the cached dummy build
 RUN find . -name "*.rs" -exec touch {} +

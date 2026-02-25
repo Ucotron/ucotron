@@ -20,8 +20,9 @@ COPY packages/ui/ ./packages/ui/
 COPY dashboard/package.json dashboard/package-lock.json ./dashboard/
 
 # Install UI package dependencies first, then dashboard dependencies
-RUN cd packages/ui && npm install --ignore-scripts
-RUN cd dashboard && npm ci
+# Use --maxsockets=3 to avoid npm registry 403 rate limiting in CI
+RUN cd packages/ui && npm install --ignore-scripts --maxsockets=3
+RUN cd dashboard && npm ci --maxsockets=3
 
 # ─── Build Stage ─────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder

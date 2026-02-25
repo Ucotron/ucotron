@@ -1,8 +1,8 @@
 //! # Ucotron SDK
 //!
-//! Rust client library for the Ucotron cognitive memory framework.
+//! Rust client library for the Ucotron cognitive trust framework.
 //!
-//! Provides both async and sync APIs for integrating cognitive memory into LLM agents.
+//! Provides both async and sync APIs for integrating cognitive trust into LLM agents.
 //!
 //! ## Quick Start (Async)
 //!

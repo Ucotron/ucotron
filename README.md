@@ -1,6 +1,6 @@
 # Ucotron
 
-Cognitive memory framework for LLMs. High-performance graph + vector memory layer that enables AI agents to remember, reason, and learn across conversations.
+The open-source trust layer for AI. High-performance graph + vector memory layer that enables AI agents to remember, reason, and learn across conversations.
 
 ## Features
 

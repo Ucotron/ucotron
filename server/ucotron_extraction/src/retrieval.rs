@@ -1,4 +1,4 @@
-//! Retrieval flow orchestrator for the Ucotron cognitive memory framework.
+//! Retrieval flow orchestrator for the Ucotron cognitive trust framework.
 //!
 //! Implements the LazyGraphRAG-variant retrieval pipeline:
 //! 1. **Query Embedding** — Generate 384-dim vector for the query

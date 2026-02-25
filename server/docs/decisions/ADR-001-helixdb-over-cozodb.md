@@ -6,7 +6,7 @@
 
 ## Context
 
-Ucotron needed a storage engine for its cognitive memory graph supporting:
+Ucotron needed a storage engine for its cognitive trust graph supporting:
 - High-throughput node/edge ingestion (>5,000 docs/s)
 - Sub-10ms single-hop graph traversal
 - Sub-50ms two-hop traversal

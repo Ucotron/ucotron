@@ -1,6 +1,6 @@
 # Ucotron Architecture
 
-> Cognitive memory framework for LLMs — system architecture deep-dive.
+> Cognitive trust infrastructure for AI — system architecture deep-dive.
 
 ## Table of Contents
 

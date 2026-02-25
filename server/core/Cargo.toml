@@ -6,7 +6,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-description = "Core traits, types, and data generation for Ucotron cognitive memory framework"
+description = "Core traits, types, and data generation for Ucotron cognitive trust framework"
 
 [dependencies]
 serde = { workspace = true }

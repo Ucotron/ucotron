@@ -1,0 +1,54 @@
+# =============================================================================
+# Sync to Pro — Notify ucotron-pro when OSS main is updated
+# =============================================================================
+# Triggers a repository_dispatch event in ucotron-pro, which then fetches
+# the latest OSS changes and opens a PR for review.
+#
+# Required secrets:
+#   PRO_SYNC_PAT — A GitHub Personal Access Token (classic) with `repo` scope,
+#                  created by an account that has write access to both
+#                  Ucotron/ucotron and Ucotron/ucotron-pro.
+#                  Fine-grained tokens need: Contents (read) + Actions (write)
+#                  on Ucotron/ucotron-pro.
+# =============================================================================
+
+name: Sync to Pro
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  notify-pro:
+    name: Open sync PR in ucotron-pro
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Get changed files
+        id: changes
+        run: |
+          FILES=$(git diff --name-only HEAD~1 HEAD | head -20)
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$FILES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "message=$(git log -1 --format='%s')" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger sync workflow in ucotron-pro
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PRO_SYNC_PAT }}
+          repository: Ucotron/ucotron-pro
+          event-type: oss-updated
+          client-payload: |
+            {
+              "sha": "${{ steps.changes.outputs.sha }}",
+              "message": "${{ steps.changes.outputs.message }}",
+              "files": "${{ steps.changes.outputs.files }}"
+            }

@@ -8,6 +8,7 @@ const withNextIntl = createNextIntlPlugin(
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  outputFileTracingRoot: path.resolve(__dirname, ".."),
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
   transpilePackages: ["@ucotron/ui"],

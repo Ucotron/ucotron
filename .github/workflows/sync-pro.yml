@@ -39,12 +39,10 @@ jobs:
       - name: Get changed files
         id: changes
         run: |
-          FILES=$(git diff --name-only HEAD~1 HEAD | head -20)
-          echo "files<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$FILES" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          FILES=$(git diff --name-only HEAD~1 HEAD | head -20 | tr '\n' ',' | sed 's/,$//')
           echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-          echo "message=$(git log -1 --format='%s')" >> "$GITHUB_OUTPUT"
+          echo "message=$(git log -1 --format='%s' | tr '"' "'")" >> "$GITHUB_OUTPUT"
+          echo "files=${FILES}" >> "$GITHUB_OUTPUT"
 
       - name: Trigger sync workflow in ucotron-pro
         uses: peter-evans/repository-dispatch@v3
@@ -52,7 +50,7 @@ jobs:
           token: ${{ secrets.PRO_SYNC_PAT }}
           repository: Ucotron/ucotron-pro
           event-type: oss-updated
-          client-payload: |
+          client-payload: >-
             {
               "sha": "${{ steps.changes.outputs.sha }}",
               "message": "${{ steps.changes.outputs.message }}",

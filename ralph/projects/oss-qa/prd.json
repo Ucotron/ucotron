@@ -180,7 +180,7 @@
       "id": "QA-013",
       "story": "Test MCP server and conversations",
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "MCP endpoint at /mcp is accessible",
         "MCP lists available tools",

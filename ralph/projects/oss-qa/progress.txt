@@ -197,3 +197,29 @@ Created: 2026-02-25
 - **Pattern**: Video segments have navigation links (prev_segment_id/next_segment_id) for sequential traversal
 - **Test video**: Created with `ffmpeg -f lavfi -i "testsrc=duration=5:size=320x240:rate=24" -f lavfi -i "sine=frequency=440:duration=5" -c:v libx264 -c:a aac test_video.mp4`
 - Results saved to test-results/oss-qa/multimodal-video.json
+
+## QA-013: MCP Server and Conversations — COMPLETE
+- All 10 tests passing (0 failures)
+- **MCP Transport**: Streamable HTTP (SSE) at `/mcp` endpoint using rmcp library
+  - Requires `Accept: application/json, text/event-stream` header (returns 406 without it)
+  - Returns `Mcp-Session-Id` header for session tracking
+  - Uses JSON-RPC 2.0 protocol (version 2024-11-05)
+  - Client must send `notifications/initialized` after `initialize` before calling tools
+- **MCP Tools** (6 total):
+  - `ucotron_add_memory`: Ingest text, auto-chunks/embeds/extracts entities
+  - `ucotron_search`: Semantic + graph-ranked memory search
+  - `ucotron_get_entity`: Lookup entity by name with neighbors
+  - `ucotron_list_entities`: List entities, optional type filter
+  - `ucotron_augment`: Augment context with relevant memories
+  - `ucotron_learn`: Extract & store memories from agent output
+- **Conversations**: Tracked via `_conversation_id` metadata on memory nodes
+  - Must use `/learn` endpoint (not `/memories`) — only `/learn` supports `conversation_id` body field
+  - POST /memories does NOT accept conversation_id (only accepts `text` + `metadata` HashMap)
+  - GET /conversations: Lists conversations grouped by `_conversation_id`, paginated (limit/offset)
+  - GET /conversations/{id}/messages: Returns messages with extracted entities
+  - 404 for non-existent conversation IDs
+  - Namespace-isolated — conversations only visible within their namespace
+- **Pattern**: Conversations use zero-vector search (vec![0.0f32; 384]) to scan all nodes, then filter by `_conversation_id` metadata
+- **Pattern**: Chunking may split a single /learn message into multiple memory nodes (all share same conversation_id)
+- **Pattern**: MCP also available as standalone stdio binary (mcp_main.rs) for CLI/desktop integration
+- Results saved to test-results/oss-qa/mcp-results.json

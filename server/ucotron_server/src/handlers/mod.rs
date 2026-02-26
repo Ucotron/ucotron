@@ -1183,7 +1183,10 @@ fn tag_nodes_with_conversation(state: &AppState, node_ids: &[u64], conversation_
 /// The "default" namespace matches all nodes without explicit namespace metadata.
 /// Check if a node has been soft-deleted.
 fn node_is_deleted(node: &ucotron_core::Node) -> bool {
-    matches!(node.metadata.get("deleted"), Some(ucotron_core::Value::Bool(true)))
+    matches!(
+        node.metadata.get("deleted"),
+        Some(ucotron_core::Value::Bool(true))
+    )
 }
 
 fn node_matches_namespace(node: &ucotron_core::Node, namespace: &str) -> bool {

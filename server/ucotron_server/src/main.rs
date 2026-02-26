@@ -196,10 +196,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize storage backends.
     // If CLIP models are present, also create the visual vector backend (512-dim).
-    let clip_model_dir = format!(
-        "{}/{}",
-        config.models.models_dir, config.models.clip_model
-    );
+    let clip_model_dir = format!("{}/{}", config.models.models_dir, config.models.clip_model);
     let clip_available =
         std::path::Path::new(&format!("{}/visual_model.onnx", clip_model_dir)).exists();
 
@@ -728,7 +725,12 @@ fn try_init_whisper(
     let decoder_path = format!("{}/decoder.onnx", whisper_dir);
     let tokens_path = format!("{}/tokens.txt", whisper_dir);
 
-    match WhisperOnnxPipeline::new(&encoder_path, &decoder_path, &tokens_path, WhisperConfig::default()) {
+    match WhisperOnnxPipeline::new(
+        &encoder_path,
+        &decoder_path,
+        &tokens_path,
+        WhisperConfig::default(),
+    ) {
         Ok(pipeline) => {
             tracing::info!("Whisper transcription pipeline loaded from {}", whisper_dir);
             Some(Arc::new(pipeline))

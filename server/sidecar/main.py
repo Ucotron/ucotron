@@ -124,25 +124,52 @@ def load_embedding_model(model_name: str, device: str):
 
 
 def load_reranker_model(model_name: str, device: str):
-    """Load the Qwen3-VL-Reranker model (cross-encoder)."""
+    """Load the Qwen3-VL-Reranker model (generative cross-encoder).
+
+    Qwen3-VL-Reranker uses Qwen3VLForConditionalGeneration architecture,
+    not AutoModelForSequenceClassification. Scoring is done via yes/no
+    token logit probabilities.
+    """
     logger.info(f"Loading reranker model: {model_name} on {device}")
     start = time.time()
 
     try:
-        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+        from transformers import AutoTokenizer
 
         tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-        model = AutoModelForSequenceClassification.from_pretrained(
-            model_name,
-            trust_remote_code=True,
-            torch_dtype=torch.float16 if device != "cpu" else torch.float32,
-        )
+
+        # Qwen3-VL-Reranker uses generative architecture, not classification
+        try:
+            from transformers import Qwen3VLForConditionalGeneration
+            model = Qwen3VLForConditionalGeneration.from_pretrained(
+                model_name,
+                trust_remote_code=True,
+                torch_dtype=torch.float16 if device != "cpu" else torch.float32,
+            )
+        except ImportError:
+            from transformers import AutoModelForCausalLM
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                trust_remote_code=True,
+                torch_dtype=torch.float16 if device != "cpu" else torch.float32,
+            )
+
         model = model.to(device)
         model.eval()
 
+        # Pre-compute yes/no token IDs for scoring
+        yes_token_id = tokenizer.encode("yes", add_special_tokens=False)[0]
+        no_token_id = tokenizer.encode("no", add_special_tokens=False)[0]
+
         elapsed = time.time() - start
-        logger.info(f"Reranker model loaded in {elapsed:.1f}s")
-        return {"model": model, "tokenizer": tokenizer, "device": device}
+        logger.info(f"Reranker model loaded in {elapsed:.1f}s (yes_id={yes_token_id}, no_id={no_token_id})")
+        return {
+            "model": model,
+            "tokenizer": tokenizer,
+            "device": device,
+            "yes_token_id": yes_token_id,
+            "no_token_id": no_token_id,
+        }
 
     except Exception as e:
         logger.error(f"Failed to load reranker model: {e}")
@@ -194,39 +221,49 @@ def embed_texts(texts: list[str], instruction: str | None, dim: int) -> list[lis
 
 
 def rerank_documents(query: str, documents: list[str], instruction: str | None) -> list[float]:
-    """Score (query, document) pairs using the cross-encoder reranker."""
+    """Score (query, document) pairs using generative yes/no logit probabilities.
+
+    The Qwen3-VL-Reranker is a generative model. We prompt it with a relevance
+    question and score based on P(yes) / (P(yes) + P(no)) from the next-token logits.
+    """
     if reranker is None:
         raise RuntimeError("Reranker model not loaded")
 
     model = reranker["model"]
     tokenizer = reranker["tokenizer"]
     device = reranker["device"]
+    yes_id = reranker["yes_token_id"]
+    no_id = reranker["no_token_id"]
 
-    # Build (query, document) pairs
-    if instruction:
-        query_text = f"Instruct: {instruction}\nQuery: {query}"
-    else:
-        query_text = query
+    scores = []
+    for doc in documents:
+        # Build a relevance prompt
+        if instruction:
+            prompt = f"Instruct: {instruction}\nQuery: {query}\nDocument: {doc}\nIs this document relevant to the query? Answer yes or no."
+        else:
+            prompt = f"Query: {query}\nDocument: {doc}\nIs this document relevant to the query? Answer yes or no."
 
-    pairs = [[query_text, doc] for doc in documents]
+        encoded = tokenizer(
+            prompt,
+            truncation=True,
+            max_length=4096,
+            return_tensors="pt",
+        )
+        encoded = {k: v.to(device) for k, v in encoded.items()}
 
-    # Tokenize pairs
-    encoded = tokenizer(
-        pairs,
-        padding=True,
-        truncation=True,
-        max_length=8192,
-        return_tensors="pt",
-    )
-    encoded = {k: v.to(device) for k, v in encoded.items()}
+        with torch.no_grad():
+            outputs = model(**encoded)
 
-    # Inference
-    with torch.no_grad():
-        outputs = model(**encoded)
+        # Get logits for the last token position
+        last_logits = outputs.logits[0, -1, :]  # [vocab_size]
 
-    # Logits → scores (sigmoid for relevance probability)
-    scores = torch.sigmoid(outputs.logits.squeeze(-1))
-    return scores.cpu().float().tolist()
+        # Score = softmax(yes, no) → P(yes)
+        yes_no_logits = torch.tensor([last_logits[yes_id], last_logits[no_id]])
+        probs = torch.softmax(yes_no_logits.float(), dim=0)
+        score = probs[0].item()  # P(yes)
+        scores.append(score)
+
+    return scores
 
 
 # ─── App lifecycle ───────────────────────────────────────────────────────────

@@ -1,0 +1,87 @@
+{
+  "benchmark": "qwen-2b-pair",
+  "timestamp": "2026-02-26T13:35:31Z",
+  "embedding_model": "Qwen/Qwen3-VL-Embedding-2B",
+  "reranker_model": "Qwen/Qwen3-VL-Reranker-2B",
+  "embedding_dim": 384,
+  "device": "mps",
+  "llm_inference_active": false,
+  "relation_strategy": "co_occurrence",
+  "num_crud_operations": 100,
+  "num_llm_operations": 20,
+  "server_config": {
+    "storage_mode": "embedded",
+    "vector_backend": "helix",
+    "embedding_provider": "sidecar",
+    "reranker_loaded": true,
+    "embedder_loaded": true,
+    "ner_loaded": true,
+    "llm_loaded": false,
+    "relation_strategy": "co_occurrence"
+  },
+  "sidecar_config": {
+    "embedding_model": "Qwen/Qwen3-VL-Embedding-2B",
+    "reranker_model": "Qwen/Qwen3-VL-Reranker-2B",
+    "embedding_dim": 384,
+    "device": "mps"
+  },
+  "create": {
+    "count": 100,
+    "min_ms": 91.94,
+    "max_ms": 585.86,
+    "mean_ms": 199.56,
+    "p50_ms": 199.51,
+    "p95_ms": 301.44,
+    "p99_ms": 585.86
+  },
+  "search": {
+    "count": 100,
+    "min_ms": 87.28,
+    "max_ms": 713.1,
+    "mean_ms": 123.03,
+    "p50_ms": 110.39,
+    "p95_ms": 145.83,
+    "p99_ms": 713.1,
+    "p95_target_25ms": "FAIL"
+  },
+  "augment": {
+    "count": 20,
+    "min_ms": 87.85,
+    "max_ms": 135.17,
+    "mean_ms": 107.27,
+    "p50_ms": 106.67,
+    "p95_ms": 135.17,
+    "p99_ms": 135.17
+  },
+  "learn": {
+    "count": 20,
+    "min_ms": 155.51,
+    "max_ms": 780.48,
+    "mean_ms": 354.72,
+    "p50_ms": 394.98,
+    "p95_ms": 780.48,
+    "p99_ms": 780.48
+  },
+  "comparison": {
+    "vs_no_llm_baseline": {
+      "create_p50_delta_ms": 133.48,
+      "create_p95_delta_ms": 193.86,
+      "search_p50_delta_ms": 108.43,
+      "search_p95_delta_ms": 143.75,
+      "augment_p50_delta_ms": 104.74,
+      "augment_p95_delta_ms": 133.15,
+      "note": "Delta = Qwen-2B minus baseline (positive = slower)"
+    },
+    "vs_qwen3_4b_llm": {
+      "create_p50_delta_ms": -71.12,
+      "create_p95_delta_ms": -3167.67,
+      "search_p50_delta_ms": 19.32,
+      "search_p95_delta_ms": 48.52,
+      "augment_p50_delta_ms": 15.85,
+      "augment_p95_delta_ms": 35.33,
+      "learn_p50_delta_ms": -2429.51,
+      "learn_p95_delta_ms": -4723.21,
+      "note": "Delta = Qwen-2B minus Qwen3-4B-LLM (negative = faster)"
+    }
+  }
+}

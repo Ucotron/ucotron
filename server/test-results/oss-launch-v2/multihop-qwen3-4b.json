@@ -1,0 +1,741 @@
+{
+  "benchmark": "multihop-qwen3-4b",
+  "description": "Multi-hop reasoning test with Qwen3-4B LLM relation extraction",
+  "timestamp": "2026-02-26T13:55:07Z",
+  "server_config": {
+    "storage_mode": "embedded",
+    "vector_backend": "helix",
+    "llm_loaded": true,
+    "llm_model": "Qwen3-4B-GGUF",
+    "relation_strategy": "llm",
+    "embedding_model": "all-MiniLM-L6-v2",
+    "ner_loaded": true,
+    "embedding_provider": "onnx"
+  },
+  "ingestion": {
+    "total_facts": 30,
+    "total_memories_created": 30,
+    "total_entities_found": 85,
+    "total_relations_found": 0,
+    "ingestion_errors": 0,
+    "ingestion_latency_p50_ms": 2334.04,
+    "details": [
+      {
+        "fact_id": "F01",
+        "subject": "Ada Lovelace",
+        "relation": "worked_with",
+        "object": "Charles Babbage",
+        "latency_ms": 2465.63,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F02",
+        "subject": "Charles Babbage",
+        "relation": "invented",
+        "object": "Analytical Engine",
+        "latency_ms": 1564.57,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F03",
+        "subject": "Analytical Engine",
+        "relation": "inspired",
+        "object": "ENIAC",
+        "latency_ms": 45.83,
+        "memories_created": 1,
+        "entities_found": 1,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F04",
+        "subject": "ENIAC",
+        "relation": "built_at",
+        "object": "University of Pennsylvania",
+        "latency_ms": 3447.35,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F05",
+        "subject": "Alan Turing",
+        "relation": "worked_at",
+        "object": "Bletchley Park",
+        "latency_ms": 2488.95,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F06",
+        "subject": "Bletchley Park",
+        "relation": "located_in",
+        "object": "Milton Keynes",
+        "latency_ms": 3452.22,
+        "memories_created": 1,
+        "entities_found": 4,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F07",
+        "subject": "Alan Turing",
+        "relation": "invented",
+        "object": "Turing Machine",
+        "latency_ms": 1542.02,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F08",
+        "subject": "Turing Machine",
+        "relation": "foundation_of",
+        "object": "Computer Science",
+        "latency_ms": 47.83,
+        "memories_created": 1,
+        "entities_found": 1,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F09",
+        "subject": "Linus Torvalds",
+        "relation": "created",
+        "object": "Linux",
+        "latency_ms": 1570.72,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F10",
+        "subject": "Linus Torvalds",
+        "relation": "studied_at",
+        "object": "University of Helsinki",
+        "latency_ms": 3457.51,
+        "memories_created": 1,
+        "entities_found": 4,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F11",
+        "subject": "University of Helsinki",
+        "relation": "located_in",
+        "object": "Helsinki",
+        "latency_ms": 2334.04,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F12",
+        "subject": "Linux",
+        "relation": "powers",
+        "object": "Android",
+        "latency_ms": 81.91,
+        "memories_created": 1,
+        "entities_found": 1,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F13",
+        "subject": "Android",
+        "relation": "developed_by",
+        "object": "Google",
+        "latency_ms": 1474.14,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F14",
+        "subject": "Google",
+        "relation": "headquartered_in",
+        "object": "Mountain View",
+        "latency_ms": 1464.7,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F15",
+        "subject": "Google",
+        "relation": "founded_by",
+        "object": "Larry Page",
+        "latency_ms": 5796.62,
+        "memories_created": 1,
+        "entities_found": 5,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F16",
+        "subject": "Larry Page",
+        "relation": "studied_at",
+        "object": "Stanford University",
+        "latency_ms": 4006.29,
+        "memories_created": 1,
+        "entities_found": 4,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F17",
+        "subject": "Stanford University",
+        "relation": "located_in",
+        "object": "Palo Alto",
+        "latency_ms": 3447.81,
+        "memories_created": 1,
+        "entities_found": 4,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F18",
+        "subject": "Tim Berners-Lee",
+        "relation": "invented",
+        "object": "World Wide Web",
+        "latency_ms": 3574.67,
+        "memories_created": 1,
+        "entities_found": 4,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F19",
+        "subject": "Tim Berners-Lee",
+        "relation": "worked_at",
+        "object": "CERN",
+        "latency_ms": 3575.0,
+        "memories_created": 1,
+        "entities_found": 4,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F20",
+        "subject": "CERN",
+        "relation": "located_in",
+        "object": "Geneva",
+        "latency_ms": 2702.42,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F21",
+        "subject": "World Wide Web",
+        "relation": "built_on",
+        "object": "TCP/IP",
+        "latency_ms": 366.04,
+        "memories_created": 1,
+        "entities_found": 1,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F22",
+        "subject": "TCP/IP",
+        "relation": "designed_by",
+        "object": "Vint Cerf",
+        "latency_ms": 2698.86,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F23",
+        "subject": "Vint Cerf",
+        "relation": "works_at",
+        "object": "Google",
+        "latency_ms": 1897.54,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F24",
+        "subject": "Ada Lovelace",
+        "relation": "born_in",
+        "object": "London",
+        "latency_ms": 2869.88,
+        "memories_created": 1,
+        "entities_found": 4,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F25",
+        "subject": "Linus Torvalds",
+        "relation": "created",
+        "object": "Git",
+        "latency_ms": 4643.94,
+        "memories_created": 1,
+        "entities_found": 2,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F26",
+        "subject": "Git",
+        "relation": "used_by",
+        "object": "GitHub",
+        "latency_ms": 535.34,
+        "memories_created": 1,
+        "entities_found": 1,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F27",
+        "subject": "GitHub",
+        "relation": "acquired_by",
+        "object": "Microsoft",
+        "latency_ms": 1982.47,
+        "memories_created": 1,
+        "entities_found": 3,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F28",
+        "subject": "Microsoft",
+        "relation": "headquartered_in",
+        "object": "Redmond",
+        "latency_ms": 1961.67,
+        "memories_created": 1,
+        "entities_found": 2,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F29",
+        "subject": "Helsinki",
+        "relation": "capital_of",
+        "object": "Finland",
+        "latency_ms": 1516.24,
+        "memories_created": 1,
+        "entities_found": 2,
+        "relations_found": 0,
+        "error": null
+      },
+      {
+        "fact_id": "F30",
+        "subject": "Mountain View",
+        "relation": "part_of",
+        "object": "Silicon Valley",
+        "latency_ms": 1576.77,
+        "memories_created": 1,
+        "entities_found": 2,
+        "relations_found": 0,
+        "error": null
+      }
+    ]
+  },
+  "queries": {
+    "total": 15,
+    "results": [
+      {
+        "query_id": "Q01",
+        "hops": 1,
+        "question": "Who created Linux?",
+        "expected_answer": "Linus Torvalds",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 125.48,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 0,
+        "pipeline_duration_ms": 122.795
+      },
+      {
+        "query_id": "Q02",
+        "hops": 1,
+        "question": "Where is CERN located?",
+        "expected_answer": "Geneva",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 89.2,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 1,
+        "pipeline_duration_ms": 88.247
+      },
+      {
+        "query_id": "Q03",
+        "hops": 1,
+        "question": "Who invented the World Wide Web?",
+        "expected_answer": "Tim Berners-Lee",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 87.49,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 1,
+        "pipeline_duration_ms": 86.576
+      },
+      {
+        "query_id": "Q04",
+        "hops": 1,
+        "question": "What company acquired GitHub?",
+        "expected_answer": "Microsoft",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 88.83,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 1,
+        "pipeline_duration_ms": 87.914
+      },
+      {
+        "query_id": "Q05",
+        "hops": 1,
+        "question": "Where was Ada Lovelace born?",
+        "expected_answer": "London",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 87.88,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 1,
+        "pipeline_duration_ms": 86.954
+      },
+      {
+        "query_id": "Q06",
+        "hops": 2,
+        "question": "In what city did the creator of Linux study?",
+        "expected_answer": "Helsinki",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 89.76,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 2,
+        "pipeline_duration_ms": 88.874
+      },
+      {
+        "query_id": "Q07",
+        "hops": 2,
+        "question": "Where was the World Wide Web invented (city)?",
+        "expected_answer": "Geneva",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 87.7,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 0,
+        "pipeline_duration_ms": 86.745
+      },
+      {
+        "query_id": "Q08",
+        "hops": 2,
+        "question": "What company develops the OS powered by Linux?",
+        "expected_answer": "Google",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 91.15,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 1,
+        "pipeline_duration_ms": 90.257
+      },
+      {
+        "query_id": "Q09",
+        "hops": 2,
+        "question": "Where is the company that acquired GitHub headquartered?",
+        "expected_answer": "Redmond",
+        "correct": 0,
+        "found_in": "not_found",
+        "latency_ms": 87.83,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 1,
+        "pipeline_duration_ms": 86.928
+      },
+      {
+        "query_id": "Q10",
+        "hops": 2,
+        "question": "What did the person who worked at Bletchley Park invent?",
+        "expected_answer": "Turing Machine",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 89.65,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 1,
+        "pipeline_duration_ms": 88.748
+      },
+      {
+        "query_id": "Q11",
+        "hops": 3,
+        "question": "What is the theoretical foundation established by the invention of the person who worked at Bletchley Park?",
+        "expected_answer": "Computer Science",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 88.15,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 1,
+        "pipeline_duration_ms": 87.231
+      },
+      {
+        "query_id": "Q12",
+        "hops": 3,
+        "question": "Where is the headquarters of the company that develops the OS powered by Linux?",
+        "expected_answer": "Mountain View",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 89.57,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 2,
+        "pipeline_duration_ms": 88.694
+      },
+      {
+        "query_id": "Q13",
+        "hops": 3,
+        "question": "Who designed the protocol that the World Wide Web is built on?",
+        "expected_answer": "Vint Cerf",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 87.96,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 0,
+        "pipeline_duration_ms": 87.042
+      },
+      {
+        "query_id": "Q14",
+        "hops": 3,
+        "question": "In what city is the university where the founder of Google studied?",
+        "expected_answer": "Palo Alto",
+        "correct": 1,
+        "found_in": "found_in_memories",
+        "latency_ms": 89.44,
+        "memories_returned": 20,
+        "entities_returned": 0,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 1,
+        "pipeline_duration_ms": 88.593
+      },
+      {
+        "query_id": "Q15",
+        "hops": 3,
+        "question": "Where is the company that acquired the platform built on the version control system created by Linus Torvalds?",
+        "expected_answer": "Redmond",
+        "correct": 0,
+        "found_in": "not_found",
+        "latency_ms": 92.97,
+        "memories_returned": 20,
+        "entities_returned": 1,
+        "graph_expanded_nodes": 0,
+        "vector_results_count": 50,
+        "query_entities_count": 2,
+        "pipeline_duration_ms": 91.989
+      }
+    ]
+  },
+  "summary": {
+    "overall": {
+      "total_queries": 15,
+      "correct": 13,
+      "accuracy": 0.8667,
+      "latency_p50_ms": 89.2,
+      "latency_mean_ms": 91.54,
+      "latency_max_ms": 125.48
+    },
+    "by_hops": {
+      "1-hop": {
+        "total": 5,
+        "correct": 5,
+        "accuracy": 1.0,
+        "latency_p50_ms": 88.83,
+        "latency_mean_ms": 95.78
+      },
+      "2-hop": {
+        "total": 5,
+        "correct": 4,
+        "accuracy": 0.8,
+        "latency_p50_ms": 89.65,
+        "latency_mean_ms": 89.22
+      },
+      "3-hop": {
+        "total": 5,
+        "correct": 4,
+        "accuracy": 0.8,
+        "latency_p50_ms": 89.44,
+        "latency_mean_ms": 89.62
+      }
+    }
+  },
+  "comparison_vs_baseline": {
+    "baseline_accuracy": 0.5333,
+    "llm_accuracy": 0.8667,
+    "accuracy_delta": 0.3334,
+    "baseline_latency_p50": 217.91,
+    "llm_latency_p50": 89.2,
+    "latency_delta_p50": -128.71,
+    "by_hops": {
+      "1-hop": {
+        "baseline_accuracy": 0.8,
+        "llm_accuracy": 1.0,
+        "accuracy_delta": 0.2,
+        "baseline_latency_p50": 216.69,
+        "llm_latency_p50": 88.83
+      },
+      "2-hop": {
+        "baseline_accuracy": 0.6,
+        "llm_accuracy": 0.8,
+        "accuracy_delta": 0.2,
+        "baseline_latency_p50": 217.59,
+        "llm_latency_p50": 89.65
+      },
+      "3-hop": {
+        "baseline_accuracy": 0.2,
+        "llm_accuracy": 0.8,
+        "accuracy_delta": 0.6,
+        "baseline_latency_p50": 218.4,
+        "llm_latency_p50": 89.44
+      }
+    },
+    "per_query_changes": [
+      {
+        "query_id": "Q01",
+        "baseline_correct": 1,
+        "llm_correct": 1,
+        "changed": false
+      },
+      {
+        "query_id": "Q02",
+        "baseline_correct": 1,
+        "llm_correct": 1,
+        "changed": false
+      },
+      {
+        "query_id": "Q03",
+        "baseline_correct": 1,
+        "llm_correct": 1,
+        "changed": false
+      },
+      {
+        "query_id": "Q04",
+        "baseline_correct": 0,
+        "llm_correct": 1,
+        "changed": true
+      },
+      {
+        "query_id": "Q05",
+        "baseline_correct": 1,
+        "llm_correct": 1,
+        "changed": false
+      },
+      {
+        "query_id": "Q06",
+        "baseline_correct": 1,
+        "llm_correct": 1,
+        "changed": false
+      },
+      {
+        "query_id": "Q07",
+        "baseline_correct": 1,
+        "llm_correct": 1,
+        "changed": false
+      },
+      {
+        "query_id": "Q08",
+        "baseline_correct": 1,
+        "llm_correct": 1,
+        "changed": false
+      },
+      {
+        "query_id": "Q09",
+        "baseline_correct": 0,
+        "llm_correct": 0,
+        "changed": false
+      },
+      {
+        "query_id": "Q10",
+        "baseline_correct": 0,
+        "llm_correct": 1,
+        "changed": true
+      },
+      {
+        "query_id": "Q11",
+        "baseline_correct": 0,
+        "llm_correct": 1,
+        "changed": true
+      },
+      {
+        "query_id": "Q12",
+        "baseline_correct": 0,
+        "llm_correct": 1,
+        "changed": true
+      },
+      {
+        "query_id": "Q13",
+        "baseline_correct": 0,
+        "llm_correct": 1,
+        "changed": true
+      },
+      {
+        "query_id": "Q14",
+        "baseline_correct": 1,
+        "llm_correct": 1,
+        "changed": false
+      },
+      {
+        "query_id": "Q15",
+        "baseline_correct": 0,
+        "llm_correct": 0,
+        "changed": false
+      }
+    ]
+  }
+}

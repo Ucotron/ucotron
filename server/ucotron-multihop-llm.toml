@@ -1,0 +1,36 @@
+[server]
+host = "0.0.0.0"
+port = 8420
+log_level = "info"
+log_format = "json"
+
+[storage]
+mode = "embedded"
+
+[storage.vector]
+backend = "helix"
+data_dir = "data/vector-multihop-llm"
+
+[storage.vector.hnsw]
+ef_construction = 200
+ef_search = 200
+
+[storage.graph]
+backend = "helix"
+data_dir = "data/graph-multihop-llm"
+
+[models]
+models_dir = "models"
+embedding_model = "all-MiniLM-L6-v2"
+ner_model = "gliner_small-v2.1"
+llm_model = "Qwen3-4B-GGUF"
+embedding_provider = "onnx"
+
+[telemetry]
+enabled = false
+
+[ingestion]
+chunk_size = 512
+
+[auth]
+enabled = false

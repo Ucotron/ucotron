@@ -255,11 +255,14 @@ async fn main() -> anyhow::Result<()> {
     // Initialize FFmpeg video pipeline (optional — requires ffmpeg libs).
     let video_pipeline = try_init_video();
 
+    // Initialize NER pipeline (optional — requires GLiNER ONNX model files).
+    let ner_pipeline = try_init_ner(&config);
+
     // Build application state with all optional pipelines.
     let mut app_state = AppState::with_all_pipelines_full(
         registry,
         embedder,
-        None, // NER pipeline loaded separately if model present
+        ner_pipeline,
         None, // Relation extractor loaded separately if model present
         transcriber,
         image_embedder,
@@ -802,6 +805,39 @@ fn try_init_video() -> Option<Arc<dyn ucotron_extraction::VideoPipeline>> {
         }
         Err(_) => {
             tracing::info!("FFmpeg video pipeline not available");
+            None
+        }
+    }
+}
+
+/// Try to initialize the GLiNER NER pipeline for entity extraction.
+/// Returns None if model files are not present.
+fn try_init_ner(config: &UcotronConfig) -> Option<Arc<dyn ucotron_extraction::NerPipeline>> {
+    use ucotron_extraction::ner::{GlinerConfig, GlinerNerPipeline};
+
+    let models_dir = &config.models.models_dir;
+    let ner_model = &config.models.ner_model;
+    let model_dir = format!("{}/{}", models_dir, ner_model);
+
+    let model_path = format!("{}/onnx/model.onnx", model_dir);
+    let tokenizer_path = format!("{}/tokenizer.json", model_dir);
+
+    // Check if model files exist before attempting to load.
+    if !std::path::Path::new(&model_path).exists() {
+        tracing::info!(
+            "NER model not found at {}. Entity extraction disabled.",
+            model_path
+        );
+        return None;
+    }
+
+    match GlinerNerPipeline::new(&model_path, &tokenizer_path, GlinerConfig::default()) {
+        Ok(pipeline) => {
+            tracing::info!("GLiNER NER pipeline loaded from {}", model_dir);
+            Some(Arc::new(pipeline))
+        }
+        Err(e) => {
+            tracing::warn!("Failed to load NER pipeline: {}. Entity extraction disabled.", e);
             None
         }
     }

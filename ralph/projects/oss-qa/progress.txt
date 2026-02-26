@@ -178,3 +178,22 @@ Created: 2026-02-25
 - **Pattern**: Model download: `hf download Qwen/Qwen3-4B-GGUF Qwen3-4B-Q4_K_M.gguf --local-dir models/Qwen3-4B-GGUF`
 - Config restored to no explicit llm_model (to not break other tests)
 - Results saved to test-results/oss-qa/benchmark-default-model.json
+
+## QA-012: Multimodal Video Ingestion & Segments — COMPLETE
+- All 5 tests passing (0 failures)
+- **BUG FOUND & FIXED**: Video pipeline not initialized — main.rs passed `None` for video_pipeline despite FFmpeg being available. Same pattern as BUG-9 (Whisper).
+  - Fix: Added `try_init_video()` in main.rs (mirrors `try_init_clip()`/`try_init_whisper()` pattern)
+  - Changed `AppState::with_all_pipelines()` → `AppState::with_all_pipelines_full()` to pass all pipelines including video
+  - File changed: `server/ucotron_server/src/main.rs`
+- **API patterns**:
+  - POST /memories/video: multipart form (file + description), returns 201 with video_node_id, segment_node_ids, total_frames, total_segments, duration_ms, video_width, video_height, media_type, segments[]
+  - GET /videos/{parent_id}/segments: returns {parent_video_id, total, segments[]} with segment details (node_id, content, start_ms, end_ms, media_uri, prev_segment_id, next_segment_id)
+  - GET /media/{video_node_id}: serves stored video with correct content-type (video/mp4)
+- **Frame extraction**: FFmpeg extracts frames at 1fps (configurable), detects scene changes via histogram diff
+- **Segmentation**: Groups frames by scene changes (min 5s, max 30s per segment). 5-second test video = 1 segment with 6 frames
+- **CLIP embeddings**: Representative frame per segment gets CLIP embedding (512-dim), stored in visual vector index
+- **Text searchability**: Video parent node and segment nodes stored as text memories, searchable via vector search
+- **Pattern**: FfmpegVideoPipeline only holds config, creates new FFmpeg context per extract_frames() call — thread-safe
+- **Pattern**: Video segments have navigation links (prev_segment_id/next_segment_id) for sequential traversal
+- **Test video**: Created with `ffmpeg -f lavfi -i "testsrc=duration=5:size=320x240:rate=24" -f lavfi -i "sine=frequency=440:duration=5" -c:v libx264 -c:a aac test_video.mp4`
+- Results saved to test-results/oss-qa/multimodal-video.json

@@ -1,0 +1,153 @@
+{
+  "test_id": "QA-012",
+  "tests": [
+    {
+      "test": "ingest_video_mp4",
+      "status": "PASS",
+      "detail": {
+        "video_node_id": 1000000,
+        "segment_count": 1,
+        "total_frames": 6,
+        "duration_ms": 5000,
+        "video_width": 320,
+        "video_height": 240,
+        "media_type": "VideoSegment",
+        "segment_node_ids": [
+          1000001
+        ]
+      }
+    },
+    {
+      "test": "get_video_segments",
+      "status": "PASS",
+      "detail": {
+        "parent_video_id": 1000000,
+        "total_segments": 1,
+        "segment_ids": [
+          1000001
+        ]
+      }
+    },
+    {
+      "test": "segments_have_clip_embeddings",
+      "status": "PASS",
+      "detail": {
+        "has_content": true,
+        "has_timing": true,
+        "has_navigation": false,
+        "sample_segment": {
+          "node_id": 1000001,
+          "content": "[video_segment:0 1.0s-5.0s 6 frames]",
+          "start_ms": 958,
+          "end_ms": 4958
+        }
+      }
+    },
+    {
+      "test": "video_segments_searchable",
+      "status": "PASS",
+      "detail": {
+        "visual_search_results": 0,
+        "text_search_results": 2,
+        "top_visual": null,
+        "top_text": {
+          "content": "[video:320x240 5.0s 1 segments]",
+          "score": 0.4190223
+        }
+      }
+    },
+    {
+      "test": "serve_stored_video",
+      "status": "PASS",
+      "detail": {
+        "content_type": "video/mp4",
+        "content_length": 72266
+      }
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5
+  },
+  "video_response": {
+    "video_node_id": 1000000,
+    "segment_node_ids": [
+      1000001
+    ],
+    "edges_created": 1,
+    "total_frames": 6,
+    "total_segments": 1,
+    "duration_ms": 5000,
+    "video_width": 320,
+    "video_height": 240,
+    "media_type": "VideoSegment",
+    "segments": [
+      {
+        "node_id": 1000001,
+        "start_ms": 958,
+        "end_ms": 4958,
+        "frame_count": 6,
+        "is_scene_change": true
+      }
+    ],
+    "transcription_metrics": null
+  },
+  "segments_response": {
+    "parent_video_id": 1000000,
+    "total": 1,
+    "segments": [
+      {
+        "node_id": 1000001,
+        "content": "[video_segment:0 1.0s-5.0s 6 frames]",
+        "start_ms": 958,
+        "end_ms": 4958,
+        "media_uri": "1000000.mp4",
+        "prev_segment_id": null,
+        "next_segment_id": null
+      }
+    ]
+  },
+  "search_response": {
+    "visual": {
+      "results": [],
+      "total": 0,
+      "query": "test pattern video"
+    },
+    "text": {
+      "results": [
+        {
+          "id": 1000000,
+          "content": "[video:320x240 5.0s 1 segments]",
+          "node_type": "Event",
+          "score": 0.4190223,
+          "vector_sim": 0.068635106,
+          "graph_centrality": 0.5,
+          "recency": 1.0,
+          "mindset_score": 0.0,
+          "timestamp_range": [
+            0,
+            5000
+          ]
+        },
+        {
+          "id": 1000001,
+          "content": "[video_segment:0 1.0s-5.0s 6 frames]",
+          "node_type": "Event",
+          "score": 0.38001114,
+          "vector_sim": 0.034317553,
+          "graph_centrality": 0.5,
+          "recency": 1.0,
+          "mindset_score": 0.0,
+          "timestamp_range": [
+            958,
+            4958
+          ],
+          "parent_video_id": 1000000
+        }
+      ],
+      "total": 2,
+      "query": "test pattern video sine wave"
+    }
+  }
+}

@@ -167,7 +167,7 @@
       "id": "QA-012",
       "story": "Test multimodal: video ingestion and segments",
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "POST /memories/video ingests a short MP4 video",
         "GET /videos/{parent_id}/segments returns keyframe segments",

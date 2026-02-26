@@ -255,8 +255,11 @@ async fn main() -> anyhow::Result<()> {
     // Initialize Whisper transcription pipeline (optional).
     let transcriber = try_init_whisper(&config);
 
-    // Build application state.
-    let mut app_state = AppState::with_all_pipelines(
+    // Initialize FFmpeg video pipeline (optional — requires ffmpeg libs).
+    let video_pipeline = try_init_video();
+
+    // Build application state with all optional pipelines.
+    let mut app_state = AppState::with_all_pipelines_full(
         registry,
         embedder,
         None, // NER pipeline loaded separately if model present
@@ -264,6 +267,8 @@ async fn main() -> anyhow::Result<()> {
         transcriber,
         image_embedder,
         cross_modal_encoder,
+        None, // OCR pipeline loaded separately if model present
+        video_pipeline,
         config.clone(),
     );
     // Attach OTLP metrics instruments if metrics export is enabled.
@@ -780,6 +785,23 @@ fn try_init_clip(
         };
 
     (image_embedder, cross_modal_encoder)
+}
+
+/// Try to initialize FFmpeg video pipeline for video ingestion support.
+/// Returns None if FFmpeg initialization fails.
+fn try_init_video() -> Option<Arc<dyn ucotron_extraction::VideoPipeline>> {
+    use ucotron_extraction::video::{FfmpegVideoPipeline, VideoConfig};
+
+    match std::panic::catch_unwind(|| FfmpegVideoPipeline::new(VideoConfig::default())) {
+        Ok(pipeline) => {
+            tracing::info!("FFmpeg video pipeline initialized");
+            Some(Arc::new(pipeline))
+        }
+        Err(_) => {
+            tracing::info!("FFmpeg video pipeline not available");
+            None
+        }
+    }
 }
 
 /// Stub embedding pipeline for when ONNX models are not available.

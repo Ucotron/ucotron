@@ -432,6 +432,99 @@ fn l2_normalize(vec: &mut [f32]) {
     }
 }
 
+// ─── Sidecar Embedding Pipeline ──────────────────────────────────────────────
+
+/// Embedding pipeline that delegates to a Python sidecar service via HTTP.
+///
+/// The sidecar runs HuggingFace Transformers models (e.g., Qwen3-VL-Embedding-2B)
+/// and exposes `/embed` and `/health` endpoints. This pipeline sends requests
+/// to the sidecar and returns the resulting vectors.
+///
+/// Uses blocking HTTP because the `EmbeddingPipeline` trait is synchronous.
+pub struct SidecarEmbeddingPipeline {
+    client: reqwest::blocking::Client,
+    base_url: String,
+    dimension: usize,
+    instruction: Option<String>,
+}
+
+impl SidecarEmbeddingPipeline {
+    /// Create a new sidecar embedding pipeline.
+    ///
+    /// # Arguments
+    /// * `base_url` - Base URL of the sidecar (e.g., "http://localhost:8421")
+    /// * `dimension` - Output embedding dimension (sidecar uses MRL to truncate)
+    /// * `instruction` - Optional instruction prefix for instruction-aware embeddings
+    pub fn new(base_url: &str, dimension: usize, instruction: Option<String>) -> Result<Self> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .context("Failed to create HTTP client")?;
+
+        Ok(Self {
+            client,
+            base_url: base_url.trim_end_matches('/').to_string(),
+            dimension,
+            instruction,
+        })
+    }
+
+    /// Check if the sidecar is healthy and reachable.
+    pub fn health_check(&self) -> Result<bool> {
+        let url = format!("{}/health", self.base_url);
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .context("Sidecar health check failed")?;
+        Ok(resp.status().is_success())
+    }
+}
+
+impl EmbeddingPipeline for SidecarEmbeddingPipeline {
+    fn embed_text(&self, text: &str) -> Result<Vec<f32>> {
+        let results = self.embed_batch(&[text])?;
+        results
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Sidecar returned empty embedding list"))
+    }
+
+    fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>> {
+        if texts.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let url = format!("{}/embed", self.base_url);
+        let body = serde_json::json!({
+            "texts": texts,
+            "instruction": self.instruction,
+            "dimension": self.dimension,
+        });
+
+        let resp = self
+            .client
+            .post(&url)
+            .json(&body)
+            .send()
+            .context("Sidecar embed request failed")?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().unwrap_or_default();
+            anyhow::bail!("Sidecar embed returned {}: {}", status, body);
+        }
+
+        #[derive(serde::Deserialize)]
+        struct EmbedResponse {
+            embeddings: Vec<Vec<f32>>,
+        }
+
+        let parsed: EmbedResponse = resp.json().context("Failed to parse sidecar response")?;
+        Ok(parsed.embeddings)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

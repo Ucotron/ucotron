@@ -275,6 +275,20 @@ async fn main() -> anyhow::Result<()> {
         config.clone(),
     );
     app_state.relation_strategy = relation_strategy;
+
+    // Initialize reranker if enabled and sidecar is configured.
+    if config.models.enable_reranker {
+        match try_init_reranker(&config) {
+            Some(reranker) => {
+                app_state.reranker = Some(reranker);
+                tracing::info!("Cross-encoder reranker initialized via sidecar");
+            }
+            None => {
+                tracing::warn!("Reranker enabled but sidecar initialization failed");
+            }
+        }
+    }
+
     // Attach OTLP metrics instruments if metrics export is enabled.
     app_state.otel_metrics = _telemetry_guard.otel_metrics();
 
@@ -701,21 +715,61 @@ async fn handle_migrate(
     Ok(())
 }
 
-/// Try to initialize the real ONNX embedding pipeline.
+/// Try to initialize the embedding pipeline based on config.
+///
+/// Supports two providers:
+/// - "onnx" (default): Local ONNX Runtime with all-MiniLM-L6-v2
+/// - "sidecar": Python sidecar for HF Transformers models (e.g., Qwen3-VL-Embedding-2B)
 fn try_init_embedder(
     config: &UcotronConfig,
 ) -> anyhow::Result<Arc<dyn ucotron_extraction::EmbeddingPipeline>> {
-    use ucotron_extraction::embeddings::OnnxEmbeddingPipeline;
+    match config.models.embedding_provider.as_str() {
+        "sidecar" => {
+            use ucotron_extraction::embeddings::SidecarEmbeddingPipeline;
 
-    let models_dir = &config.models.models_dir;
-    let model_name = &config.models.embedding_model;
-    let model_dir = format!("{}/{}", models_dir, model_name);
+            let url = &config.models.sidecar_url;
+            let dim = config.models.sidecar_embedding_dim;
+            tracing::info!(
+                "Initializing sidecar embedding pipeline at {} (dim={})",
+                url,
+                dim
+            );
 
-    let model_path = format!("{}/onnx/model.onnx", model_dir);
-    let tokenizer_path = format!("{}/tokenizer.json", model_dir);
+            let pipeline = SidecarEmbeddingPipeline::new(url, dim, None)?;
 
-    let pipeline = OnnxEmbeddingPipeline::new(&model_path, &tokenizer_path, 4)?;
-    Ok(Arc::new(pipeline))
+            // Health check
+            match pipeline.health_check() {
+                Ok(true) => {
+                    tracing::info!("Sidecar embedding pipeline connected successfully");
+                }
+                Ok(false) => {
+                    tracing::warn!("Sidecar returned unhealthy status — embeddings may fail");
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "Sidecar health check failed: {} — will retry on requests",
+                        e
+                    );
+                }
+            }
+
+            Ok(Arc::new(pipeline))
+        }
+        _ => {
+            // Default: ONNX provider
+            use ucotron_extraction::embeddings::OnnxEmbeddingPipeline;
+
+            let models_dir = &config.models.models_dir;
+            let model_name = &config.models.embedding_model;
+            let model_dir = format!("{}/{}", models_dir, model_name);
+
+            let model_path = format!("{}/onnx/model.onnx", model_dir);
+            let tokenizer_path = format!("{}/tokenizer.json", model_dir);
+
+            let pipeline = OnnxEmbeddingPipeline::new(&model_path, &tokenizer_path, 4)?;
+            Ok(Arc::new(pipeline))
+        }
+    }
 }
 
 /// Try to initialize Whisper transcription pipeline for audio support.
@@ -880,6 +934,24 @@ fn try_init_relation_extractor(
     };
 
     (Some(Arc::new(extractor)), strategy)
+}
+
+/// Try to initialize the cross-encoder reranker via sidecar.
+fn try_init_reranker(
+    config: &UcotronConfig,
+) -> Option<Arc<dyn ucotron_extraction::reranker::RerankerPipeline>> {
+    use ucotron_extraction::reranker::SidecarReranker;
+
+    let url = &config.models.sidecar_url;
+    tracing::info!("Initializing cross-encoder reranker via sidecar at {}", url);
+
+    match SidecarReranker::new(url, None) {
+        Ok(reranker) => Some(Arc::new(reranker)),
+        Err(e) => {
+            tracing::warn!("Failed to initialize sidecar reranker: {}", e);
+            None
+        }
+    }
 }
 
 /// Stub embedding pipeline for when ONNX models are not available.

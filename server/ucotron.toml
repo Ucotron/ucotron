@@ -24,6 +24,14 @@ models_dir = "models"
 embedding_model = "all-MiniLM-L6-v2"
 ner_model = "gliner_small-v2.1"
 llm_model = "Qwen3-4B-GGUF"
+# Embedding provider: "onnx" (default, local) or "sidecar" (Python sidecar for HF models)
+embedding_provider = "onnx"
+# Sidecar URL (only used when embedding_provider = "sidecar")
+# sidecar_url = "http://localhost:8421"
+# Sidecar embedding dimension (Qwen3-VL supports 64-2048 via MRL, default 384 for HNSW compat)
+# sidecar_embedding_dim = 384
+# Enable cross-encoder reranking via sidecar (default: false)
+# enable_reranker = false
 
 [telemetry]
 enabled = true

@@ -6,8 +6,8 @@ use std::time::Instant;
 use ucotron_config::{ApiKeyEntry, UcotronConfig};
 use ucotron_core::BackendRegistry;
 use ucotron_extraction::{
-    CrossModalTextEncoder, DocumentOcrPipeline, EmbeddingPipeline, ImageEmbeddingPipeline,
-    NerPipeline, RelationExtractor, TranscriptionPipeline, VideoPipeline,
+    reranker::RerankerPipeline, CrossModalTextEncoder, DocumentOcrPipeline, EmbeddingPipeline,
+    ImageEmbeddingPipeline, NerPipeline, RelationExtractor, TranscriptionPipeline, VideoPipeline,
 };
 
 use ucotron_connectors::CronScheduler;
@@ -44,6 +44,8 @@ pub struct AppState {
     pub ocr_pipeline: Option<Arc<dyn DocumentOcrPipeline>>,
     /// Video frame extraction pipeline (FFmpeg, optional).
     pub video_pipeline: Option<Arc<dyn VideoPipeline>>,
+    /// Cross-encoder reranker pipeline (sidecar, optional).
+    pub reranker: Option<Arc<dyn RerankerPipeline>>,
     /// Full configuration.
     pub config: UcotronConfig,
     /// Server start time (for uptime metric).
@@ -205,6 +207,7 @@ impl AppState {
             cross_modal_encoder,
             ocr_pipeline,
             video_pipeline,
+            reranker: None,
             config,
             start_time: Instant::now(),
             next_node_id: Mutex::new(id_start),

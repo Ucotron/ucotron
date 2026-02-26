@@ -417,6 +417,10 @@ pub struct ModelStatus {
     pub cross_modal_encoder_loaded: bool,
     /// Whether the document OCR pipeline is loaded (pdf_extract + Tesseract).
     pub ocr_pipeline_loaded: bool,
+    /// Embedding provider in use: "onnx" or "sidecar".
+    pub embedding_provider: String,
+    /// Whether the cross-encoder reranker is loaded (via sidecar).
+    pub reranker_loaded: bool,
 }
 
 /// GET /api/v1/metrics — response.

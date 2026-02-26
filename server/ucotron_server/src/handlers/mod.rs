@@ -119,6 +119,8 @@ pub async fn health_handler(State(state): State<Arc<AppState>>) -> Json<HealthRe
             image_embedder_loaded: state.image_embedder.is_some(),
             cross_modal_encoder_loaded: state.cross_modal_encoder.is_some(),
             ocr_pipeline_loaded: state.ocr_pipeline.is_some(),
+            embedding_provider: state.config.models.embedding_provider.clone(),
+            reranker_loaded: state.reranker.is_some(),
         },
     })
 }

@@ -1444,6 +1444,7 @@ mod tests {
 
         let config = IngestionConfig {
             enable_entity_resolution: false,
+            chunk_size: 20, // Small chunk_size to force one sentence per chunk
             ..Default::default()
         };
 
@@ -1660,6 +1661,7 @@ mod tests {
         let ner = MockNer;
         let config = IngestionConfig {
             enable_entity_resolution: false,
+            chunk_size: 30, // Small chunk_size to force one sentence per chunk
             ..Default::default()
         };
         let mut orchestrator =
@@ -1960,6 +1962,7 @@ mod tests {
             enable_entity_resolution: false,
             enable_contradiction_detection: false,
             ner_batch_size: 8,
+            chunk_size: 25, // Small chunk_size to force one sentence per chunk
             ..Default::default()
         };
 
@@ -1985,6 +1988,7 @@ mod tests {
             enable_entity_resolution: false,
             enable_contradiction_detection: false,
             ner_batch_size: 2, // Small batch size to force multiple batches
+            chunk_size: 20,    // Small chunk_size to force one sentence per chunk
             ..Default::default()
         };
 
@@ -2050,6 +2054,7 @@ mod tests {
             enable_entity_resolution: false,
             enable_contradiction_detection: false,
             ner_batch_size: 4,
+            chunk_size: 20, // Small chunk_size to force one sentence per chunk
             ..Default::default()
         };
 
@@ -2119,6 +2124,7 @@ mod tests {
             enable_entity_resolution: false,
             enable_contradiction_detection: false,
             embedding_batch_size: 2, // Small batch size to force sub-batching
+            chunk_size: 20,          // Small chunk_size to force one sentence per chunk
             ..Default::default()
         };
 

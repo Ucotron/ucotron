@@ -138,7 +138,7 @@
       "id": "QA-010",
       "story": "Test export/import and migration formats",
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "GET /export returns all data in export format",
         "POST /import re-imports exported data successfully",

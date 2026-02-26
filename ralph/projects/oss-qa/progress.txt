@@ -144,3 +144,16 @@ Created: 2026-02-25
 - **Pattern**: Audit entries include `user` field with key_name when auth is enabled
 - Config restored to `auth.enabled = false` after test to not break other tests
 - Results saved to test-results/oss-qa/auth-results.json
+
+## QA-010: Export/Import and Migration Formats — COMPLETE
+- All 8 tests passing (0 failures)
+- **Export endpoint**: GET /export returns JSON-LD format with `@context`, `@type: "ucotron:MemoryGraph"`, `version: "1.0"`, `nodes`, `edges`, `stats`
+- **Export params**: `include_embeddings` (bool), `namespace` via header, `format` (jsonld default)
+- **Import round-trip verified**: Exported 5 memories from qa010-src namespace → imported to qa010-dst → verified same node count (5) and content searchable via vector search in destination
+- **Mem0 import**: POST /import/mem0 with `{data: {results: [...], total_memories: N}, link_same_user: bool}`. Imported 3 memories, 2 edges (user_id chain). Nodes become Entity type with mem0_ prefixed metadata.
+- **Zep/Graphiti import**: POST /import/zep with `{data: {entities: [...], episodes: [...], edges: [...]}, link_same_user: bool, link_same_group: bool, preserve_expired: bool}`. Imported 3 nodes (2 entities + 1 episode), 1 edge.
+- **Empty data handling**: Both /import/mem0 and /import/zep return 200 with zero counts when given empty arrays (graceful, no crash)
+- **Pattern**: Export uses JSON-LD context with schema.org mappings. Import remaps node IDs to avoid collisions.
+- **Pattern**: Import requires Writer role. Export requires Reader role.
+- **Pattern**: Round-trip preserves content and generates fresh embeddings on import (searchable immediately)
+- Results saved to test-results/oss-qa/import-export-results.json

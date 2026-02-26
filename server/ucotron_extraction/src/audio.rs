@@ -444,15 +444,93 @@ pub struct ChunkTranscription {
 ///
 /// Format: one token per line, token ID is the line number (0-indexed).
 /// Special tokens may include `<|token|>` format.
+/// Decode a base64-encoded string to bytes (standard alphabet with padding).
+fn b64_decode(input: &str) -> Option<Vec<u8>> {
+    const TABLE: [u8; 128] = {
+        let mut t = [255u8; 128];
+        let mut i = 0u8;
+        while i < 26 {
+            t[(b'A' + i) as usize] = i;
+            t[(b'a' + i) as usize] = i + 26;
+            i += 1;
+        }
+        let mut d = 0u8;
+        while d < 10 {
+            t[(b'0' + d) as usize] = d + 52;
+            d += 1;
+        }
+        t[b'+' as usize] = 62;
+        t[b'/' as usize] = 63;
+        t
+    };
+
+    let input = input.trim_end_matches('=');
+    let mut out = Vec::with_capacity(input.len() * 3 / 4);
+    let bytes = input.as_bytes();
+    let mut i = 0;
+    while i + 3 < bytes.len() {
+        let (a, b, c, d) = (
+            *TABLE.get(*bytes.get(i)? as usize)?,
+            *TABLE.get(*bytes.get(i + 1)? as usize)?,
+            *TABLE.get(*bytes.get(i + 2)? as usize)?,
+            *TABLE.get(*bytes.get(i + 3)? as usize)?,
+        );
+        if a == 255 || b == 255 || c == 255 || d == 255 {
+            return None;
+        }
+        out.push((a << 2) | (b >> 4));
+        out.push((b << 4) | (c >> 2));
+        out.push((c << 6) | d);
+        i += 4;
+    }
+    let rem = bytes.len() - i;
+    if rem == 2 {
+        let (a, b) = (
+            *TABLE.get(*bytes.get(i)? as usize)?,
+            *TABLE.get(*bytes.get(i + 1)? as usize)?,
+        );
+        if a == 255 || b == 255 { return None; }
+        out.push((a << 2) | (b >> 4));
+    } else if rem == 3 {
+        let (a, b, c) = (
+            *TABLE.get(*bytes.get(i)? as usize)?,
+            *TABLE.get(*bytes.get(i + 1)? as usize)?,
+            *TABLE.get(*bytes.get(i + 2)? as usize)?,
+        );
+        if a == 255 || b == 255 || c == 255 { return None; }
+        out.push((a << 2) | (b >> 4));
+        out.push((b << 4) | (c >> 2));
+    }
+    Some(out)
+}
+
 fn load_token_map(path: &Path) -> Result<HashMap<i64, String>> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read tokens file: {:?}", path))?;
 
     let mut map = HashMap::new();
-    for (idx, line) in content.lines().enumerate() {
-        let token = line.trim().to_string();
-        if !token.is_empty() {
-            map.insert(idx as i64, token);
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        // sherpa-onnx format: "base64_token token_id" (two columns)
+        if let Some((b64_token, id_str)) = line.rsplit_once(' ') {
+            if let Ok(id) = id_str.parse::<i64>() {
+                // Decode base64 to bytes, then to UTF-8
+                if let Some(bytes) = b64_decode(b64_token) {
+                    if let Ok(text) = String::from_utf8(bytes) {
+                        map.insert(id, text);
+                        continue;
+                    }
+                }
+                // Fallback: store raw token text
+                map.insert(id, b64_token.to_string());
+            }
+        } else {
+            // Legacy format: one token per line, line index = token ID
+            let idx = map.len() as i64;
+            map.insert(idx, line.to_string());
         }
     }
 

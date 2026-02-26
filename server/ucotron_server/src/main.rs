@@ -195,12 +195,45 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Initialize storage backends.
-    let (vector_backend, graph_backend) =
-        ucotron_helix::create_helix_backends(&vector_config, &graph_config)?;
-    let registry = Arc::new(ucotron_core::BackendRegistry::new(
-        vector_backend,
-        graph_backend,
-    ));
+    // If CLIP models are present, also create the visual vector backend (512-dim).
+    let clip_model_dir = format!(
+        "{}/{}",
+        config.models.models_dir, config.models.clip_model
+    );
+    let clip_available =
+        std::path::Path::new(&format!("{}/visual_model.onnx", clip_model_dir)).exists();
+
+    let registry = if clip_available {
+        match ucotron_helix::create_helix_backends_with_visual(&vector_config, &graph_config) {
+            Ok((vector_backend, graph_backend, visual_backend)) => {
+                tracing::info!("Visual vector backend initialized for CLIP search");
+                Arc::new(ucotron_core::BackendRegistry::with_visual(
+                    vector_backend,
+                    graph_backend,
+                    visual_backend,
+                ))
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to create visual backend: {}. Falling back to text-only.",
+                    e
+                );
+                let (vector_backend, graph_backend) =
+                    ucotron_helix::create_helix_backends(&vector_config, &graph_config)?;
+                Arc::new(ucotron_core::BackendRegistry::new(
+                    vector_backend,
+                    graph_backend,
+                ))
+            }
+        }
+    } else {
+        let (vector_backend, graph_backend) =
+            ucotron_helix::create_helix_backends(&vector_config, &graph_config)?;
+        Arc::new(ucotron_core::BackendRegistry::new(
+            vector_backend,
+            graph_backend,
+        ))
+    };
 
     // Initialize embedding pipeline.
     // Try to load ONNX model; fall back to a stub if model files are not present.
@@ -216,12 +249,26 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    // Build application state.
-    let mut app_state = AppState::new(
+    // Initialize CLIP image/text pipelines (optional).
+    let (image_embedder, cross_modal_encoder) = try_init_clip(&config);
+
+    // Initialize Whisper transcription pipeline (optional).
+    let transcriber = try_init_whisper(&config);
+
+    // Initialize FFmpeg video pipeline (optional — requires ffmpeg libs).
+    let video_pipeline = try_init_video();
+
+    // Build application state with all optional pipelines.
+    let mut app_state = AppState::with_all_pipelines_full(
         registry,
         embedder,
         None, // NER pipeline loaded separately if model present
         None, // Relation extractor loaded separately if model present
+        transcriber,
+        image_embedder,
+        cross_modal_encoder,
+        None, // OCR pipeline loaded separately if model present
+        video_pipeline,
         config.clone(),
     );
     // Attach OTLP metrics instruments if metrics export is enabled.
@@ -665,6 +712,96 @@ fn try_init_embedder(
 
     let pipeline = OnnxEmbeddingPipeline::new(&model_path, &tokenizer_path, 4)?;
     Ok(Arc::new(pipeline))
+}
+
+/// Try to initialize Whisper transcription pipeline for audio support.
+/// Returns None if Whisper model files are not present.
+fn try_init_whisper(
+    config: &UcotronConfig,
+) -> Option<Arc<dyn ucotron_extraction::TranscriptionPipeline>> {
+    use ucotron_extraction::audio::{WhisperConfig, WhisperOnnxPipeline};
+
+    let models_dir = &config.models.models_dir;
+    let whisper_dir = format!("{}/whisper-tiny", models_dir);
+
+    let encoder_path = format!("{}/encoder.onnx", whisper_dir);
+    let decoder_path = format!("{}/decoder.onnx", whisper_dir);
+    let tokens_path = format!("{}/tokens.txt", whisper_dir);
+
+    match WhisperOnnxPipeline::new(&encoder_path, &decoder_path, &tokens_path, WhisperConfig::default()) {
+        Ok(pipeline) => {
+            tracing::info!("Whisper transcription pipeline loaded from {}", whisper_dir);
+            Some(Arc::new(pipeline))
+        }
+        Err(e) => {
+            tracing::info!("Whisper transcription pipeline not available: {}", e);
+            None
+        }
+    }
+}
+
+/// Try to initialize CLIP image and text pipelines for multimodal support.
+/// Returns (None, None) if CLIP model files are not present.
+fn try_init_clip(
+    config: &UcotronConfig,
+) -> (
+    Option<Arc<dyn ucotron_extraction::ImageEmbeddingPipeline>>,
+    Option<Arc<dyn ucotron_extraction::CrossModalTextEncoder>>,
+) {
+    use ucotron_extraction::image::{ClipConfig, ClipImagePipeline, ClipTextPipeline};
+
+    let models_dir = &config.models.models_dir;
+    let clip_model = &config.models.clip_model;
+    let clip_dir = format!("{}/{}", models_dir, clip_model);
+
+    let visual_path = format!("{}/visual_model.onnx", clip_dir);
+    let text_path = format!("{}/text_model.onnx", clip_dir);
+    let tokenizer_path = format!("{}/tokenizer.json", clip_dir);
+
+    // Try loading the visual encoder
+    let image_embedder: Option<Arc<dyn ucotron_extraction::ImageEmbeddingPipeline>> =
+        match ClipImagePipeline::new(&visual_path, ClipConfig::default()) {
+            Ok(pipeline) => {
+                tracing::info!("CLIP visual encoder loaded from {}", visual_path);
+                Some(Arc::new(pipeline))
+            }
+            Err(e) => {
+                tracing::info!("CLIP visual encoder not available: {}", e);
+                None
+            }
+        };
+
+    // Try loading the text encoder (for cross-modal search)
+    let cross_modal_encoder: Option<Arc<dyn ucotron_extraction::CrossModalTextEncoder>> =
+        match ClipTextPipeline::new(&text_path, &tokenizer_path, 4) {
+            Ok(pipeline) => {
+                tracing::info!("CLIP text encoder loaded from {}", text_path);
+                Some(Arc::new(pipeline))
+            }
+            Err(e) => {
+                tracing::info!("CLIP text encoder not available: {}", e);
+                None
+            }
+        };
+
+    (image_embedder, cross_modal_encoder)
+}
+
+/// Try to initialize FFmpeg video pipeline for video ingestion support.
+/// Returns None if FFmpeg initialization fails.
+fn try_init_video() -> Option<Arc<dyn ucotron_extraction::VideoPipeline>> {
+    use ucotron_extraction::video::{FfmpegVideoPipeline, VideoConfig};
+
+    match std::panic::catch_unwind(|| FfmpegVideoPipeline::new(VideoConfig::default())) {
+        Ok(pipeline) => {
+            tracing::info!("FFmpeg video pipeline initialized");
+            Some(Arc::new(pipeline))
+        }
+        Err(_) => {
+            tracing::info!("FFmpeg video pipeline not available");
+            None
+        }
+    }
 }
 
 /// Stub embedding pipeline for when ONNX models are not available.

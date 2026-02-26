@@ -124,6 +124,18 @@ cargo build --release
 - Caching: Cargo registry+build, npm, Go modules all cached via `actions/cache@v4`
 - Concurrency: same-branch runs cancel in-progress CI runs
 
+## Multimodal (CLIP Image Pipeline)
+
+- **CLIP models**: Must be at `models/clip-vit-base-patch32/` with `visual_model.onnx`, `text_model.onnx`, `tokenizer.json`
+  - Download from jmzzomg/clip-vit-base-patch32-{vision,text}-onnx (official HF repo has no ONNX exports)
+  - Or run `scripts/download_multimodal_models.sh` (may need URL updates if HF paths change)
+- **Visual vector backend**: CLIP embeddings (512-dim) are stored in a separate `HelixVisualVectorBackend` — NOT in the text vector index (384-dim MiniLM)
+  - Without visual backend: image indexing falls back to text index, but `/images/search` returns 501
+  - Server auto-creates visual backend if `visual_model.onnx` exists in CLIP model dir
+- **Dual embedding storage**: `POST /memories/image` stores CLIP embedding in visual index + text embedding in text index (if description provided)
+- **Cross-modal search**: `POST /images/search` encodes text query with CLIP text encoder (512-dim), searches visual index
+- **Pipeline initialization**: `main.rs` calls `try_init_clip()` to load ClipImagePipeline + ClipTextPipeline, creates `BackendRegistry::with_visual()` for visual backend
+
 ## Gotchas
 
 - Workspace uses `edition = "2021"` — do not mix editions

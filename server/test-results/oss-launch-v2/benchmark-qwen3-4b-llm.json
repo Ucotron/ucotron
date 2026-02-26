@@ -1,0 +1,64 @@
+{
+  "benchmark": "qwen3-4b-llm",
+  "timestamp": "2026-02-26T12:57:02Z",
+  "model": "Qwen3-4B-GGUF (Q4_K_M, 2.3GB)",
+  "llm_inference_active": true,
+  "relation_strategy": "llm",
+  "num_crud_operations": 100,
+  "num_llm_operations": 20,
+  "server_config": {
+    "storage_mode": "embedded",
+    "vector_backend": "helix",
+    "llm_loaded": true,
+    "llm_model": "Qwen3-4B-GGUF",
+    "relation_strategy": "llm",
+    "embedder_loaded": true,
+    "ner_loaded": true
+  },
+  "create": {
+    "count": 100,
+    "min_ms": 31.02,
+    "max_ms": 3763.4,
+    "mean_ms": 712.73,
+    "p50_ms": 270.63,
+    "p95_ms": 3469.11,
+    "p99_ms": 3763.4
+  },
+  "search": {
+    "count": 100,
+    "min_ms": 90.04,
+    "max_ms": 106.67,
+    "mean_ms": 91.82,
+    "p50_ms": 91.07,
+    "p95_ms": 97.31,
+    "p99_ms": 106.67,
+    "p95_target_25ms": "FAIL"
+  },
+  "augment": {
+    "count": 20,
+    "min_ms": 90.1,
+    "max_ms": 99.84,
+    "mean_ms": 91.36,
+    "p50_ms": 90.82,
+    "p95_ms": 99.84,
+    "p99_ms": 99.84
+  },
+  "learn": {
+    "count": 20,
+    "min_ms": 407.88,
+    "max_ms": 5503.69,
+    "mean_ms": 2690.03,
+    "p50_ms": 2824.49,
+    "p95_ms": 5503.69,
+    "p99_ms": 5503.69
+  },
+  "comparison_vs_no_llm": {
+    "create_p50_overhead_ms": 204.6,
+    "create_p95_overhead_ms": 3361.53,
+    "search_p50_overhead_ms": 89.11,
+    "search_p95_overhead_ms": 95.23,
+    "augment_p50_overhead_ms": 88.89,
+    "augment_p95_overhead_ms": 97.82,
+    "note": "Overhead = LLM benchmark minus no-LLM baseline (positive = slower)"
+  }
+}

@@ -672,6 +672,7 @@ impl LlmRelationExtractor {
         // Generate tokens
         let mut output = String::new();
         let max_gen = self.config.max_tokens as usize;
+        let mut n_cur = tokens.len() as i32;
 
         for _ in 0..max_gen {
             let new_token = sampler.sample(&ctx, batch.n_tokens() - 1);
@@ -693,9 +694,10 @@ impl LlmRelationExtractor {
                 break;
             }
 
-            // Prepare next batch
+            // Prepare next batch with correct position tracking
             batch.clear();
-            batch.add(new_token, batch.n_tokens(), &[0], true)?;
+            batch.add(new_token, n_cur, &[0], true)?;
+            n_cur += 1;
             ctx.decode(&mut batch)
                 .map_err(|e| anyhow::anyhow!("Decode failed: {}", e))?;
         }

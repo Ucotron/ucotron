@@ -258,12 +258,15 @@ async fn main() -> anyhow::Result<()> {
     // Initialize NER pipeline (optional — requires GLiNER ONNX model files).
     let ner_pipeline = try_init_ner(&config);
 
+    // Initialize relation extractor (auto-selects: Fireworks > local LLM > co-occurrence).
+    let (relation_extractor, relation_strategy) = try_init_relation_extractor(&config);
+
     // Build application state with all optional pipelines.
     let mut app_state = AppState::with_all_pipelines_full(
         registry,
         embedder,
         ner_pipeline,
-        None, // Relation extractor loaded separately if model present
+        relation_extractor,
         transcriber,
         image_embedder,
         cross_modal_encoder,
@@ -271,6 +274,7 @@ async fn main() -> anyhow::Result<()> {
         video_pipeline,
         config.clone(),
     );
+    app_state.relation_strategy = relation_strategy;
     // Attach OTLP metrics instruments if metrics export is enabled.
     app_state.otel_metrics = _telemetry_guard.otel_metrics();
 
@@ -844,6 +848,38 @@ fn try_init_ner(config: &UcotronConfig) -> Option<Arc<dyn ucotron_extraction::Ne
             None
         }
     }
+}
+
+/// Try to initialize the relation extractor pipeline.
+/// Uses `CompositeRelationExtractor` which auto-selects the best strategy:
+/// Fireworks fine-tuned model > local LLM (GGUF) > co-occurrence fallback.
+/// Returns the extractor and a string describing the active strategy.
+fn try_init_relation_extractor(
+    config: &UcotronConfig,
+) -> (
+    Option<Arc<dyn ucotron_extraction::RelationExtractor>>,
+    String,
+) {
+    use ucotron_extraction::relations::CompositeRelationExtractor;
+
+    let extractor = CompositeRelationExtractor::new(&config.models);
+
+    let strategy = match extractor.strategy() {
+        ucotron_extraction::relations::RelationStrategy::CoOccurrence => {
+            tracing::info!("Relation extraction: co-occurrence fallback (no LLM model loaded)");
+            "co_occurrence".to_string()
+        }
+        ucotron_extraction::relations::RelationStrategy::Llm => {
+            tracing::info!("Relation extraction: local LLM loaded");
+            "llm".to_string()
+        }
+        ucotron_extraction::relations::RelationStrategy::Fireworks => {
+            tracing::info!("Relation extraction: Fireworks fine-tuned model");
+            "fireworks".to_string()
+        }
+    };
+
+    (Some(Arc::new(extractor)), strategy)
 }
 
 /// Stub embedding pipeline for when ONNX models are not available.

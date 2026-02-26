@@ -32,6 +32,8 @@ pub struct AppState {
     pub ner: Option<Arc<dyn NerPipeline>>,
     /// Relation extractor (co-occurrence or LLM, optional).
     pub relation_extractor: Option<Arc<dyn RelationExtractor>>,
+    /// Active relation extraction strategy ("co_occurrence", "llm", or "fireworks").
+    pub relation_strategy: String,
     /// Audio transcription pipeline (Whisper ONNX, optional).
     pub transcriber: Option<Arc<dyn TranscriptionPipeline>>,
     /// Image embedding pipeline (CLIP visual encoder, optional).
@@ -185,11 +187,19 @@ impl AppState {
         let id_end = id_start.saturating_add(config.instance.id_range_size);
         let api_keys = RwLock::new(config.auth.api_keys.clone());
         let audit_log = AuditLog::new(config.audit.max_entries, config.audit.retention_secs);
+        // Determine default relation strategy from config.
+        let relation_strategy = if relation_extractor.is_some() {
+            // Will be overridden by main.rs if CompositeRelationExtractor is used.
+            "co_occurrence".to_string()
+        } else {
+            "none".to_string()
+        };
         Self {
             registry,
             embedder,
             ner,
             relation_extractor,
+            relation_strategy,
             transcriber,
             image_embedder,
             cross_modal_encoder,

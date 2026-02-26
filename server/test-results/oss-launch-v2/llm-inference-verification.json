@@ -1,0 +1,51 @@
+{
+  "test": "V2-006: LLM Inference Verification",
+  "date": "2026-02-26",
+  "model": {
+    "name": "Qwen3-4B-GGUF",
+    "file": "Qwen3-4B-Q4_K_M.gguf",
+    "size_gb": 2.3,
+    "params": 4022468096,
+    "vocab_size": 151936,
+    "context_size": 2048,
+    "quantization": "Q4_K_M"
+  },
+  "build": {
+    "command": "cargo build --release --features llm",
+    "time_minutes": 10.3,
+    "feature_flags": ["llm"]
+  },
+  "loading": {
+    "backend": "llama.cpp (Metal GPU)",
+    "gpu_memory_mb": 2375.92,
+    "cpu_memory_mb": 304.28,
+    "total_memory_mb": 2680.2,
+    "gpu_layers_offloaded": "37/37",
+    "machine": "Mac Mini M-series (12GB unified memory)"
+  },
+  "health_endpoint": {
+    "llm_loaded": true,
+    "relation_strategy": "llm",
+    "relation_extractor_loaded": true,
+    "llm_model": "Qwen3-4B-GGUF"
+  },
+  "inference_test": {
+    "input": "Albert Einstein developed the theory of relativity while working at the Swiss Patent Office in Bern. He later joined Princeton University in New Jersey where he collaborated with Robert Oppenheimer on quantum mechanics research.",
+    "entities_found": 8,
+    "llm_relations_extracted": 6,
+    "co_occurrence_relations_baseline": 28,
+    "quality_improvement": "LLM extracted 6 focused, semantically meaningful relations vs 28 noisy co-occurrence relations. LLM correctly identified: Einstein→Swiss Patent Office, Einstein→Princeton, Einstein→Oppenheimer, Einstein→quantum mechanics, Oppenheimer→quantum mechanics",
+    "ingestion_time_ms": 6271,
+    "relation_weights": {
+      "einstein_to_patent_office": 0.95,
+      "einstein_to_princeton": 0.80,
+      "einstein_to_oppenheimer": 0.80,
+      "einstein_to_quantum_mechanics": 0.80,
+      "oppenheimer_to_quantum_mechanics": 0.80
+    }
+  },
+  "fixes_applied": {
+    "batch_position_tracking": "Fixed LLM decode loop: used n_cur counter for correct KV cache positions instead of batch.n_tokens() which reset to 0 after clear()"
+  },
+  "status": "PASS"
+}

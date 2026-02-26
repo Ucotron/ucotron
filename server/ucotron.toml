@@ -23,6 +23,7 @@ data_dir = "data/graph"
 models_dir = "models"
 embedding_model = "all-MiniLM-L6-v2"
 ner_model = "gliner_small-v2.1"
+llm_model = "Qwen3-4B-GGUF"
 
 [telemetry]
 enabled = true

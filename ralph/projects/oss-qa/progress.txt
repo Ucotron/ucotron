@@ -120,3 +120,27 @@ Created: 2026-02-25
 - **Pattern**: sherpa-onnx tokens.txt uses base64-encoded byte sequences with explicit token IDs (format: `b64_token token_id`)
 - **Pattern**: Whisper-tiny has 4 text layers, 384-dim, processes 30-second chunks with 80 mel bins
 - Results saved to test-results/oss-qa/multimodal-audio.json
+
+## QA-009: Auth, RBAC & API Key Management — COMPLETE
+- All 15 tests passing (0 failures)
+- **Auth config**: Enable with `[auth] enabled = true` + `[[auth.api_keys]]` TOML array entries
+- **API Key entries**: Each has `name`, `key`, `role` (admin/writer/reader/viewer), optional `namespace`, `active` boolean
+- **RBAC hierarchy**: Admin(3) > Writer(2) > Reader(1) > Viewer(0) — `has_privilege()` checks numeric level
+- **Public endpoints**: /health, /metrics, /openapi.json, /swagger-ui/*, /webhooks/* — no auth needed even when enabled
+- **API patterns**:
+  - GET /auth/whoami: returns role, namespace_scope, key_name, auth_enabled
+  - GET /auth/keys (admin only): returns masked key list
+  - POST /auth/keys (admin only): creates runtime key (ephemeral, lost on restart)
+  - DELETE /auth/keys/{name} (admin only): revokes key (sets active=false)
+- **RBAC enforcement verified**:
+  - Admin: full access to all endpoints including key management
+  - Writer: can create/update/delete memories, cannot manage API keys
+  - Reader: can list/search/augment memories, CANNOT create/update/delete (403)
+  - Namespace-scoped key: can only access its own namespace, gets 403 for other namespaces or default
+- **Pattern**: Memory IDs are u64 (not UUID) — use numeric IDs in test URLs
+- **Pattern**: DELETE /memories/{id} returns 204 (No Content), not 200
+- **Pattern**: Runtime-created API keys are ephemeral — for persistent keys, add to ucotron.toml
+- **Pattern**: Auth middleware is innermost layer — runs before audit and request counter
+- **Pattern**: Audit entries include `user` field with key_name when auth is enabled
+- Config restored to `auth.enabled = false` after test to not break other tests
+- Results saved to test-results/oss-qa/auth-results.json

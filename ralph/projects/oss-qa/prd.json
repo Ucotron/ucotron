@@ -122,7 +122,7 @@
       "id": "QA-009",
       "story": "Test auth, RBAC, and API key management",
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Enable auth in ucotron.toml and restart",
         "POST /auth/keys creates API keys with roles",

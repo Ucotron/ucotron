@@ -221,7 +221,7 @@
       "id": "QA-016",
       "story": "Compile final QA report with all benchmark data",
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Create test-results/oss-qa/REPORT.md with full summary",
         "Include latency tables for all benchmarks (no-LLM, default, coding model)",

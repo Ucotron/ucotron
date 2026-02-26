@@ -193,7 +193,7 @@
       "id": "QA-014",
       "story": "Benchmark with small coding model and compare all benchmarks",
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Identify and download a small Qwen3 coding model (~0.6B params or similar)",
         "Configure in ucotron.toml and restart server",

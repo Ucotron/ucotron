@@ -1,0 +1,139 @@
+{
+  "benchmark": "coding-model",
+  "model": "Qwen3-0.6B-GGUF (Q8_0, 610MB, 0.6B params)",
+  "timestamp": "2026-02-26T03:16:14Z",
+  "num_create_ops": 100,
+  "num_search_ops": 100,
+  "num_learn_ops": 20,
+  "num_augment_ops": 20,
+  "server_config": {
+    "storage_mode": "embedded",
+    "vector_backend": "helix",
+    "llm_model": "Qwen3-0.6B-GGUF",
+    "llm_backend": "candle"
+  },
+  "notes": {
+    "llm_feature_compiled": false,
+    "llm_inference_active": false,
+    "explanation": "The 'llm' cargo feature is not compiled into the binary. RelationStrategy::Llm falls back to co-occurrence extraction. /augment is pure retrieval (vector search + graph expansion), never uses LLM. /learn runs ingestion pipeline where relation extraction falls back to co-occurrence. Therefore, benchmarks with different LLM models show equivalent performance since LLM inference is never invoked.",
+    "model_comparison": "Qwen3-0.6B (0.6B params, 610MB Q8_0) vs Qwen3-4B (4B params, 2.3GB Q4_K_M) \u2014 no observable performance difference because neither model is actually used for inference."
+  },
+  "create": {
+    "count": 100,
+    "min_ms": 48.65,
+    "max_ms": 83.98,
+    "mean_ms": 58.02,
+    "p50_ms": 54.31,
+    "p95_ms": 78.6,
+    "p99_ms": 83.98
+  },
+  "search": {
+    "count": 100,
+    "min_ms": 2.75,
+    "max_ms": 3.46,
+    "mean_ms": 2.96,
+    "p50_ms": 2.94,
+    "p95_ms": 3.21,
+    "p99_ms": 3.46,
+    "p95_target_25ms": "PASS"
+  },
+  "learn": {
+    "count": 20,
+    "min_ms": 91.63,
+    "max_ms": 153.02,
+    "mean_ms": 120.76,
+    "p50_ms": 120.99,
+    "p95_ms": 153.02,
+    "p99_ms": 153.02
+  },
+  "augment": {
+    "count": 20,
+    "min_ms": 2.84,
+    "max_ms": 3.41,
+    "mean_ms": 3.04,
+    "p50_ms": 3.09,
+    "p95_ms": 3.41,
+    "p99_ms": 3.41
+  },
+  "comparison": {
+    "create": {
+      "coding_model": {
+        "p50_ms": 54.31,
+        "p95_ms": 78.6,
+        "mean_ms": 58.02
+      },
+      "no_llm": {
+        "p50_ms": 66.03,
+        "p95_ms": 107.58,
+        "mean_ms": 69.54
+      },
+      "default_model": {
+        "p50_ms": 42.02,
+        "p95_ms": 67.25,
+        "mean_ms": 46.13
+      }
+    },
+    "search": {
+      "coding_model": {
+        "p50_ms": 2.94,
+        "p95_ms": 3.21,
+        "mean_ms": 2.96
+      },
+      "no_llm": {
+        "p50_ms": 1.96,
+        "p95_ms": 2.08,
+        "mean_ms": 1.98
+      },
+      "default_model": {
+        "p50_ms": 3.19,
+        "p95_ms": 3.92,
+        "mean_ms": 3.31
+      }
+    },
+    "augment": {
+      "coding_model": {
+        "p50_ms": 3.09,
+        "p95_ms": 3.41,
+        "mean_ms": 3.04
+      },
+      "no_llm": {
+        "p50_ms": 1.93,
+        "p95_ms": 2.02,
+        "mean_ms": 1.94
+      },
+      "default_model": {
+        "p50_ms": 3.67,
+        "p95_ms": 4.02,
+        "mean_ms": 3.59
+      }
+    },
+    "learn": {
+      "coding_model": {
+        "p50_ms": 120.99,
+        "p95_ms": 153.02,
+        "mean_ms": 120.76
+      },
+      "default_model": {
+        "p50_ms": 60.95,
+        "p95_ms": 70.34,
+        "mean_ms": 61.01
+      }
+    }
+  },
+  "quality_comparison": {
+    "conclusion": "No observable quality difference between models because LLM inference is not active.",
+    "qwen3_4b": {
+      "params": "4B",
+      "quantization": "Q4_K_M",
+      "file_size_mb": 2300,
+      "effective_impact": "None (model loaded but not used for inference)"
+    },
+    "qwen3_0_6b": {
+      "params": "0.6B",
+      "quantization": "Q8_0",
+      "file_size_mb": 610,
+      "effective_impact": "None (model configured but not used for inference)"
+    },
+    "recommendation": "When the 'llm' cargo feature is implemented and compiled, re-run these benchmarks to measure actual LLM inference overhead. Expected: Qwen3-4B will produce higher quality relation extraction but with higher latency; Qwen3-0.6B will be faster but potentially lower quality for complex relation extraction tasks."
+  }
+}

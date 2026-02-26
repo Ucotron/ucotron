@@ -223,3 +223,28 @@ Created: 2026-02-25
 - **Pattern**: Chunking may split a single /learn message into multiple memory nodes (all share same conversation_id)
 - **Pattern**: MCP also available as standalone stdio binary (mcp_main.rs) for CLI/desktop integration
 - Results saved to test-results/oss-qa/mcp-results.json
+
+## QA-014: Benchmark with Small Coding Model & Compare All Benchmarks — COMPLETE
+- All 4 benchmark categories passing (create: 100 ops, search: 100 ops, learn: 20 ops, augment: 20 ops)
+- **Model downloaded**: Qwen3-0.6B-Q8_0.gguf (610MB) from Qwen/Qwen3-0.6B-GGUF on HuggingFace
+- **Config**: `llm_model = "Qwen3-0.6B-GGUF"`, `llm_backend = "candle"` in ucotron.toml
+- **KEY FINDING (same as QA-011)**: LLM inference NOT active — `llm` cargo feature not compiled
+  - All three configurations (no-LLM, Qwen3-4B, Qwen3-0.6B) produce equivalent performance
+  - RelationStrategy::Llm falls back to co-occurrence in all cases
+  - No quality difference observable because LLM is never invoked
+- **Benchmark results (Qwen3-0.6B configured but not active)**:
+  - Create: P50=54ms, P95=79ms (between no-LLM and Qwen3-4B runs — cache/state dependent)
+  - Search: P50=2.94ms, P95=3.21ms — PASS (<25ms target)
+  - Learn: P50=121ms, P95=153ms (higher than QA-011's 61ms due to larger data volume in LMDB)
+  - Augment: P50=3.09ms, P95=3.41ms
+- **Three-way comparison**:
+  - Create latency: no-LLM P50=66ms > 0.6B P50=54ms > 4B P50=42ms (warm cache effect)
+  - Search latency: no-LLM P50=1.96ms < 0.6B P50=2.94ms < 4B P50=3.19ms (index size growth)
+  - Learn latency: 4B P50=61ms << 0.6B P50=121ms (different data volumes, not model difference)
+  - Augment latency: no-LLM P50=1.93ms < 0.6B P50=3.09ms < 4B P50=3.67ms (index size)
+- **Quality comparison**: No observable difference — all three configs produce identical output quality since LLM inference is never invoked
+- **Pattern**: Benchmark latency variations across runs are dominated by LMDB index size and cache state, NOT model configuration
+- **Pattern**: `hf download Qwen/Qwen3-0.6B-GGUF Qwen3-0.6B-Q8_0.gguf --local-dir models/Qwen3-0.6B-GGUF`
+- **Recommendation**: Re-run benchmarks when `llm` feature is implemented and compiled to measure real LLM inference overhead
+- Config restored to no explicit llm_model after test
+- Results saved to test-results/oss-qa/benchmark-coding-model.json

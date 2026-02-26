@@ -1,0 +1,597 @@
+{
+  "test_suite": "QA-003: Vector Search & Hybrid Search",
+  "total_tests": 14,
+  "passed": 14,
+  "failed": 0,
+  "memories_ingested": 55,
+  "results": [
+    {
+      "test": "ingest_50_memories",
+      "status": "PASS",
+      "detail": "Ingested 55 diverse memories across 6 topic categories"
+    },
+    {
+      "test": "vector_search_returns_results",
+      "status": "PASS",
+      "detail": "Got 5 results for programming query"
+    },
+    {
+      "test": "vector_search_relevance",
+      "status": "PASS",
+      "detail": "Top result: Rust is a systems programming language focused on safety, speed, and concurrency..."
+    },
+    {
+      "test": "vector_search_biology",
+      "status": "PASS",
+      "detail": "Top result: Mitochondria are the powerhouses of the cell, generating most of the cell's supp..."
+    },
+    {
+      "test": "vector_search_history",
+      "status": "PASS",
+      "detail": "History search returned 5 results"
+    },
+    {
+      "test": "vector_search_limit",
+      "status": "PASS",
+      "detail": "Limit=3 returned 3 results"
+    },
+    {
+      "test": "hybrid_search_entities",
+      "status": "PASS",
+      "detail": "Entity-rich query returned 5 results"
+    },
+    {
+      "test": "hybrid_search_mindset",
+      "status": "PASS",
+      "detail": "Mindset query returned 5 results"
+    },
+    {
+      "test": "hybrid_score_components",
+      "status": "PASS",
+      "detail": "vector_sim=True(0.45135248) graph_centrality=True(0.0) recency=True(0.99999946) score=True(0.4479733)"
+    },
+    {
+      "test": "augment_returns_context",
+      "status": "PASS",
+      "detail": "memories=5 context_len=586 entities=0"
+    },
+    {
+      "test": "augment_debug_info",
+      "status": "PASS",
+      "detail": "Debug present=True, timings keys=['query_embedding_us', 'vector_search_us', 'entity_extraction_us', 'graph_expansion_us', 'community_selection_us']"
+    },
+    {
+      "test": "namespace_isolation_alpha",
+      "status": "PASS",
+      "detail": "Alpha search: found_own=True, leaked_beta=False, count=1"
+    },
+    {
+      "test": "namespace_isolation_beta",
+      "status": "PASS",
+      "detail": "Beta search: found_own=True, leaked_alpha=False, count=1"
+    },
+    {
+      "test": "namespace_isolation_default",
+      "status": "PASS",
+      "detail": "Default search: leaked_alpha=False, leaked_beta=False, count=8"
+    }
+  ],
+  "raw_responses": {
+    "vector_search_programming": {
+      "results": [
+        {
+          "id": 1000004,
+          "content": "Rust is a systems programming language focused on safety, speed, and concurrency without a garbage collector.",
+          "node_type": "Event",
+          "score": 0.4479733,
+          "vector_sim": 0.45135248,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000011,
+          "content": "Git is a distributed version control system that tracks changes in source code during software development.",
+          "node_type": "Event",
+          "score": 0.40532222,
+          "vector_sim": 0.32949227,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000013,
+          "content": "React is a JavaScript library for building user interfaces with a component-based architecture.",
+          "node_type": "Event",
+          "score": 0.3859347,
+          "vector_sim": 0.2740994,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000008,
+          "content": "WebAssembly enables high-performance applications on web pages written in multiple languages.",
+          "node_type": "Event",
+          "score": 0.3817872,
+          "vector_sim": 0.26224935,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000007,
+          "content": "GraphQL is a query language for APIs that gives clients the power to ask for exactly what they need.",
+          "node_type": "Event",
+          "score": 0.37936908,
+          "vector_sim": 0.25534046,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        }
+      ],
+      "total": 5,
+      "query": "programming language for systems development"
+    },
+    "vector_search_biology": {
+      "results": [
+        {
+          "id": 1000020,
+          "content": "Mitochondria are the powerhouses of the cell, generating most of the cell's supply of ATP.",
+          "node_type": "Event",
+          "score": 0.49029696,
+          "vector_sim": 0.57227725,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000014,
+          "content": "Photosynthesis converts carbon dioxide and water into glucose and oxygen using sunlight energy.",
+          "node_type": "Event",
+          "score": 0.4686838,
+          "vector_sim": 0.5105254,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000055,
+          "content": "Climate change is primarily driven by greenhouse gas emissions from burning fossil fuels.",
+          "node_type": "Event",
+          "score": 0.3903157,
+          "vector_sim": 0.28661638,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000034,
+          "content": "The Amazon rainforest produces approximately 20 percent of the world's oxygen supply.",
+          "node_type": "Event",
+          "score": 0.3692093,
+          "vector_sim": 0.22631234,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000022,
+          "content": "Evolution by natural selection is the process by which organisms with favorable traits survive and reproduce.",
+          "node_type": "Event",
+          "score": 0.36767444,
+          "vector_sim": 0.22192717,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        }
+      ],
+      "total": 5,
+      "query": "biological cells and energy production"
+    },
+    "vector_search_history": {
+      "results": [
+        {
+          "id": 1000024,
+          "content": "The Roman Empire at its peak controlled territory spanning from Britain to Mesopotamia.",
+          "node_type": "Event",
+          "score": 0.49174064,
+          "vector_sim": 0.57640207,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000033,
+          "content": "The ancient Greek city-states developed the earliest forms of democratic governance.",
+          "node_type": "Event",
+          "score": 0.45435748,
+          "vector_sim": 0.46959287,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000029,
+          "content": "The Silk Road was an ancient network of trade routes connecting China to the Mediterranean.",
+          "node_type": "Event",
+          "score": 0.4146753,
+          "vector_sim": 0.35621518,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000028,
+          "content": "Ancient Egypt developed one of the earliest writing systems known as hieroglyphics around 3200 BCE.",
+          "node_type": "Event",
+          "score": 0.41311246,
+          "vector_sim": 0.35174996,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000048,
+          "content": "Chocolate was first consumed as a bitter beverage by the ancient Mayans and Aztecs.",
+          "node_type": "Event",
+          "score": 0.3968856,
+          "vector_sim": 0.3053875,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.0
+        }
+      ],
+      "total": 5,
+      "query": "ancient civilizations and empires"
+    },
+    "hybrid_search_berlin": {
+      "results": [
+        {
+          "id": 1000032,
+          "content": "The Berlin Wall fell on November 9, 1989, symbolizing the end of the Cold War era.",
+          "node_type": "Event",
+          "score": 0.50354767,
+          "vector_sim": 0.61013615,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000030,
+          "content": "World War II lasted from 1939 to 1945 and involved most of the world's nations.",
+          "node_type": "Event",
+          "score": 0.39865655,
+          "vector_sim": 0.31044734,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000025,
+          "content": "The Industrial Revolution began in Britain in the late 18th century transforming manufacturing processes.",
+          "node_type": "Event",
+          "score": 0.34010342,
+          "vector_sim": 0.14315283,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000024,
+          "content": "The Roman Empire at its peak controlled territory spanning from Britain to Mesopotamia.",
+          "node_type": "Event",
+          "score": 0.33989185,
+          "vector_sim": 0.14254838,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000004,
+          "content": "Rust is a systems programming language focused on safety, speed, and concurrency without a garbage collector.",
+          "node_type": "Event",
+          "score": 0.33969873,
+          "vector_sim": 0.14199662,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        }
+      ],
+      "total": 5,
+      "query": "What happened in Berlin during the Cold War?"
+    },
+    "augment_response": {
+      "memories": [
+        {
+          "id": 1000056,
+          "content": "The International Space Station orbits Earth at approximately 28,000 kilometers per hour.",
+          "node_type": "Event",
+          "score": 0.4408469,
+          "vector_sim": 0.23813403,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.44999996
+        },
+        {
+          "id": 1000017,
+          "content": "Black holes are regions of spacetime where gravity is so strong that nothing can escape, not even light.",
+          "node_type": "Event",
+          "score": 0.4380742,
+          "vector_sim": 0.23021227,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.4499999
+        },
+        {
+          "id": 1000029,
+          "content": "The Silk Road was an ancient network of trade routes connecting China to the Mediterranean.",
+          "node_type": "Event",
+          "score": 0.42112193,
+          "vector_sim": 0.18177706,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.44999996
+        },
+        {
+          "id": 1000036,
+          "content": "The Great Barrier Reef is the world's largest coral reef system visible from outer space.",
+          "node_type": "Event",
+          "score": 0.42004988,
+          "vector_sim": 0.17871398,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.44999996
+        },
+        {
+          "id": 1000024,
+          "content": "The Roman Empire at its peak controlled territory spanning from Britain to Mesopotamia.",
+          "node_type": "Event",
+          "score": 0.41883823,
+          "vector_sim": 0.17525232,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.4499999
+        }
+      ],
+      "entities": [],
+      "context_text": "## Relevant Memories\n[1] (score: 0.44) \"The International Space Station orbits Earth at approximately 28,000 kilometers per hour.\"\n[2] (score: 0.44) \"Black holes are regions of spacetime where gravity is so strong that nothing can escape, not even light.\"\n[3] (score: 0.42) \"The Silk Road was an ancient network of trade routes connecting China to the Mediterranean.\"\n[4] (score: 0.42) \"The Great Barrier Reef is the world's largest coral reef system visible from outer space.\"\n[5] (score: 0.42) \"The Roman Empire at its peak controlled territory spanning from Britain to Mesopotamia.\"\n"
+    },
+    "augment_debug": {
+      "memories": [
+        {
+          "id": 1000057,
+          "content": "Artificial intelligence aims to create machines capable of performing tasks that typically require human intelligence.",
+          "node_type": "Event",
+          "score": 0.4049963,
+          "vector_sim": 0.32856095,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000004,
+          "content": "Rust is a systems programming language focused on safety, speed, and concurrency without a garbage collector.",
+          "node_type": "Event",
+          "score": 0.4006298,
+          "vector_sim": 0.31608528,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000006,
+          "content": "Machine learning models can be trained using supervised, unsupervised, or reinforcement learning paradigms.",
+          "node_type": "Event",
+          "score": 0.38499504,
+          "vector_sim": 0.27141458,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000023,
+          "content": "Neurotransmitters are chemical messengers that transmit signals across synapses between neurons.",
+          "node_type": "Event",
+          "score": 0.38354737,
+          "vector_sim": 0.26727843,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        },
+        {
+          "id": 1000008,
+          "content": "WebAssembly enables high-performance applications on web pages written in multiple languages.",
+          "node_type": "Event",
+          "score": 0.37643513,
+          "vector_sim": 0.24695772,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.0
+        }
+      ],
+      "entities": [],
+      "context_text": "## Relevant Memories\n[1] (score: 0.40) \"Artificial intelligence aims to create machines capable of performing tasks that typically require human intelligence.\"\n[2] (score: 0.40) \"Rust is a systems programming language focused on safety, speed, and concurrency without a garbage collector.\"\n[3] (score: 0.38) \"Machine learning models can be trained using supervised, unsupervised, or reinforcement learning paradigms.\"\n[4] (score: 0.38) \"Neurotransmitters are chemical messengers that transmit signals across synapses between neurons.\"\n[5] (score: 0.38) \"WebAssembly enables high-performance applications on web pages written in multiple languages.\"\n",
+      "debug": {
+        "pipeline_timings": {
+          "query_embedding_us": 1728,
+          "vector_search_us": 22,
+          "entity_extraction_us": 0,
+          "graph_expansion_us": 59,
+          "community_selection_us": 5,
+          "reranking_us": 158,
+          "context_assembly_us": 3,
+          "total_us": 2002
+        },
+        "pipeline_duration_ms": 2.002,
+        "vector_results_count": 38,
+        "query_entities_count": 0,
+        "score_breakdown": [
+          {
+            "id": 1000057,
+            "final_score": 0.4049963,
+            "vector_sim": 0.32856095,
+            "graph_centrality": 0.0,
+            "recency": 0.99999976,
+            "mindset_score": 0.0,
+            "path_reward": 1.0
+          },
+          {
+            "id": 1000004,
+            "final_score": 0.4006298,
+            "vector_sim": 0.31608528,
+            "graph_centrality": 0.0,
+            "recency": 0.99999946,
+            "mindset_score": 0.0,
+            "path_reward": 1.0
+          },
+          {
+            "id": 1000006,
+            "final_score": 0.38499504,
+            "vector_sim": 0.27141458,
+            "graph_centrality": 0.0,
+            "recency": 0.99999946,
+            "mindset_score": 0.0,
+            "path_reward": 1.0
+          },
+          {
+            "id": 1000023,
+            "final_score": 0.38354737,
+            "vector_sim": 0.26727843,
+            "graph_centrality": 0.0,
+            "recency": 0.99999946,
+            "mindset_score": 0.0,
+            "path_reward": 1.0
+          },
+          {
+            "id": 1000008,
+            "final_score": 0.37643513,
+            "vector_sim": 0.24695772,
+            "graph_centrality": 0.0,
+            "recency": 0.99999946,
+            "mindset_score": 0.0,
+            "path_reward": 1.0
+          }
+        ]
+      }
+    },
+    "namespace_alpha_search": {
+      "results": [
+        {
+          "id": 1000059,
+          "content": "Alpha namespace secret: the password is unicorn42",
+          "node_type": "Event",
+          "score": 0.5504501,
+          "vector_sim": 0.551286,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.44999996
+        }
+      ],
+      "total": 1,
+      "query": "what is the password"
+    },
+    "namespace_beta_search": {
+      "results": [
+        {
+          "id": 1000060,
+          "content": "Beta namespace secret: the password is dragon99",
+          "node_type": "Event",
+          "score": 0.53832245,
+          "vector_sim": 0.5166358,
+          "graph_centrality": 0.0,
+          "recency": 0.99999976,
+          "mindset_score": 0.44999996
+        }
+      ],
+      "total": 1,
+      "query": "what is the password"
+    },
+    "namespace_default_search": {
+      "results": [
+        {
+          "id": 1000038,
+          "content": "The Mariana Trench is the deepest known point in Earth's oceans at nearly 11,000 meters.",
+          "node_type": "Event",
+          "score": 0.4190056,
+          "vector_sim": 0.17573053,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.4499999
+        },
+        {
+          "id": 1000023,
+          "content": "Neurotransmitters are chemical messengers that transmit signals across synapses between neurons.",
+          "node_type": "Event",
+          "score": 0.4112378,
+          "vector_sim": 0.15353692,
+          "graph_centrality": 0.0,
+          "recency": 0.9999992,
+          "mindset_score": 0.44999987
+        },
+        {
+          "id": 1000020,
+          "content": "Mitochondria are the powerhouses of the cell, generating most of the cell's supply of ATP.",
+          "node_type": "Event",
+          "score": 0.41063252,
+          "vector_sim": 0.1518076,
+          "graph_centrality": 0.0,
+          "recency": 0.9999992,
+          "mindset_score": 0.44999987
+        },
+        {
+          "id": 1000054,
+          "content": "The human brain contains approximately 86 billion neurons connected by trillions of synapses.",
+          "node_type": "Event",
+          "score": 0.41053236,
+          "vector_sim": 0.1515212,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.4499999
+        },
+        {
+          "id": 1000004,
+          "content": "Rust is a systems programming language focused on safety, speed, and concurrency without a garbage collector.",
+          "node_type": "Event",
+          "score": 0.4055918,
+          "vector_sim": 0.1374054,
+          "graph_centrality": 0.0,
+          "recency": 0.9999992,
+          "mindset_score": 0.44999987
+        },
+        {
+          "id": 1000013,
+          "content": "React is a JavaScript library for building user interfaces with a component-based architecture.",
+          "node_type": "Event",
+          "score": 0.40315834,
+          "vector_sim": 0.13045275,
+          "graph_centrality": 0.0,
+          "recency": 0.9999992,
+          "mindset_score": 0.44999987
+        },
+        {
+          "id": 1000058,
+          "content": "The Fibonacci sequence appears frequently in nature from sunflower spirals to nautilus shells.",
+          "node_type": "Event",
+          "score": 0.39828217,
+          "vector_sim": 0.1165207,
+          "graph_centrality": 0.0,
+          "recency": 0.99999946,
+          "mindset_score": 0.4499999
+        },
+        {
+          "id": 1000018,
+          "content": "CRISPR-Cas9 is a revolutionary gene-editing technology that can precisely modify DNA sequences.",
+          "node_type": "Event",
+          "score": 0.39708227,
+          "vector_sim": 0.11309254,
+          "graph_centrality": 0.0,
+          "recency": 0.9999992,
+          "mindset_score": 0.44999987
+        }
+      ],
+      "total": 8,
+      "query": "what is the password"
+    }
+  }
+}

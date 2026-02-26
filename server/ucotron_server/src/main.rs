@@ -742,6 +742,7 @@ fn try_init_whisper(
 
 /// Try to initialize CLIP image and text pipelines for multimodal support.
 /// Returns (None, None) if CLIP model files are not present.
+#[allow(clippy::type_complexity)]
 fn try_init_clip(
     config: &UcotronConfig,
 ) -> (

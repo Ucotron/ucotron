@@ -33,5 +33,8 @@ export_traces = true
 export_metrics = true
 export_logs = false
 
+[ingestion]
+chunk_size = 512
+
 [auth]
 enabled = false

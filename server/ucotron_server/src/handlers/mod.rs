@@ -185,6 +185,7 @@ pub async fn create_memory_handler(
     let next_id = state.alloc_next_node_id();
     let config = IngestionConfig {
         next_node_id: Some(next_id),
+        chunk_size: state.config.ingestion.chunk_size,
         ..IngestionConfig::default()
     };
 
@@ -1093,6 +1094,7 @@ pub async fn learn_handler(
     let next_id = state.alloc_next_node_id();
     let config = IngestionConfig {
         next_node_id: Some(next_id),
+        chunk_size: state.config.ingestion.chunk_size,
         ..IngestionConfig::default()
     };
 
@@ -1789,6 +1791,7 @@ pub async fn transcribe_handler(
         let next_id = state.alloc_next_node_id();
         let config = IngestionConfig {
             next_node_id: Some(next_id),
+            chunk_size: state.config.ingestion.chunk_size,
             ..IngestionConfig::default()
         };
 
@@ -2235,6 +2238,7 @@ pub async fn ocr_handler(
         let next_id = state.alloc_next_node_id();
         let config = IngestionConfig {
             next_node_id: Some(next_id),
+            chunk_size: state.config.ingestion.chunk_size,
             ..IngestionConfig::default()
         };
 
@@ -4570,6 +4574,7 @@ pub async fn create_text_memory_handler(
     let next_id = state.alloc_next_node_id();
     let config = IngestionConfig {
         next_node_id: Some(next_id),
+        chunk_size: state.config.ingestion.chunk_size,
         ..IngestionConfig::default()
     };
 
@@ -4728,6 +4733,7 @@ pub async fn create_audio_memory_handler(
     let next_id = state.alloc_next_node_id();
     let config = IngestionConfig {
         next_node_id: Some(next_id),
+        chunk_size: state.config.ingestion.chunk_size,
         ..IngestionConfig::default()
     };
 
@@ -4979,6 +4985,7 @@ pub async fn create_image_memory_handler(
         let next_id = state.alloc_next_node_id();
         let config = IngestionConfig {
             next_node_id: Some(next_id),
+            chunk_size: state.config.ingestion.chunk_size,
             ..IngestionConfig::default()
         };
 
@@ -5356,6 +5363,7 @@ pub async fn create_video_memory_handler(
                 let next_id = state.alloc_next_node_id();
                 let config = IngestionConfig {
                     next_node_id: Some(next_id),
+                    chunk_size: state.config.ingestion.chunk_size,
                     ..IngestionConfig::default()
                 };
 

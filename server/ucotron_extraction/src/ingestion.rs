@@ -55,6 +55,9 @@ pub struct IngestionConfig {
     /// Sub-batch size for embedding inference. When processing many chunks,
     /// they are split into sub-batches of this size. Default: 32.
     pub embedding_batch_size: usize,
+    /// Maximum chunk size in characters. Sentences are grouped together until
+    /// this limit is reached. Default: 512.
+    pub chunk_size: usize,
 }
 
 impl Default for IngestionConfig {
@@ -75,6 +78,7 @@ impl Default for IngestionConfig {
             next_node_id: None,
             ner_batch_size: 8,
             embedding_batch_size: 32,
+            chunk_size: 512,
         }
     }
 }
@@ -220,7 +224,7 @@ impl<'a> IngestionOrchestrator<'a> {
             let _chunk_guard = chunk_span.enter();
 
             let chunk_start = Instant::now();
-            let chunks = chunk_text(text);
+            let chunks = chunk_text(text, self.config.chunk_size);
             metrics.chunking_us = chunk_start.elapsed().as_micros() as u64;
 
             chunk_span.record("chunks", chunks.len());
@@ -831,19 +835,57 @@ struct EntityInfo {
 // Helper functions
 // ---------------------------------------------------------------------------
 
-/// Split text into sentence-level chunks.
+/// Split text into sentence-level chunks, then group sentences up to `max_chunk_size` characters.
 ///
 /// Uses a simple rule-based approach: split on `.`, `!`, `?` that are actual
 /// sentence boundaries. Decimal points within numbers (e.g. 99.99, 2.0.1) are
 /// preserved and NOT treated as sentence boundaries.
-pub fn chunk_text(text: &str) -> Vec<String> {
+///
+/// After splitting into sentences, consecutive sentences are merged into chunks
+/// that do not exceed `max_chunk_size` characters. A single sentence longer than
+/// `max_chunk_size` is emitted as its own chunk (never truncated).
+pub fn chunk_text(text: &str, max_chunk_size: usize) -> Vec<String> {
     if text.trim().is_empty() {
         return Vec::new();
     }
 
+    let sentences = split_sentences(text);
+    if sentences.is_empty() {
+        return Vec::new();
+    }
+
+    // Group sentences into chunks up to max_chunk_size
+    let max_size = max_chunk_size.max(1);
+    let mut chunks = Vec::new();
+    let mut current = String::new();
+
+    for sentence in &sentences {
+        if current.is_empty() {
+            current = sentence.clone();
+        } else if current.len() + 1 + sentence.len() <= max_size {
+            current.push(' ');
+            current.push_str(sentence);
+        } else {
+            chunks.push(current);
+            current = sentence.clone();
+        }
+    }
+
+    if !current.is_empty() {
+        chunks.push(current);
+    }
+
+    chunks
+}
+
+/// Split text into individual sentences.
+///
+/// Splits on `.`, `!`, `?` as sentence boundaries. Decimal points within numbers
+/// (e.g. 99.99, 2.0.1) are preserved and NOT treated as boundaries.
+fn split_sentences(text: &str) -> Vec<String> {
     let chars: Vec<char> = text.chars().collect();
     let len = chars.len();
-    let mut chunks = Vec::new();
+    let mut sentences = Vec::new();
     let mut current = String::new();
 
     for i in 0..len {
@@ -855,7 +897,7 @@ pub fn chunk_text(text: &str) -> Vec<String> {
             if !current.trim().is_empty() {
                 let trimmed = current.trim().to_string();
                 if !trimmed.is_empty() && trimmed.len() > 1 {
-                    chunks.push(trimmed);
+                    sentences.push(trimmed);
                 }
                 current.clear();
             }
@@ -873,7 +915,7 @@ pub fn chunk_text(text: &str) -> Vec<String> {
             if !current.trim().is_empty() {
                 let trimmed = current.trim().to_string();
                 if !trimmed.is_empty() && trimmed.len() > 1 {
-                    chunks.push(trimmed);
+                    sentences.push(trimmed);
                 }
                 current.clear();
             }
@@ -883,10 +925,10 @@ pub fn chunk_text(text: &str) -> Vec<String> {
     // Remaining text (no terminal punctuation)
     let trimmed = current.trim().to_string();
     if !trimmed.is_empty() && trimmed.len() > 1 {
-        chunks.push(trimmed);
+        sentences.push(trimmed);
     }
 
-    chunks
+    sentences
 }
 
 /// Normalize entity text for deduplication (lowercase, trimmed).
@@ -1155,7 +1197,7 @@ mod tests {
 
     #[test]
     fn test_chunk_text_simple_sentences() {
-        let chunks = chunk_text("Hello world. How are you? I am fine!");
+        let chunks = chunk_text("Hello world. How are you? I am fine!", 1);
         assert_eq!(chunks.len(), 3);
         assert_eq!(chunks[0], "Hello world.");
         assert_eq!(chunks[1], "How are you?");
@@ -1164,22 +1206,22 @@ mod tests {
 
     #[test]
     fn test_chunk_text_no_punctuation() {
-        let chunks = chunk_text("This is a sentence without punctuation");
+        let chunks = chunk_text("This is a sentence without punctuation", 512);
         assert_eq!(chunks.len(), 1);
         assert_eq!(chunks[0], "This is a sentence without punctuation");
     }
 
     #[test]
     fn test_chunk_text_empty() {
-        let chunks = chunk_text("");
+        let chunks = chunk_text("", 512);
         assert!(chunks.is_empty());
-        let chunks2 = chunk_text("   ");
+        let chunks2 = chunk_text("   ", 512);
         assert!(chunks2.is_empty());
     }
 
     #[test]
     fn test_chunk_text_single_sentence() {
-        let chunks = chunk_text("Juan se mudó de Madrid a Berlín en enero 2026.");
+        let chunks = chunk_text("Juan se mudó de Madrid a Berlín en enero 2026.", 512);
         assert_eq!(chunks.len(), 1);
         assert!(chunks[0].contains("Juan"));
     }
@@ -1478,8 +1520,10 @@ mod tests {
         let registry = boxed_registry();
         let embedder = MockEmbedder;
 
+        // Use small chunk_size to get sentence-level splitting
         let config = IngestionConfig {
             enable_entity_resolution: false,
+            chunk_size: 1,
             ..Default::default()
         };
 
@@ -1499,7 +1543,7 @@ mod tests {
 
     #[test]
     fn test_chunk_text_only_whitespace() {
-        let chunks = chunk_text("   \t\n  ");
+        let chunks = chunk_text("   \t\n  ", 512);
         assert!(
             chunks.is_empty(),
             "Whitespace-only text should produce no chunks"
@@ -1508,7 +1552,7 @@ mod tests {
 
     #[test]
     fn test_chunk_text_decimal_numbers_preserved() {
-        let chunks = chunk_text("The price is $99.99 for this item.");
+        let chunks = chunk_text("The price is $99.99 for this item.", 512);
         assert_eq!(chunks.len(), 1);
         assert!(
             chunks[0].contains("$99.99"),
@@ -1519,7 +1563,7 @@ mod tests {
 
     #[test]
     fn test_chunk_text_version_numbers_preserved() {
-        let chunks = chunk_text("Using version 2.0.1 of the library.");
+        let chunks = chunk_text("Using version 2.0.1 of the library.", 512);
         assert_eq!(chunks.len(), 1);
         assert!(
             chunks[0].contains("2.0.1"),
@@ -1530,7 +1574,7 @@ mod tests {
 
     #[test]
     fn test_chunk_text_range_numbers_preserved() {
-        let chunks = chunk_text("Growth from 8.2 to 6.5 percent.");
+        let chunks = chunk_text("Growth from 8.2 to 6.5 percent.", 512);
         assert_eq!(chunks.len(), 1);
         assert!(
             chunks[0].contains("8.2"),
@@ -1546,7 +1590,7 @@ mod tests {
 
     #[test]
     fn test_chunk_text_percentage_preserved() {
-        let chunks = chunk_text("Inflation was 15.5 percent last year. It may decrease.");
+        let chunks = chunk_text("Inflation was 15.5 percent last year. It may decrease.", 1);
         assert_eq!(chunks.len(), 2);
         assert!(
             chunks[0].contains("15.5"),
@@ -1557,7 +1601,7 @@ mod tests {
 
     #[test]
     fn test_chunk_text_consecutive_punctuation() {
-        let chunks = chunk_text("Hello!! World?? Yes...");
+        let chunks = chunk_text("Hello!! World?? Yes...", 1);
         // Should not produce empty chunks between consecutive punctuation
         for chunk in &chunks {
             assert!(
@@ -1566,6 +1610,23 @@ mod tests {
                 chunks
             );
         }
+    }
+
+    #[test]
+    fn test_chunk_text_groups_sentences_by_size() {
+        // Three short sentences (~7 chars each), chunk_size=512 groups them all
+        let chunks = chunk_text("First. Second. Third.", 512);
+        assert_eq!(chunks.len(), 1, "Small sentences should merge: {:?}", chunks);
+        assert!(chunks[0].contains("First."));
+        assert!(chunks[0].contains("Third."));
+
+        // Same text with chunk_size=1 keeps each sentence separate
+        let chunks = chunk_text("First. Second. Third.", 1);
+        assert_eq!(chunks.len(), 3, "chunk_size=1 should split: {:?}", chunks);
+
+        // chunk_size=20 fits ~2 sentences ("First. Second." = 15 chars)
+        let chunks = chunk_text("First. Second. Third.", 20);
+        assert_eq!(chunks.len(), 2, "chunk_size=20: {:?}", chunks);
     }
 
     #[test]

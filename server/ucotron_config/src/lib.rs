@@ -79,6 +79,9 @@ pub struct UcotronConfig {
     /// Connector scheduling configuration.
     #[serde(default)]
     pub connectors: ConnectorsConfig,
+    /// Ingestion pipeline configuration.
+    #[serde(default)]
+    pub ingestion: IngestionSection,
 }
 
 /// HTTP server configuration.
@@ -1007,6 +1010,34 @@ fn default_connector_retries() -> u32 {
     3
 }
 
+/// Ingestion pipeline configuration.
+///
+/// Controls text chunking behavior for the ingestion pipeline.
+///
+/// ```toml
+/// [ingestion]
+/// chunk_size = 512
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IngestionSection {
+    /// Maximum chunk size in characters. Sentences are grouped together until
+    /// this limit is reached. Default: 512.
+    #[serde(default = "default_chunk_size")]
+    pub chunk_size: usize,
+}
+
+impl Default for IngestionSection {
+    fn default() -> Self {
+        Self {
+            chunk_size: default_chunk_size(),
+        }
+    }
+}
+
+fn default_chunk_size() -> usize {
+    512
+}
+
 impl UcotronConfig {
     /// Load configuration from a TOML file, then apply environment variable overrides.
     pub fn from_file(path: &str) -> anyhow::Result<Self> {
@@ -1285,6 +1316,13 @@ impl UcotronConfig {
                 self.connectors.check_interval_secs = n;
             }
         }
+
+        // Ingestion overrides
+        if let Ok(v) = std::env::var("UCOTRON_INGESTION_CHUNK_SIZE") {
+            if let Ok(n) = v.parse::<usize>() {
+                self.ingestion.chunk_size = n;
+            }
+        }
     }
 
     // --- Telemetry accessors ---
@@ -1528,6 +1566,13 @@ impl UcotronConfig {
                     entry.connector_id
                 );
             }
+        }
+
+        // --- Ingestion validation ---
+        if self.ingestion.chunk_size == 0 {
+            anyhow::bail!(
+                "ingestion.chunk_size must be > 0. Set a valid value in ucotron.toml or via UCOTRON_INGESTION_CHUNK_SIZE env var."
+            );
         }
 
         Ok(())

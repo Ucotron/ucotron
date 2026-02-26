@@ -9,7 +9,7 @@ description = "Extraction pipeline for Ucotron: embeddings, NER (GLiNER), relati
 default = []
 # Enable LLM-based relation extraction via llama.cpp.
 # Requires llama-cpp-2 crate and a GGUF model file.
-llm = []
+llm = ["dep:llama-cpp-2"]
 
 [dependencies]
 ucotron-core = { workspace = true }
@@ -31,6 +31,8 @@ reqwest = { version = "0.12", features = ["json", "blocking"] }
 pdf-extract = "0.10"
 # Temporary files for Tesseract OCR processing
 tempfile = "3"
+# LLM inference via llama.cpp (optional, gated behind "llm" feature)
+llama-cpp-2 = { version = "0.1", optional = true }
 
 [dev-dependencies]
 tempfile = "3"

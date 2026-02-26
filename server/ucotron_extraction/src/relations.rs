@@ -559,6 +559,177 @@ fn extract_json_array(text: &str) -> String {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// LLM Relation Extractor (requires "llm" feature)
+// ─────────────────────────────────────────────────────────────────────
+
+#[cfg(feature = "llm")]
+pub struct LlmRelationExtractor {
+    backend: llama_cpp_2::llama_backend::LlamaBackend,
+    model: llama_cpp_2::model::LlamaModel,
+    config: LlmRelationConfig,
+}
+
+#[cfg(feature = "llm")]
+impl LlmRelationExtractor {
+    /// Load a GGUF model from `model_path` and prepare for inference.
+    pub fn new(config: LlmRelationConfig) -> anyhow::Result<Self> {
+        use llama_cpp_2::llama_backend::LlamaBackend;
+        use llama_cpp_2::model::params::LlamaModelParams;
+        use llama_cpp_2::model::LlamaModel;
+
+        let backend = LlamaBackend::init()
+            .map_err(|e| anyhow::anyhow!("Failed to init llama backend: {}", e))?;
+        let params = LlamaModelParams::default();
+        let model =
+            LlamaModel::load_from_file(&backend, &config.model_path, &params).map_err(|e| {
+                anyhow::anyhow!("Failed to load GGUF model '{}': {}", config.model_path, e)
+            })?;
+
+        tracing::info!(
+            "LLM relation extractor loaded model from '{}' (ctx={}, vocab={}, params={})",
+            config.model_path,
+            config.context_size,
+            model.n_vocab(),
+            model.n_params(),
+        );
+
+        Ok(Self {
+            backend,
+            model,
+            config,
+        })
+    }
+
+    /// Find the first GGUF file in a directory and create the extractor.
+    pub fn from_model_dir(dir: &str, config: LlmRelationConfig) -> anyhow::Result<Self> {
+        let entries = std::fs::read_dir(dir)
+            .map_err(|e| anyhow::anyhow!("Cannot read model dir '{}': {}", dir, e))?;
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map(|ext| ext == "gguf").unwrap_or(false) {
+                let mut cfg = config;
+                cfg.model_path = path.to_string_lossy().to_string();
+                return Self::new(cfg);
+            }
+        }
+
+        anyhow::bail!("No GGUF file found in '{}'", dir)
+    }
+
+    /// Run inference on the given prompt and return the raw completion text.
+    #[allow(deprecated)]
+    fn complete(&self, prompt: &str) -> anyhow::Result<String> {
+        use llama_cpp_2::context::params::LlamaContextParams;
+        use llama_cpp_2::llama_batch::LlamaBatch;
+        use llama_cpp_2::model::{AddBos, Special};
+        use llama_cpp_2::sampling::LlamaSampler;
+        use std::num::NonZeroU32;
+
+        let ctx_params = LlamaContextParams::default()
+            .with_n_ctx(Some(NonZeroU32::new(self.config.context_size).unwrap()))
+            .with_n_threads(self.config.num_threads as i32)
+            .with_n_threads_batch(self.config.num_threads as i32);
+
+        let mut ctx = self
+            .model
+            .new_context(&self.backend, ctx_params)
+            .map_err(|e| anyhow::anyhow!("Failed to create LLM context: {}", e))?;
+
+        // Tokenize the prompt
+        let tokens = self
+            .model
+            .str_to_token(prompt, AddBos::Always)
+            .map_err(|e| anyhow::anyhow!("Tokenization failed: {}", e))?;
+
+        if tokens.len() as u32 >= self.config.context_size {
+            anyhow::bail!(
+                "Prompt too long: {} tokens exceeds context size {}",
+                tokens.len(),
+                self.config.context_size
+            );
+        }
+
+        // Feed prompt tokens
+        let mut batch = LlamaBatch::new(self.config.context_size as usize, 1);
+        for (i, token) in tokens.iter().enumerate() {
+            let is_last = i == tokens.len() - 1;
+            batch.add(*token, i as i32, &[0], is_last)?;
+        }
+        ctx.decode(&mut batch)
+            .map_err(|e| anyhow::anyhow!("Decode failed: {}", e))?;
+
+        // Set up sampler with temperature
+        let mut sampler = if self.config.temperature < 0.05 {
+            LlamaSampler::greedy()
+        } else {
+            LlamaSampler::chain_simple([
+                LlamaSampler::temp(self.config.temperature),
+                LlamaSampler::dist(42),
+            ])
+        };
+
+        // Generate tokens
+        let mut output = String::new();
+        let max_gen = self.config.max_tokens as usize;
+
+        for _ in 0..max_gen {
+            let new_token = sampler.sample(&ctx, batch.n_tokens() - 1);
+            sampler.accept(new_token);
+
+            // Check for end of generation
+            if self.model.is_eog_token(new_token) {
+                break;
+            }
+
+            // Detokenize incrementally
+            #[allow(deprecated)]
+            if let Ok(piece) = self.model.token_to_str(new_token, Special::Tokenize) {
+                output.push_str(&piece);
+            }
+
+            // Early stop if we see the closing bracket of JSON array
+            if output.contains("]\n") || output.ends_with(']') {
+                break;
+            }
+
+            // Prepare next batch
+            batch.clear();
+            batch.add(new_token, batch.n_tokens(), &[0], true)?;
+            ctx.decode(&mut batch)
+                .map_err(|e| anyhow::anyhow!("Decode failed: {}", e))?;
+        }
+
+        Ok(output)
+    }
+}
+
+#[cfg(feature = "llm")]
+impl RelationExtractor for LlmRelationExtractor {
+    fn extract_relations(
+        &self,
+        text: &str,
+        entities: &[ExtractedEntity],
+    ) -> anyhow::Result<Vec<ExtractedRelation>> {
+        if entities.len() < 2 {
+            return Ok(Vec::new());
+        }
+
+        let prompt = build_relation_prompt(text, entities);
+        let output = self.complete(&prompt)?;
+
+        tracing::debug!("LLM relation output: {}", output);
+
+        let relations = parse_llm_relations(&output);
+        if relations.is_empty() {
+            tracing::debug!("LLM returned no parseable relations, no fallback at extractor level");
+        }
+
+        Ok(relations)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Composite Relation Extractor (auto-selects strategy)
 // ─────────────────────────────────────────────────────────────────────
 
@@ -719,6 +890,8 @@ impl RelationExtractor for FireworksRelationExtractor {
 pub struct CompositeRelationExtractor {
     cooccurrence: CooccurrenceRelationExtractor,
     fireworks: Option<FireworksRelationExtractor>,
+    #[cfg(feature = "llm")]
+    llm: Option<LlmRelationExtractor>,
     strategy: RelationStrategy,
 }
 
@@ -742,6 +915,8 @@ impl CompositeRelationExtractor {
                 return Self {
                     cooccurrence,
                     fireworks: Some(fireworks),
+                    #[cfg(feature = "llm")]
+                    llm: None,
                     strategy: RelationStrategy::Fireworks,
                 };
             }
@@ -755,9 +930,37 @@ impl CompositeRelationExtractor {
         // Check local LLM
         let strategy = Self::determine_llm_strategy(models_config);
 
+        #[cfg(feature = "llm")]
+        {
+            if strategy == RelationStrategy::Llm {
+                let model_dir =
+                    std::path::Path::new(&models_config.models_dir).join(&models_config.llm_model);
+                let config = LlmRelationConfig::default();
+                match LlmRelationExtractor::from_model_dir(&model_dir.to_string_lossy(), config) {
+                    Ok(llm) => {
+                        tracing::info!("LLM relation extractor loaded from {:?}", model_dir);
+                        return Self {
+                            cooccurrence,
+                            fireworks: None,
+                            llm: Some(llm),
+                            strategy: RelationStrategy::Llm,
+                        };
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to load LLM relation extractor: {}. Falling back to co-occurrence.",
+                            e
+                        );
+                    }
+                }
+            }
+        }
+
         Self {
             cooccurrence,
             fireworks: None,
+            #[cfg(feature = "llm")]
+            llm: None,
             strategy,
         }
     }
@@ -767,6 +970,8 @@ impl CompositeRelationExtractor {
         Self {
             cooccurrence: CooccurrenceRelationExtractor::with_defaults(),
             fireworks: None,
+            #[cfg(feature = "llm")]
+            llm: None,
             strategy: RelationStrategy::CoOccurrence,
         }
     }
@@ -862,8 +1067,25 @@ impl RelationExtractor for CompositeRelationExtractor {
             }
             RelationStrategy::CoOccurrence => self.cooccurrence.extract_relations(text, entities),
             RelationStrategy::Llm => {
-                // When "llm" feature is enabled, this would call the local LLM.
-                // Fall back to co-occurrence if not compiled in.
+                #[cfg(feature = "llm")]
+                {
+                    if let Some(ref llm) = self.llm {
+                        match llm.extract_relations(text, entities) {
+                            Ok(relations) if !relations.is_empty() => return Ok(relations),
+                            Ok(_) => {
+                                tracing::debug!(
+                                    "LLM returned no relations, falling back to co-occurrence"
+                                );
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    "LLM relation extraction failed, falling back to co-occurrence: {}",
+                                    e
+                                );
+                            }
+                        }
+                    }
+                }
                 self.cooccurrence.extract_relations(text, entities)
             }
         }

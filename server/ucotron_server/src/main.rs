@@ -837,7 +837,10 @@ fn try_init_ner(config: &UcotronConfig) -> Option<Arc<dyn ucotron_extraction::Ne
             Some(Arc::new(pipeline))
         }
         Err(e) => {
-            tracing::warn!("Failed to load NER pipeline: {}. Entity extraction disabled.", e);
+            tracing::warn!(
+                "Failed to load NER pipeline: {}. Entity extraction disabled.",
+                e
+            );
             None
         }
     }

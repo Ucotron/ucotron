@@ -1616,7 +1616,12 @@ mod tests {
     fn test_chunk_text_groups_sentences_by_size() {
         // Three short sentences (~7 chars each), chunk_size=512 groups them all
         let chunks = chunk_text("First. Second. Third.", 512);
-        assert_eq!(chunks.len(), 1, "Small sentences should merge: {:?}", chunks);
+        assert_eq!(
+            chunks.len(),
+            1,
+            "Small sentences should merge: {:?}",
+            chunks
+        );
         assert!(chunks[0].contains("First."));
         assert!(chunks[0].contains("Third."));
 

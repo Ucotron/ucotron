@@ -5757,7 +5757,11 @@ fn embed_frame_rgb(
 ) -> Result<Vec<f32>, AppError> {
     // Encode the raw RGB bytes to PNG in-memory, then pass to embed_image_bytes.
     let img = image::RgbImage::from_raw(frame.width, frame.height, frame.rgb_data.clone())
-        .ok_or_else(|| AppError::bad_request("Failed to construct image from frame RGB data — video may be corrupted"))?;
+        .ok_or_else(|| {
+            AppError::bad_request(
+                "Failed to construct image from frame RGB data — video may be corrupted",
+            )
+        })?;
     let mut buf = std::io::Cursor::new(Vec::new());
     image::DynamicImage::ImageRgb8(img)
         .write_to(&mut buf, image::ImageFormat::Png)

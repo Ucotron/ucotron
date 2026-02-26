@@ -86,14 +86,22 @@ export default function ConnectorsPage() {
     enabled: true,
   });
 
+  const [schedulingDisabled, setSchedulingDisabled] = useState(false);
+
   const fetchConnectors = useCallback(async () => {
     setLoading(true);
     setError("");
+    setSchedulingDisabled(false);
     try {
       const result = await listConnectorSchedules();
       setConnectors(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load connectors");
+      const msg = err instanceof Error ? err.message : "Failed to load connectors";
+      if (msg.includes("scheduling is not enabled")) {
+        setSchedulingDisabled(true);
+      } else {
+        setError(msg);
+      }
     }
     setLoading(false);
   }, []);
@@ -227,7 +235,8 @@ export default function ConnectorsPage() {
           </button>
           <button
             onClick={openWizard}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            disabled={schedulingDisabled}
+            className="flex items-center gap-2 rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" />
             Add Connector
@@ -264,8 +273,23 @@ export default function ConnectorsPage() {
         </div>
       )}
 
+      {/* Scheduling not enabled */}
+      {schedulingDisabled && (
+        <Card>
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <Plug className="h-12 w-12 text-muted-foreground/30" />
+            <p className="text-sm font-medium text-muted-foreground">
+              Connector Scheduling Not Available
+            </p>
+            <p className="max-w-md text-xs text-muted-foreground/70">
+              The server does not have connector scheduling enabled. Enable it in your server configuration to use connectors.
+            </p>
+          </div>
+        </Card>
+      )}
+
       {/* Empty state */}
-      {!loading && connectors.length === 0 && (
+      {!loading && !schedulingDisabled && connectors.length === 0 && (
         <Card>
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <Plug className="h-12 w-12 text-muted-foreground/30" />

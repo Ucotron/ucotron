@@ -320,6 +320,11 @@ pub async fn get_memory_handler(
         .map_err(|e| AppError::internal(format!("Graph lookup failed: {}", e)))?
         .ok_or_else(|| AppError::not_found(format!("Memory {} not found", id)))?;
 
+    // Soft-deleted nodes should return 404.
+    if node_is_deleted(&node) {
+        return Err(AppError::not_found(format!("Memory {} not found", id)));
+    }
+
     Ok(Json(node_to_memory_response(&node)))
 }
 
@@ -355,6 +360,11 @@ pub async fn update_memory_handler(
         .get_node(id)
         .map_err(|e| AppError::internal(format!("Graph lookup failed: {}", e)))?
         .ok_or_else(|| AppError::not_found(format!("Memory {} not found", id)))?;
+
+    // Soft-deleted nodes cannot be updated.
+    if node_is_deleted(&node) {
+        return Err(AppError::not_found(format!("Memory {} not found", id)));
+    }
 
     if let Some(content) = body.content {
         node.content = content;
@@ -1171,6 +1181,14 @@ fn tag_nodes_with_conversation(state: &AppState, node_ids: &[u64], conversation_
 /// Returns `true` if the node has a `_namespace` metadata matching the namespace,
 /// or if the node has no `_namespace` metadata (pre-existing data without namespace).
 /// The "default" namespace matches all nodes without explicit namespace metadata.
+/// Check if a node has been soft-deleted.
+fn node_is_deleted(node: &ucotron_core::Node) -> bool {
+    matches!(
+        node.metadata.get("deleted"),
+        Some(ucotron_core::Value::Bool(true))
+    )
+}
+
 fn node_matches_namespace(node: &ucotron_core::Node, namespace: &str) -> bool {
     match node.metadata.get("_namespace") {
         Some(ucotron_core::Value::String(ns)) => ns == namespace,

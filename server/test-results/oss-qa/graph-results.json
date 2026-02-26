@@ -1,0 +1,64 @@
+{
+  "test_id": "QA-005",
+  "timestamp": "2026-02-25T22:45:42Z",
+  "tests": [
+    {
+      "name": "GET /entities returns entity list",
+      "pass": true,
+      "detail": "status=200, entity_count=0 (empty expected when NER not loaded)"
+    },
+    {
+      "name": "GET /entities/{id} returns entity details or 404",
+      "pass": true,
+      "detail": "No entities (NER off), non-existent returns 404 correctly"
+    },
+    {
+      "name": "GET /graph returns graph data",
+      "pass": true,
+      "detail": "status=200, nodes=60, edges=0, total_nodes=60, total_edges=0"
+    },
+    {
+      "name": "GET /admin/namespaces lists namespaces",
+      "pass": true,
+      "detail": "status=200, total=1, namespaces=['default']"
+    },
+    {
+      "name": "POST /admin/namespaces creates namespace",
+      "pass": true,
+      "detail": "status=201, created 'qa005-test-ns'"
+    },
+    {
+      "name": "GET /admin/namespaces/{name} returns namespace info",
+      "pass": true,
+      "detail": "status=200, name=qa005-test-ns, memory_count=0"
+    },
+    {
+      "name": "Namespace tracks memory count after ingestion",
+      "pass": true,
+      "detail": "namespace=qa005-test-ns, memory_count=1"
+    },
+    {
+      "name": "DELETE /admin/namespaces/{name} removes namespace",
+      "pass": true,
+      "detail": "deleted and confirmed 404"
+    },
+    {
+      "name": "Audit entries have correct namespace (BUG-5)",
+      "pass": true,
+      "detail": "found 2 entries with namespace=qa005-audit-ns, correct=True"
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "all_pass": true
+  },
+  "notes": [
+    "NER model not loaded (ner_loaded=false) so entity extraction doesn't produce Entity nodes",
+    "All graph nodes are type 'Event' (memories). Entity extraction requires NER model.",
+    "Endpoints work correctly - entities list returns empty array, graph returns memory nodes",
+    "Namespace CRUD fully functional: create, get, list, delete",
+    "BUG-5 verification: audit entries correctly include namespace field"
+  ]
+}

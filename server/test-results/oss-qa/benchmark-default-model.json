@@ -1,0 +1,66 @@
+{
+  "benchmark": "default-model",
+  "timestamp": "2026-02-26T02:58:04Z",
+  "model": "Qwen3-4B-GGUF (Q4_K_M, 2.3GB)",
+  "num_crud_operations": 100,
+  "num_learn_augment_operations": 20,
+  "server_config": {
+    "storage_mode": "embedded",
+    "vector_backend": "helix",
+    "llm_model": "Qwen3-4B-GGUF",
+    "llm_backend": "candle",
+    "llm_inference_active": false,
+    "relation_extraction": "co-occurrence (llm feature not compiled)"
+  },
+  "create": {
+    "count": 100,
+    "min_ms": 35.92,
+    "max_ms": 75.37,
+    "mean_ms": 46.13,
+    "p50_ms": 42.02,
+    "p95_ms": 67.25,
+    "p99_ms": 72.06
+  },
+  "search": {
+    "count": 100,
+    "min_ms": 3.01,
+    "max_ms": 5.8,
+    "mean_ms": 3.31,
+    "p50_ms": 3.19,
+    "p95_ms": 3.92,
+    "p99_ms": 4.52,
+    "p95_target_25ms": "PASS"
+  },
+  "augment": {
+    "count": 20,
+    "min_ms": 3.1,
+    "max_ms": 4.59,
+    "mean_ms": 3.59,
+    "p50_ms": 3.67,
+    "p95_ms": 4.02,
+    "p99_ms": 4.48
+  },
+  "learn": {
+    "count": 20,
+    "min_ms": 48.48,
+    "max_ms": 98.3,
+    "mean_ms": 61.01,
+    "p50_ms": 60.95,
+    "p95_ms": 70.34,
+    "p99_ms": 92.7
+  },
+  "comparison_vs_no_llm": {
+    "create_overhead_ms": -24.01,
+    "search_overhead_ms": 1.23,
+    "augment_overhead_ms": 1.74,
+    "note": "Overhead is P50 difference between default-model and no-llm benchmarks"
+  },
+  "findings": {
+    "llm_status": "Model file present (Qwen3-4B-Q4_K_M.gguf, 2.3GB) but local LLM inference not active",
+    "reason": "The 'llm' cargo feature is not compiled in. RelationStrategy::Llm falls back to co-occurrence.",
+    "impact": "Learn and augment latencies are similar to no-LLM baseline since no LLM inference occurs.",
+    "augment_note": "/augment endpoint is pure retrieval (vector search + graph expansion) - does not use LLM regardless of config.",
+    "learn_note": "/learn runs full ingestion pipeline (chunk \u2192 embed \u2192 NER \u2192 relation extraction). Relation extraction uses co-occurrence, not LLM.",
+    "recommendation": "To enable actual LLM inference: (1) compile with --features llm, (2) implement LlmRelationExtractor in relations.rs, (3) add llama-cpp-2 dependency."
+  }
+}

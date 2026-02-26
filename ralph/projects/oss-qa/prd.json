@@ -1,0 +1,237 @@
+{
+  "branchName": "ralph/oss-qa",
+  "userStories": [
+    {
+      "id": "QA-001",
+      "story": "Build server binary and verify health endpoints",
+      "priority": 1,
+      "passes": true,
+      "acceptanceCriteria": [
+        "cargo build --release succeeds without errors",
+        "Server starts with ucotron.toml config",
+        "GET /api/v1/health returns 200 with status ok",
+        "GET /api/v1/metrics returns prometheus metrics",
+        "GET /api/v1/openapi.json returns valid OpenAPI spec",
+        "Create test-results/oss-qa/ directory for all outputs"
+      ]
+    },
+    {
+      "id": "QA-002",
+      "story": "Test all memory CRUD operations",
+      "priority": 2,
+      "passes": true,
+      "acceptanceCriteria": [
+        "POST /memories creates a memory and returns ID",
+        "GET /memories lists all memories",
+        "GET /memories/{id} returns specific memory",
+        "PUT /memories/{id} updates memory content",
+        "DELETE /memories/{id} removes memory",
+        "Operations work with default and custom namespaces",
+        "GET /audit shows entries for all CRUD operations",
+        "Save all responses to test-results/oss-qa/crud-results.json"
+      ]
+    },
+    {
+      "id": "QA-003",
+      "story": "Test vector search and hybrid search",
+      "priority": 3,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Ingest at least 50 diverse text memories",
+        "POST /memories/search with vector mode returns relevant results",
+        "POST /memories/search with hybrid mode returns results",
+        "POST /augment returns augmented context",
+        "Search respects namespace boundaries (verify BUG-1 fix)",
+        "Save search results to test-results/oss-qa/search-results.json"
+      ]
+    },
+    {
+      "id": "QA-004",
+      "story": "Benchmark performance without LLM model",
+      "priority": 4,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Server running with llm_model disabled or empty",
+        "Benchmark create: measure P50/P95/P99 latency over 100 operations",
+        "Benchmark search: measure P50/P95/P99 latency over 100 queries",
+        "Benchmark augment: measure P50/P95/P99 latency",
+        "Vector search P95 target: <25ms",
+        "Save results to test-results/oss-qa/benchmark-no-llm.json"
+      ]
+    },
+    {
+      "id": "QA-005",
+      "story": "Test entities, graph operations, and namespace management",
+      "priority": 5,
+      "passes": true,
+      "acceptanceCriteria": [
+        "GET /entities returns extracted entities from ingested memories",
+        "GET /entities/{id} returns entity details with relationships",
+        "GET /graph returns graph data",
+        "GET /admin/namespaces lists namespaces",
+        "POST /admin/namespaces creates a new namespace",
+        "DELETE /admin/namespaces/{name} removes namespace",
+        "Audit entries have correct namespace (verify BUG-5 fix)",
+        "Save results to test-results/oss-qa/graph-results.json"
+      ]
+    },
+    {
+      "id": "QA-006",
+      "story": "Test agent clone/merge operations",
+      "priority": 6,
+      "passes": true,
+      "acceptanceCriteria": [
+        "POST /agents creates an agent",
+        "GET /agents lists agents",
+        "POST /agents/{id}/clone creates a copy",
+        "POST /agents/{id}/merge merges two agents",
+        "DELETE /agents/{id} removes agent",
+        "Cloned agent has independent data",
+        "Save results to test-results/oss-qa/agent-results.json"
+      ]
+    },
+    {
+      "id": "QA-007",
+      "story": "Test multimodal: image ingestion and CLIP search",
+      "priority": 7,
+      "passes": true,
+      "acceptanceCriteria": [
+        "POST /memories/image ingests a PNG image",
+        "POST /memories/image ingests a JPG image",
+        "POST /images indexes images with CLIP embeddings",
+        "POST /images/search returns similar images",
+        "CLIP embeddings are 512-dimensional",
+        "GET /media/{id} serves the stored media file",
+        "Save results to test-results/oss-qa/multimodal-image.json"
+      ]
+    },
+    {
+      "id": "QA-008",
+      "story": "Test multimodal: audio transcription with Whisper",
+      "priority": 8,
+      "passes": true,
+      "acceptanceCriteria": [
+        "POST /memories/audio ingests an audio file",
+        "POST /transcribe returns text transcription",
+        "Transcription quality is reasonable for clear speech",
+        "Audio memory is searchable via text",
+        "Save results to test-results/oss-qa/multimodal-audio.json"
+      ]
+    },
+    {
+      "id": "QA-009",
+      "story": "Test auth, RBAC, and API key management",
+      "priority": 9,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Enable auth in ucotron.toml and restart",
+        "POST /auth/keys creates API keys with roles",
+        "GET /auth/keys lists existing keys",
+        "Admin key can access all endpoints",
+        "Reader key cannot create/update/delete memories",
+        "Namespace-scoped key only sees its namespace",
+        "Unauthorized request returns 401/403",
+        "Save results to test-results/oss-qa/auth-results.json"
+      ]
+    },
+    {
+      "id": "QA-010",
+      "story": "Test export/import and migration formats",
+      "priority": 10,
+      "passes": true,
+      "acceptanceCriteria": [
+        "GET /export returns all data in export format",
+        "POST /import re-imports exported data successfully",
+        "Data integrity verified after round-trip (same count, same content)",
+        "POST /import/mem0 accepts mem0 format (or returns clear error if no data)",
+        "POST /import/zep accepts zep format (or returns clear error if no data)",
+        "Save results to test-results/oss-qa/import-export-results.json"
+      ]
+    },
+    {
+      "id": "QA-011",
+      "story": "Benchmark with default Qwen3-4B model",
+      "priority": 11,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Server running with Qwen3-4B-GGUF model enabled",
+        "POST /learn generates learned insights from conversation",
+        "POST /augment returns LLM-enhanced context",
+        "Benchmark learn: measure P50/P95 latency over 20 operations",
+        "Benchmark augment with LLM: measure P50/P95 latency",
+        "Compare with no-LLM benchmark (latency overhead)",
+        "Save results to test-results/oss-qa/benchmark-default-model.json"
+      ]
+    },
+    {
+      "id": "QA-012",
+      "story": "Test multimodal: video ingestion and segments",
+      "priority": 12,
+      "passes": true,
+      "acceptanceCriteria": [
+        "POST /memories/video ingests a short MP4 video",
+        "GET /videos/{parent_id}/segments returns keyframe segments",
+        "Each segment has CLIP embeddings from keyframes",
+        "Video segments are searchable",
+        "Save results to test-results/oss-qa/multimodal-video.json"
+      ]
+    },
+    {
+      "id": "QA-013",
+      "story": "Test MCP server and conversations",
+      "priority": 13,
+      "passes": true,
+      "acceptanceCriteria": [
+        "MCP endpoint at /mcp is accessible",
+        "MCP lists available tools",
+        "GET /conversations lists tracked conversations",
+        "GET /conversations/{id}/messages returns conversation messages",
+        "Save results to test-results/oss-qa/mcp-results.json"
+      ]
+    },
+    {
+      "id": "QA-014",
+      "story": "Benchmark with small coding model and compare all benchmarks",
+      "priority": 14,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Identify and download a small Qwen3 coding model (~0.6B params or similar)",
+        "Configure in ucotron.toml and restart server",
+        "Run same learn/augment benchmarks as QA-011",
+        "Compare response quality between Qwen3-4B and coding model",
+        "Save results to test-results/oss-qa/benchmark-coding-model.json"
+      ]
+    },
+    {
+      "id": "QA-015",
+      "story": "Test edge cases and stress scenarios",
+      "priority": 15,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Test UTF-8 edge cases: emoji, CJK characters, RTL text in memories",
+        "Test batch ingestion: 100+ memories in rapid succession",
+        "Test concurrent search: 10 parallel search requests",
+        "Test corrupted file upload: server returns error without crashing",
+        "Test large text memory (>10KB)",
+        "Verify server stays stable after all stress tests",
+        "Save results to test-results/oss-qa/edge-cases-results.json"
+      ]
+    },
+    {
+      "id": "QA-016",
+      "story": "Compile final QA report with all benchmark data",
+      "priority": 16,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Create test-results/oss-qa/REPORT.md with full summary",
+        "Include latency tables for all benchmarks (no-LLM, default, coding model)",
+        "Include pass/fail matrix for all API endpoints",
+        "Include multimodal test results (image, audio, video)",
+        "Document any bugs found with descriptions",
+        "Document any fixes applied (with commit hashes)",
+        "Include known issues and recommendations for launch",
+        "Report is clear enough for a human reviewer to assess launch readiness"
+      ]
+    }
+  ]
+}

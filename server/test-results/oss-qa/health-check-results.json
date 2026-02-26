@@ -1,0 +1,64 @@
+{
+  "story_id": "QA-001",
+  "title": "Build server binary and verify health endpoints",
+  "timestamp": "2026-02-26T01:21:00Z",
+  "results": {
+    "cargo_build_release": {
+      "status": "PASS",
+      "duration": "8m 12s",
+      "notes": "Clean build from scratch, all workspace members compiled"
+    },
+    "server_starts": {
+      "status": "PASS",
+      "config": "ucotron.toml",
+      "port": 8420,
+      "notes": "Server starts with embedded storage mode, helix backends"
+    },
+    "health_endpoint": {
+      "status": "PASS",
+      "url": "GET /api/v1/health",
+      "http_code": 200,
+      "response": {
+        "status": "ok",
+        "version": "0.1.0",
+        "storage_mode": "embedded",
+        "vector_backend": "helix",
+        "graph_backend": "helix",
+        "models": {
+          "embedder_loaded": true,
+          "embedding_model": "all-MiniLM-L6-v2",
+          "ner_loaded": false,
+          "transcriber_loaded": false,
+          "image_embedder_loaded": false
+        }
+      }
+    },
+    "metrics_endpoint": {
+      "status": "PASS",
+      "url": "GET /api/v1/metrics",
+      "http_code": 200,
+      "notes": "Returns JSON metrics with instance_id, total_requests, uptime_secs"
+    },
+    "openapi_endpoint": {
+      "status": "PASS",
+      "url": "GET /api/v1/openapi.json",
+      "http_code": 200,
+      "notes": "Returns valid OpenAPI 3.1.0 spec with all endpoint definitions"
+    },
+    "test_results_directory": {
+      "status": "PASS",
+      "path": "server/test-results/oss-qa/",
+      "notes": "Directory created for all QA outputs"
+    }
+  },
+  "models_downloaded": {
+    "all-MiniLM-L6-v2": "90MB ONNX model + tokenizer (embedding)",
+    "gliner_small-v2.1": "583MB ONNX model + tokenizer + config (NER)"
+  },
+  "notes": [
+    "NER model (gliner_small-v2.1) downloaded but shows ner_loaded=false in health - may need additional config or load trigger",
+    "No LLM model configured (expected for Phase 1)",
+    "Multimodal models not downloaded yet (Whisper, CLIP)"
+  ],
+  "overall": "PASS"
+}

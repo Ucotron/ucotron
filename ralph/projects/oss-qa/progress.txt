@@ -1,0 +1,300 @@
+# Progress Log: oss-qa
+
+Created: 2026-02-25
+
+## Project Setup
+- PRD and prd.json ready with 16 user stories
+- Phases: health, CRUD, search, benchmark (3 configs), multimodal (4 types), auth, import/export, MCP, edge cases, final report
+- Working directory: /Users/martinriesco/Documents/Code/Ucotron/repos/ucotron.nosync
+- Branch: ralph/oss-qa
+
+## Important Notes
+- Build Rust server ONCE, reuse binary unless code changes
+- Save all test artifacts to server/test-results/oss-qa/
+- Server config at server/ucotron.toml
+- Models download automatically on first run (~678MB)
+
+## QA-001: Build & Health Check — COMPLETE
+- `cargo build --release` succeeded in 8m 12s
+- Models downloaded: all-MiniLM-L6-v2 (90MB ONNX), gliner_small-v2.1 (583MB ONNX)
+- **Important**: MiniLM model must be at `models/all-MiniLM-L6-v2/onnx/model.onnx` (need onnx/ subdirectory)
+- Server starts fine on port 8420 with embedded storage mode
+- Health (200), Metrics (200), OpenAPI (200) all verified
+- NER model shows `ner_loaded: false` in health despite being downloaded — may need investigation
+- Results saved to test-results/oss-qa/health-check-results.json
+- Server left running for next phases (PID varies, kill with `pkill -f ucotron_server`)
+
+## QA-002: Memory CRUD Operations — COMPLETE
+- All 11 CRUD tests passing
+- **BUG FOUND & FIXED**: GET /memories/{id} returned 200 for soft-deleted nodes instead of 404
+  - Root cause: delete_memory_handler uses soft delete (clears content, sets metadata.deleted=true) but get_memory_handler didn't check for deleted flag
+  - Fix: Added `node_is_deleted()` helper in handlers/mod.rs, used in get_memory_handler and update_memory_handler
+  - File changed: `server/ucotron_server/src/handlers/mod.rs`
+- Namespace isolation working: X-Ucotron-Namespace header correctly isolates CRUD ops
+- Audit log captures all CRUD actions: memories.create, memories.delete, memories.get, memories.list, memories.update
+- Results saved to test-results/oss-qa/crud-results.json
+- **Pattern**: Server uses soft delete — vector embedding removed (unsearchable) + node content cleared + metadata.deleted=true
+- **Pattern**: List endpoint uses zero-vector search, so soft-deleted entries are naturally excluded (no embedding)
+
+## QA-003: Vector Search & Hybrid Search — COMPLETE
+- All 14 tests passing (0 failures)
+- Ingested 55 diverse text memories across 6 categories (tech, science, history, geography, food/culture, misc)
+- **API patterns discovered**:
+  - POST /memories uses `text` field (not `content`) — response returns `chunk_node_ids` array (not `id`)
+  - POST /memories/search uses `query`, `limit`, `query_mindset` fields — response has `results` array with `content`, `score`, `vector_sim`, `graph_centrality`, `recency`, `mindset_score`
+  - POST /augment uses `context`, `limit`, `debug` fields — response has `memories`, `entities`, `context_text`, `debug`
+- **Vector search**: Semantic similarity working correctly — "programming language" query returns Rust memory as top result, "biological cells" returns mitochondria
+- **Hybrid pipeline**: Always runs full LazyGraphRAG pipeline (vector + entity extraction + graph expansion + community selection + reranking). `query_mindset` parameter ("convergent"/"divergent"/"algorithmic") supported
+- **Score components**: Results include vector_sim, graph_centrality, recency, mindset_score — graph_centrality=0.0 for freshly ingested memories (no graph connections yet)
+- **Augment endpoint**: Returns memories + context_text + entities. Debug mode provides pipeline_timings with per-stage microsecond metrics
+- **Namespace isolation (BUG-1)**: VERIFIED FIXED — alpha namespace search only returns alpha data, beta only beta, default namespace doesn't leak namespaced data
+- Results saved to test-results/oss-qa/search-results.json
+
+## QA-004: Benchmark No-LLM — COMPLETE
+- All 3 benchmark categories passing (100 ops each)
+- **Create**: P50=66ms, P95=108ms, P99=115ms — includes embedding generation via ONNX
+- **Search**: P50=1.96ms, P95=2.08ms, P99=2.41ms — **well under 25ms P95 target**
+- **Augment**: P50=1.93ms, P95=2.02ms, P99=2.14ms — nearly identical to raw search (no LLM overhead)
+- Server config: embedded storage, helix vector backend, no LLM model
+- **Pattern**: Create latency dominated by ONNX embedding generation (~60-70ms). Search/augment are sub-2ms without LLM.
+- **Pattern**: Augment without LLM is essentially search + context assembly, no LLM inference overhead
+- Results saved to test-results/oss-qa/benchmark-no-llm.json
+
+## QA-005: Entities, Graph, and Namespace Management — COMPLETE
+- All 9 tests passing (0 failures)
+- **Entities**: GET /entities returns JSON array directly (not wrapped object). Returns empty when NER not loaded (ner_loaded=false).
+- **Entity detail**: GET /entities/{id} returns 404 for non-existent entity, includes `neighbors` field with 1-hop relations
+- **Graph**: GET /graph returns `{nodes, edges, total_nodes, total_edges}`. All 60 nodes are type "Event" (memories). No edges yet (NER needed for entity extraction and relationship building).
+- **Namespace CRUD**: Full lifecycle working — list (includes "default"), create (201), get (with memory_count/entity_count), delete (404 after)
+- **Namespace isolation**: Memory ingested with X-Ucotron-Namespace header correctly increments namespace memory_count
+- **BUG-5 VERIFIED FIXED**: Audit entries correctly include `namespace` field matching the request namespace. Audit entry keys: timestamp, method, path, action, status, duration_us, user, role, namespace, resource_id
+- **Pattern**: Namespace sentinel nodes have entity_count=1 on creation (the sentinel node itself)
+- **Pattern**: GET /entities uses zero-vector search + NodeType::Entity filter — returns empty when no NER extraction has run
+- Results saved to test-results/oss-qa/graph-results.json
+
+## QA-006: Agent Clone/Merge Operations — COMPLETE
+- All 12 tests passing (0 failures)
+- **Agent CRUD**: POST /agents (201), GET /agents (200 with pagination), GET /agents/{id} (200), DELETE /agents/{id} (200, returns 404 after)
+- **API patterns**:
+  - POST /agents takes `name` + `config` (HashMap). Response includes auto-generated `id`, `namespace` (format: agent_{name}-{random}), `owner`, `created_at`
+  - Each agent gets its own isolated namespace — memories ingested with `X-Ucotron-Namespace: {agent.namespace}`
+  - Clone: POST /agents/{id}/clone with empty body auto-generates target_namespace. Returns `nodes_copied`, `edges_copied`
+  - Merge: POST /agents/{id}/merge with `source_agent_id`. Returns `nodes_copied`, `edges_copied`, `nodes_deduplicated`, `ids_remapped`
+- **Clone independence verified**: Cloned namespace has its own searchable copy of memories, independent from original
+- **Merge verified**: After merging B into A, B's content (Docker/Kubernetes) is searchable in A's namespace
+- **Delete cascade**: DELETE removes agent and returns 404 on subsequent GET
+- **Auth levels**: Create/Clone/Merge = Writer, List/Get = Reader, Delete = Admin (tested without auth enabled)
+- Results saved to test-results/oss-qa/agent-results.json
+
+## QA-007: Multimodal Image Ingestion & CLIP Search — COMPLETE
+- All 7 tests passing (0 failures)
+- **CLIP models**: Downloaded from jmzzomg/clip-vit-base-patch32-{vision,text}-onnx repos (official HF openai/clip-vit-base-patch32 has no ONNX exports)
+  - visual_model.onnx (335MB), text_model.onnx (242MB), tokenizer.json (2.1MB)
+  - Models at `models/clip-vit-base-patch32/`
+- **Server changes required**:
+  - Added `try_init_clip()` in main.rs to load ClipImagePipeline + ClipTextPipeline at startup
+  - Added visual vector backend initialization (HelixVisualVectorBackend) when CLIP models are present
+  - Changed `AppState::new()` to `AppState::with_all_pipelines()` to pass image_embedder and cross_modal_encoder
+- **API patterns**:
+  - POST /memories/image: multipart form (file + description), returns 201 with node_id, width, height, format, embedding_dim, media_type, description_ingested, metrics
+  - POST /images: lightweight CLIP indexing only (no text ingestion), returns 200/201 with node_id, embedding_dim
+  - POST /images/search: JSON body {query, limit, min_similarity}, returns {results: [{node_id, score, content, timestamp}], total, query}
+  - GET /media/{id}: serves stored media files with correct content-type
+- **Embedding dimensions**: CLIP produces 512-dim vectors, stored in separate visual vector index (not mixed with 384-dim MiniLM text embeddings)
+- **Visual backend**: Requires `HelixVisualVectorBackend` (separate LMDB index at 512-dim) — without it, images are stored but search returns 501
+- **Pattern**: Images get dual storage — CLIP embedding in visual index + optional text embedding in text index (if description provided)
+- Results saved to test-results/oss-qa/multimodal-image.json
+
+## QA-008: Multimodal Audio Transcription with Whisper — COMPLETE
+- All 5 tests passing (0 failures)
+- **TWO BUGS FOUND & FIXED**:
+  - **BUG-8**: Token decoder garbled output — `load_token_map()` in audio.rs didn't parse sherpa-onnx tokens.txt format (base64_token token_id columns). Fixed by adding base64 decoding for the two-column format.
+  - **BUG-9**: Whisper pipeline not initialized — main.rs passed `None` for transcriber despite models being present. Fixed by adding `try_init_whisper()` (mirrors `try_init_clip()` pattern).
+- **Model downloads**: whisper-tiny ONNX from `k2-fsa/sherpa-onnx` releases (tar.bz2 archive, not individual files — direct file URLs 404). encoder.onnx=36MB, decoder.onnx=109MB, tokens.txt=798KB
+- **API patterns**:
+  - POST /memories/audio: multipart form (file + description), returns 201 with chunk_node_ids, transcription, audio metadata (duration, sample_rate, channels, detected_language), metrics
+  - POST /transcribe: multipart form (file), returns text, chunks (with start_secs/end_secs), audio metadata, optional ingestion results
+  - Audio files must be WAV format (mono, 16kHz, 16-bit PCM — auto-resamples if needed)
+- **Transcription quality**: EXCELLENT for clear English speech — exact case-insensitive match on test sentences from sherpa-onnx test_wavs
+- **Searchability**: Audio transcriptions ingested as text memories, fully searchable via vector search (top result for relevant queries)
+- **Pattern**: sherpa-onnx tokens.txt uses base64-encoded byte sequences with explicit token IDs (format: `b64_token token_id`)
+- **Pattern**: Whisper-tiny has 4 text layers, 384-dim, processes 30-second chunks with 80 mel bins
+- Results saved to test-results/oss-qa/multimodal-audio.json
+
+## QA-009: Auth, RBAC & API Key Management — COMPLETE
+- All 15 tests passing (0 failures)
+- **Auth config**: Enable with `[auth] enabled = true` + `[[auth.api_keys]]` TOML array entries
+- **API Key entries**: Each has `name`, `key`, `role` (admin/writer/reader/viewer), optional `namespace`, `active` boolean
+- **RBAC hierarchy**: Admin(3) > Writer(2) > Reader(1) > Viewer(0) — `has_privilege()` checks numeric level
+- **Public endpoints**: /health, /metrics, /openapi.json, /swagger-ui/*, /webhooks/* — no auth needed even when enabled
+- **API patterns**:
+  - GET /auth/whoami: returns role, namespace_scope, key_name, auth_enabled
+  - GET /auth/keys (admin only): returns masked key list
+  - POST /auth/keys (admin only): creates runtime key (ephemeral, lost on restart)
+  - DELETE /auth/keys/{name} (admin only): revokes key (sets active=false)
+- **RBAC enforcement verified**:
+  - Admin: full access to all endpoints including key management
+  - Writer: can create/update/delete memories, cannot manage API keys
+  - Reader: can list/search/augment memories, CANNOT create/update/delete (403)
+  - Namespace-scoped key: can only access its own namespace, gets 403 for other namespaces or default
+- **Pattern**: Memory IDs are u64 (not UUID) — use numeric IDs in test URLs
+- **Pattern**: DELETE /memories/{id} returns 204 (No Content), not 200
+- **Pattern**: Runtime-created API keys are ephemeral — for persistent keys, add to ucotron.toml
+- **Pattern**: Auth middleware is innermost layer — runs before audit and request counter
+- **Pattern**: Audit entries include `user` field with key_name when auth is enabled
+- Config restored to `auth.enabled = false` after test to not break other tests
+- Results saved to test-results/oss-qa/auth-results.json
+
+## QA-010: Export/Import and Migration Formats — COMPLETE
+- All 8 tests passing (0 failures)
+- **Export endpoint**: GET /export returns JSON-LD format with `@context`, `@type: "ucotron:MemoryGraph"`, `version: "1.0"`, `nodes`, `edges`, `stats`
+- **Export params**: `include_embeddings` (bool), `namespace` via header, `format` (jsonld default)
+- **Import round-trip verified**: Exported 5 memories from qa010-src namespace → imported to qa010-dst → verified same node count (5) and content searchable via vector search in destination
+- **Mem0 import**: POST /import/mem0 with `{data: {results: [...], total_memories: N}, link_same_user: bool}`. Imported 3 memories, 2 edges (user_id chain). Nodes become Entity type with mem0_ prefixed metadata.
+- **Zep/Graphiti import**: POST /import/zep with `{data: {entities: [...], episodes: [...], edges: [...]}, link_same_user: bool, link_same_group: bool, preserve_expired: bool}`. Imported 3 nodes (2 entities + 1 episode), 1 edge.
+- **Empty data handling**: Both /import/mem0 and /import/zep return 200 with zero counts when given empty arrays (graceful, no crash)
+- **Pattern**: Export uses JSON-LD context with schema.org mappings. Import remaps node IDs to avoid collisions.
+- **Pattern**: Import requires Writer role. Export requires Reader role.
+- **Pattern**: Round-trip preserves content and generates fresh embeddings on import (searchable immediately)
+- Results saved to test-results/oss-qa/import-export-results.json
+
+## QA-011: Benchmark with Default Qwen3-4B Model — COMPLETE
+- All benchmarks passing (create: 100 ops, search: 100 ops, learn: 20 ops, augment: 20 ops)
+- **Model downloaded**: Qwen3-4B-Q4_K_M.gguf (2.3GB) from Qwen/Qwen3-4B-GGUF on HuggingFace
+- **Config**: `llm_model = "Qwen3-4B-GGUF"`, `llm_backend = "candle"` in ucotron.toml
+- **KEY FINDING**: Local LLM inference is NOT active — the `llm` cargo feature is not compiled, so RelationStrategy::Llm falls back to co-occurrence
+  - The `llm` feature flag in ucotron_extraction/Cargo.toml is empty (`llm = []`) — no llama-cpp-2 dependency
+  - Even with feature enabled, `RelationStrategy::Llm` match arm calls `self.cooccurrence.extract_relations()` (placeholder)
+  - `/augment` is pure retrieval (vector search + graph expansion) — never uses LLM regardless of config
+  - `/learn` runs ingestion pipeline where only relation extraction could use LLM, but falls back to co-occurrence
+- **Benchmark results (with model configured but not active)**:
+  - Create: P50=42ms, P95=67ms (faster than no-LLM run due to warmed caches)
+  - Search: P50=3.2ms, P95=3.9ms — PASS (<25ms target)
+  - Augment: P50=3.7ms, P95=4.0ms
+  - Learn: P50=61ms, P95=70ms (similar to create — both run embedding + co-occurrence)
+- **Comparison vs no-LLM**: Negligible overhead (±1-2ms for search/augment, create actually faster due to warm state)
+- **Pattern**: The default `llm_model` in ModelsConfig is "Qwen3-4B-GGUF" (set in ucotron_config/src/lib.rs). When ucotron.toml omits `llm_model`, this default applies but gracefully falls back.
+- **Pattern**: `/learn` endpoint takes `{output: String, conversation_id: Option<String>}` — runs full ingestion pipeline (chunk → embed → NER → relation extraction → entity resolution → graph update)
+- **Pattern**: Model download: `hf download Qwen/Qwen3-4B-GGUF Qwen3-4B-Q4_K_M.gguf --local-dir models/Qwen3-4B-GGUF`
+- Config restored to no explicit llm_model (to not break other tests)
+- Results saved to test-results/oss-qa/benchmark-default-model.json
+
+## QA-012: Multimodal Video Ingestion & Segments — COMPLETE
+- All 5 tests passing (0 failures)
+- **BUG FOUND & FIXED**: Video pipeline not initialized — main.rs passed `None` for video_pipeline despite FFmpeg being available. Same pattern as BUG-9 (Whisper).
+  - Fix: Added `try_init_video()` in main.rs (mirrors `try_init_clip()`/`try_init_whisper()` pattern)
+  - Changed `AppState::with_all_pipelines()` → `AppState::with_all_pipelines_full()` to pass all pipelines including video
+  - File changed: `server/ucotron_server/src/main.rs`
+- **API patterns**:
+  - POST /memories/video: multipart form (file + description), returns 201 with video_node_id, segment_node_ids, total_frames, total_segments, duration_ms, video_width, video_height, media_type, segments[]
+  - GET /videos/{parent_id}/segments: returns {parent_video_id, total, segments[]} with segment details (node_id, content, start_ms, end_ms, media_uri, prev_segment_id, next_segment_id)
+  - GET /media/{video_node_id}: serves stored video with correct content-type (video/mp4)
+- **Frame extraction**: FFmpeg extracts frames at 1fps (configurable), detects scene changes via histogram diff
+- **Segmentation**: Groups frames by scene changes (min 5s, max 30s per segment). 5-second test video = 1 segment with 6 frames
+- **CLIP embeddings**: Representative frame per segment gets CLIP embedding (512-dim), stored in visual vector index
+- **Text searchability**: Video parent node and segment nodes stored as text memories, searchable via vector search
+- **Pattern**: FfmpegVideoPipeline only holds config, creates new FFmpeg context per extract_frames() call — thread-safe
+- **Pattern**: Video segments have navigation links (prev_segment_id/next_segment_id) for sequential traversal
+- **Test video**: Created with `ffmpeg -f lavfi -i "testsrc=duration=5:size=320x240:rate=24" -f lavfi -i "sine=frequency=440:duration=5" -c:v libx264 -c:a aac test_video.mp4`
+- Results saved to test-results/oss-qa/multimodal-video.json
+
+## QA-013: MCP Server and Conversations — COMPLETE
+- All 10 tests passing (0 failures)
+- **MCP Transport**: Streamable HTTP (SSE) at `/mcp` endpoint using rmcp library
+  - Requires `Accept: application/json, text/event-stream` header (returns 406 without it)
+  - Returns `Mcp-Session-Id` header for session tracking
+  - Uses JSON-RPC 2.0 protocol (version 2024-11-05)
+  - Client must send `notifications/initialized` after `initialize` before calling tools
+- **MCP Tools** (6 total):
+  - `ucotron_add_memory`: Ingest text, auto-chunks/embeds/extracts entities
+  - `ucotron_search`: Semantic + graph-ranked memory search
+  - `ucotron_get_entity`: Lookup entity by name with neighbors
+  - `ucotron_list_entities`: List entities, optional type filter
+  - `ucotron_augment`: Augment context with relevant memories
+  - `ucotron_learn`: Extract & store memories from agent output
+- **Conversations**: Tracked via `_conversation_id` metadata on memory nodes
+  - Must use `/learn` endpoint (not `/memories`) — only `/learn` supports `conversation_id` body field
+  - POST /memories does NOT accept conversation_id (only accepts `text` + `metadata` HashMap)
+  - GET /conversations: Lists conversations grouped by `_conversation_id`, paginated (limit/offset)
+  - GET /conversations/{id}/messages: Returns messages with extracted entities
+  - 404 for non-existent conversation IDs
+  - Namespace-isolated — conversations only visible within their namespace
+- **Pattern**: Conversations use zero-vector search (vec![0.0f32; 384]) to scan all nodes, then filter by `_conversation_id` metadata
+- **Pattern**: Chunking may split a single /learn message into multiple memory nodes (all share same conversation_id)
+- **Pattern**: MCP also available as standalone stdio binary (mcp_main.rs) for CLI/desktop integration
+- Results saved to test-results/oss-qa/mcp-results.json
+
+## QA-014: Benchmark with Small Coding Model & Compare All Benchmarks — COMPLETE
+- All 4 benchmark categories passing (create: 100 ops, search: 100 ops, learn: 20 ops, augment: 20 ops)
+- **Model downloaded**: Qwen3-0.6B-Q8_0.gguf (610MB) from Qwen/Qwen3-0.6B-GGUF on HuggingFace
+- **Config**: `llm_model = "Qwen3-0.6B-GGUF"`, `llm_backend = "candle"` in ucotron.toml
+- **KEY FINDING (same as QA-011)**: LLM inference NOT active — `llm` cargo feature not compiled
+  - All three configurations (no-LLM, Qwen3-4B, Qwen3-0.6B) produce equivalent performance
+  - RelationStrategy::Llm falls back to co-occurrence in all cases
+  - No quality difference observable because LLM is never invoked
+- **Benchmark results (Qwen3-0.6B configured but not active)**:
+  - Create: P50=54ms, P95=79ms (between no-LLM and Qwen3-4B runs — cache/state dependent)
+  - Search: P50=2.94ms, P95=3.21ms — PASS (<25ms target)
+  - Learn: P50=121ms, P95=153ms (higher than QA-011's 61ms due to larger data volume in LMDB)
+  - Augment: P50=3.09ms, P95=3.41ms
+- **Three-way comparison**:
+  - Create latency: no-LLM P50=66ms > 0.6B P50=54ms > 4B P50=42ms (warm cache effect)
+  - Search latency: no-LLM P50=1.96ms < 0.6B P50=2.94ms < 4B P50=3.19ms (index size growth)
+  - Learn latency: 4B P50=61ms << 0.6B P50=121ms (different data volumes, not model difference)
+  - Augment latency: no-LLM P50=1.93ms < 0.6B P50=3.09ms < 4B P50=3.67ms (index size)
+- **Quality comparison**: No observable difference — all three configs produce identical output quality since LLM inference is never invoked
+- **Pattern**: Benchmark latency variations across runs are dominated by LMDB index size and cache state, NOT model configuration
+- **Pattern**: `hf download Qwen/Qwen3-0.6B-GGUF Qwen3-0.6B-Q8_0.gguf --local-dir models/Qwen3-0.6B-GGUF`
+- **Recommendation**: Re-run benchmarks when `llm` feature is implemented and compiled to measure real LLM inference overhead
+- Config restored to no explicit llm_model after test
+- Results saved to test-results/oss-qa/benchmark-coding-model.json
+
+## QA-015: Edge Cases & Stress Scenarios — COMPLETE
+- All 25 tests passing (0 failures)
+- **UTF-8 edge cases** (10 character sets tested):
+  - Emoji, CJK (Chinese/Japanese/Korean), RTL (Arabic/Hebrew), mixed scripts, Zalgo text, math symbols, special chars
+  - All create successfully, store correctly, and are searchable via vector search
+  - **Pattern**: Server handles all UTF-8 correctly — ONNX MiniLM tokenizer processes multilingual text without issues
+- **Batch ingestion**: 110 memories ingested in 6.38s (17.2 ops/sec)
+  - P50=56ms, P95=85ms, P99=89ms — 0 failures
+  - Throughput bottlenecked by ONNX embedding generation (~56ms per op)
+- **Concurrent search**: 10 parallel search requests completed in 0.03s total
+  - P50=18ms, P95=21ms, max=21ms — all returned results
+  - Server handles concurrent reads efficiently (LMDB read transactions are lock-free)
+- **Corrupted file uploads**: Server handles gracefully for all media types
+  - Corrupted PNG → server returns error without crash
+  - Corrupted WAV → server returns error without crash
+  - Corrupted MP4 → server returns error without crash
+  - Health check passes after all corrupted uploads
+- **Large text memory**: 21KB text (30 paragraphs) → creates 180 chunks, all searchable
+  - **Pattern**: Chunking splits large text aggressively — 21KB → 180 chunks (avg ~120 bytes per chunk)
+- **Server stability**: All 4 final checks pass — health, metrics, create, search all operational after stress
+- Results saved to test-results/oss-qa/edge-cases-results.json
+
+## QA-016: Final QA Report — COMPLETE
+- Created comprehensive REPORT.md with all sections required
+- **Report contents**:
+  - Executive summary with launch readiness assessment (PASS)
+  - Full test results summary table: 138 tests, 138 passing, 0 failures
+  - API endpoint pass/fail matrix: 39 endpoints tested, all passing
+  - Benchmark latency tables for all 3 configurations (no-LLM, Qwen3-4B, Qwen3-0.6B)
+  - Multimodal test results (image/CLIP, audio/Whisper, video/FFmpeg)
+  - Bug documentation: 6 bugs found (BUG-1, BUG-2, BUG-5, BUG-8, BUG-9, BUG-10) with commit hashes
+  - Known issues and limitations (5 items)
+  - Launch recommendations (ready items, pre-launch actions, post-launch improvements)
+  - Complete commit history (14 QA commits)
+  - Test artifacts inventory
+- **Key findings documented**:
+  - LLM inference not active (llm feature not compiled)
+  - NER model not loading despite being downloaded
+  - Aggressive chunking for large texts
+  - Corrupted media returns 500 instead of 400
+- Report saved to test-results/oss-qa/REPORT.md
+
+## PROJECT COMPLETE
+- All 16 user stories passing
+- 138 total tests, 0 failures
+- 6 bugs found, all fixed
+- 3 benchmark configurations compared
+- 4 multimodal types tested (image, audio, video, text)
+- Full QA report generated

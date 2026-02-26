@@ -1,0 +1,101 @@
+{
+  "test_suite": "QA-008: Multimodal Audio Transcription with Whisper",
+  "total_tests": 5,
+  "passed": 5,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "POST /memories/audio ingests WAV file",
+      "endpoint": "POST /api/v1/memories/audio",
+      "status": "PASS",
+      "details": {
+        "transcription": "After early nightfall the yellow lamps would light up here and there the squalid quarter of the brothels.",
+        "media_type": "Audio",
+        "duration_secs": 6.625,
+        "sample_rate": 16000,
+        "channels": 1,
+        "detected_language": "en",
+        "chunk_node_ids": [
+          1000000
+        ]
+      }
+    },
+    {
+      "name": "POST /transcribe returns text transcription",
+      "endpoint": "POST /api/v1/transcribe",
+      "status": "PASS",
+      "details": {
+        "text": "God as a direct consequence of the sin which man thus punished had given her a lovely child, whose place was on that same dishonoured bosom to connect her parent forever with the race and descent of mortals and to be finally a blessed soul in heaven.",
+        "chunks": [
+          {
+            "text": "...",
+            "start_secs": 0.0,
+            "end_secs": 16.715
+          }
+        ],
+        "duration_secs": 16.715,
+        "detected_language": "en",
+        "ingestion": {
+          "chunk_node_ids": [
+            1000001
+          ]
+        }
+      }
+    },
+    {
+      "name": "Transcription quality is reasonable for clear speech",
+      "status": "PASS",
+      "details": {
+        "expected": "AFTER EARLY NIGHTFALL THE YELLOW LAMPS WOULD LIGHT UP HERE AND THERE THE SQUALID QUARTER OF THE BROTHELS",
+        "got": "After early nightfall the yellow lamps would light up here and there the squalid quarter of the brothels.",
+        "quality": "EXCELLENT - exact case-insensitive match"
+      }
+    },
+    {
+      "name": "Audio memory is searchable via text",
+      "status": "PASS",
+      "details": {
+        "query": "yellow lamps nightfall",
+        "top_result_content": "After early nightfall the yellow lamps would light up here and there the squalid quarter of the brothels.",
+        "top_result_score": 0.531,
+        "top_result_vector_sim": 0.689,
+        "is_top_result": true
+      }
+    },
+    {
+      "name": "Results saved to test-results/oss-qa/multimodal-audio.json",
+      "status": "PASS",
+      "details": "File created"
+    }
+  ],
+  "bugs_found": [
+    {
+      "id": "BUG-8",
+      "description": "Whisper token decoder produced base64-encoded garbled text instead of readable transcription",
+      "root_cause": "load_token_map() in audio.rs did not parse sherpa-onnx tokens.txt format (base64_token token_id columns) - treated entire line as token text",
+      "fix": "Updated load_token_map() to parse two-column format and base64-decode tokens to UTF-8",
+      "file_changed": "server/ucotron_extraction/src/audio.rs"
+    },
+    {
+      "id": "BUG-9",
+      "description": "Whisper transcription pipeline not initialized at server startup",
+      "root_cause": "main.rs passed None for transcriber in AppState::with_all_pipelines() despite whisper-tiny models being present",
+      "fix": "Added try_init_whisper() function in main.rs (similar to try_init_clip) that loads WhisperOnnxPipeline if model files exist",
+      "file_changed": "server/ucotron_server/src/main.rs"
+    }
+  ],
+  "server_changes": [
+    "Added try_init_whisper() in main.rs to auto-load Whisper ONNX pipeline at startup",
+    "Fixed load_token_map() in audio.rs to parse sherpa-onnx base64 token format",
+    "Downloaded actual whisper-tiny ONNX models (encoder: 36MB, decoder: 109MB, tokens: 798KB) from sherpa-onnx releases"
+  ],
+  "model_info": {
+    "model": "whisper-tiny",
+    "source": "k2-fsa/sherpa-onnx releases (sherpa-onnx-whisper-tiny.tar.bz2)",
+    "encoder_size_mb": 36,
+    "decoder_size_mb": 109,
+    "architecture": "Whisper tiny (4 text layers, 384-dim)",
+    "chunk_length_secs": 30,
+    "sample_rate": 16000
+  }
+}

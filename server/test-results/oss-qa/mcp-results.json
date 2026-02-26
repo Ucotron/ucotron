@@ -1,0 +1,245 @@
+{
+  "test_name": "QA-013: MCP Server and Conversations",
+  "timestamp": "2026-02-26T00:10:53Z",
+  "tests": [
+    {
+      "name": "MCP endpoint accessible (initialize)",
+      "passed": true,
+      "details": {
+        "status_code": 200,
+        "session_id": "6d19176e-c0ba-4768-8c4a-cb53e30bfa1d",
+        "server_name": "ucotron-server",
+        "server_version": "0.1.0",
+        "protocol_version": "2024-11-05",
+        "capabilities": {
+          "tools": {}
+        },
+        "instructions": "Ucotron is a cognitive trust server for LLMs. Use the tools to store, search, and retrieve memories "
+      }
+    },
+    {
+      "name": "MCP lists available tools",
+      "passed": true,
+      "details": {
+        "tool_count": 6,
+        "tool_names": [
+          "ucotron_augment",
+          "ucotron_learn",
+          "ucotron_get_entity",
+          "ucotron_add_memory",
+          "ucotron_list_entities",
+          "ucotron_search"
+        ],
+        "expected_tools_present": true,
+        "tools_with_schemas": [
+          {
+            "name": "ucotron_augment",
+            "description": "Retrieve relevant memories and entities to augment a given context. Returns stru",
+            "has_input_schema": true
+          },
+          {
+            "name": "ucotron_learn",
+            "description": "Extract memories, entities, and relationships from agent output text and store t",
+            "has_input_schema": true
+          },
+          {
+            "name": "ucotron_get_entity",
+            "description": "Look up a named entity in the Ucotron knowledge graph and return its information",
+            "has_input_schema": true
+          },
+          {
+            "name": "ucotron_add_memory",
+            "description": "Add a text as memory to the Ucotron cognitive graph. The text will be chunked, e",
+            "has_input_schema": true
+          },
+          {
+            "name": "ucotron_list_entities",
+            "description": "List entities stored in the Ucotron knowledge graph, optionally filtered by type",
+            "has_input_schema": true
+          },
+          {
+            "name": "ucotron_search",
+            "description": "Search for relevant memories in the Ucotron cognitive graph using semantic simil",
+            "has_input_schema": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "MCP rejects without proper Accept header (406)",
+      "passed": true,
+      "details": {
+        "status_code": 406
+      }
+    },
+    {
+      "name": "Create conversation memories via /learn",
+      "passed": true,
+      "details": {
+        "messages_sent": 5,
+        "learn_results": [
+          {
+            "status": 201,
+            "body": {
+              "memories_created": 1,
+              "entities_found": 0,
+              "conflicts_found": 0
+            }
+          },
+          {
+            "status": 201,
+            "body": {
+              "memories_created": 1,
+              "entities_found": 0,
+              "conflicts_found": 0
+            }
+          },
+          {
+            "status": 201,
+            "body": {
+              "memories_created": 2,
+              "entities_found": 0,
+              "conflicts_found": 0
+            }
+          },
+          {
+            "status": 201,
+            "body": {
+              "memories_created": 1,
+              "entities_found": 0,
+              "conflicts_found": 0
+            }
+          },
+          {
+            "status": 201,
+            "body": {
+              "memories_created": 1,
+              "entities_found": 0,
+              "conflicts_found": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "GET /conversations lists tracked conversations",
+      "passed": true,
+      "details": {
+        "status_code": 200,
+        "conversation_count": 2,
+        "conversations": [
+          {
+            "conversation_id": "conv-final-002",
+            "namespace": "qa013-v2",
+            "message_count": 2,
+            "first_message_at": "1772075453",
+            "last_message_at": "1772075453",
+            "preview": "The CI pipeline should run on GitHub Actions with matrix builds."
+          },
+          {
+            "conversation_id": "conv-final-001",
+            "namespace": "qa013-v2",
+            "message_count": 4,
+            "first_message_at": "1772075453",
+            "last_message_at": "1772075453",
+            "preview": "Good point."
+          }
+        ],
+        "has_conv_001": true,
+        "has_conv_002": true
+      }
+    },
+    {
+      "name": "GET /conversations/conv-final-001/messages returns messages",
+      "passed": true,
+      "details": {
+        "status_code": 200,
+        "conversation_id": "conv-final-001",
+        "namespace": "qa013-v2",
+        "message_count": 4,
+        "messages": [
+          {
+            "id": 1000020,
+            "content": "Good point.",
+            "entities": []
+          },
+          {
+            "id": 1000021,
+            "content": "Let's use both - PostgreSQL as primary, Redis for caching.",
+            "entities": []
+          },
+          {
+            "id": 1000018,
+            "content": "We should use PostgreSQL for the production database because",
+            "entities": []
+          },
+          {
+            "id": 1000019,
+            "content": "Actually Redis might be better for caching layer alongside P",
+            "entities": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "GET /conversations/conv-final-002/messages returns messages",
+      "passed": true,
+      "details": {
+        "status_code": 200,
+        "message_count": 2,
+        "messages": [
+          {
+            "id": 1000022,
+            "content": "The CI pipeline should run on GitHub Actions with matrix bui"
+          },
+          {
+            "id": 1000023,
+            "content": "We need to add linting and type checking to the CI pipeline."
+          }
+        ]
+      }
+    },
+    {
+      "name": "Non-existent conversation returns 404",
+      "passed": true,
+      "details": {
+        "status_code": 404,
+        "body": {
+          "code": "NOT_FOUND",
+          "message": "Conversation 'non-existent-conv' not found"
+        }
+      }
+    },
+    {
+      "name": "Conversations respect namespace boundaries",
+      "passed": true,
+      "details": {
+        "status_code": 200,
+        "conversations_in_other_ns": 0
+      }
+    },
+    {
+      "name": "Conversations support pagination",
+      "passed": true,
+      "details": {
+        "page1_limit1": [
+          {
+            "conversation_id": "conv-final-002",
+            "namespace": "qa013-v2",
+            "message_count": 2,
+            "first_message_at": "1772075453",
+            "last_message_at": "1772075453",
+            "preview": "The CI pipeline should run on GitHub Actions with matrix builds."
+          }
+        ],
+        "all_convs": 2
+      }
+    }
+  ],
+  "summary": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
+    "pass_rate": "10/10"
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "test_id": "QA-006",
+  "description": "Agent clone/merge operations",
+  "tests": [
+    {
+      "name": "Create agent A",
+      "passed": true,
+      "detail": {
+        "id": "agent-alpha-558742",
+        "name": "agent-alpha",
+        "namespace": "agent_agent-alpha-558742",
+        "owner": "Admin",
+        "created_at": 1772070558
+      }
+    },
+    {
+      "name": "Create agent B",
+      "passed": true,
+      "detail": {
+        "id": "agent-beta-558747",
+        "name": "agent-beta",
+        "namespace": "agent_agent-beta-558747",
+        "owner": "Admin",
+        "created_at": 1772070558
+      }
+    },
+    {
+      "name": "List agents shows both",
+      "passed": true,
+      "detail": {
+        "total": 2,
+        "found_A": true,
+        "found_B": true
+      }
+    },
+    {
+      "name": "Get agent A details",
+      "passed": true,
+      "detail": {
+        "id": "agent-alpha-558742",
+        "name": "agent-alpha",
+        "namespace": "agent_agent-alpha-558742",
+        "owner": "Admin",
+        "created_at": 1772070558,
+        "config": {
+          "temperature": 0.5,
+          "model": "test"
+        }
+      }
+    },
+    {
+      "name": "Ingest memories into agent A",
+      "passed": true,
+      "detail": {
+        "namespace": "agent_agent-alpha-558742",
+        "memories_created": 5
+      }
+    },
+    {
+      "name": "Ingest memories into agent B",
+      "passed": true,
+      "detail": {
+        "namespace": "agent_agent-beta-558747",
+        "memories_created": 3
+      }
+    },
+    {
+      "name": "Clone agent A",
+      "passed": true,
+      "detail": {
+        "source_agent_id": "agent-alpha-558742",
+        "source_namespace": "agent_agent-alpha-558742",
+        "target_namespace": "agent_agent-alpha-558742_clone_559055",
+        "nodes_copied": 5,
+        "edges_copied": 0
+      }
+    },
+    {
+      "name": "Cloned agent has independent data",
+      "passed": true,
+      "detail": {
+        "clone_ns": "agent_agent-alpha-558742_clone_559055",
+        "clone_results": 2,
+        "orig_ns": "agent_agent-alpha-558742",
+        "orig_results": 2
+      }
+    },
+    {
+      "name": "Merge agent B into agent A",
+      "passed": true,
+      "detail": {
+        "source_namespace": "agent_agent-beta-558747",
+        "target_namespace": "agent_agent-alpha-558742",
+        "nodes_copied": 3,
+        "edges_copied": 0,
+        "nodes_deduplicated": 0,
+        "ids_remapped": 3
+      }
+    },
+    {
+      "name": "Merged data searchable in agent A",
+      "passed": true,
+      "detail": {
+        "namespace": "agent_agent-alpha-558742",
+        "results_count": 2,
+        "top_result": "Kubernetes orchestrates container deployment at scale"
+      }
+    },
+    {
+      "name": "Delete agent B",
+      "passed": true,
+      "detail": {
+        "delete_status": 200,
+        "get_after_delete": 404
+      }
+    },
+    {
+      "name": "Delete agent A (cleanup)",
+      "passed": true,
+      "detail": {
+        "delete_status": 200,
+        "get_after_delete": 404
+      }
+    }
+  ],
+  "summary": {
+    "passed": 12,
+    "failed": 0,
+    "total": 12
+  }
+}

@@ -489,9 +489,7 @@ fn b64_decode(input: &str) -> Option<Vec<u8>> {
             *TABLE.get(*bytes.get(i)? as usize)?,
             *TABLE.get(*bytes.get(i + 1)? as usize)?,
         );
-        if a == 255 || b == 255 {
-            return None;
-        }
+        if a == 255 || b == 255 { return None; }
         out.push((a << 2) | (b >> 4));
     } else if rem == 3 {
         let (a, b, c) = (
@@ -499,9 +497,7 @@ fn b64_decode(input: &str) -> Option<Vec<u8>> {
             *TABLE.get(*bytes.get(i + 1)? as usize)?,
             *TABLE.get(*bytes.get(i + 2)? as usize)?,
         );
-        if a == 255 || b == 255 || c == 255 {
-            return None;
-        }
+        if a == 255 || b == 255 || c == 255 { return None; }
         out.push((a << 2) | (b >> 4));
         out.push((b << 4) | (c >> 2));
     }

@@ -1,0 +1,202 @@
+{
+  "test_suite": "QA-007",
+  "description": "Multimodal: image ingestion and CLIP search",
+  "tests": [
+    {
+      "test": "POST /memories/image with PNG",
+      "passed": true,
+      "details": "node_id=1000000, format=png, embedding_dim=512",
+      "response": {
+        "node_id": 1000000,
+        "width": 64,
+        "height": 64,
+        "format": "png",
+        "embedding_dim": 512,
+        "media_type": "Image",
+        "description_ingested": true,
+        "metrics": {
+          "chunks_processed": 1,
+          "entities_extracted": 0,
+          "relations_extracted": 0,
+          "contradictions_detected": 0,
+          "total_us": 36037
+        }
+      },
+      "status_code": 201
+    },
+    {
+      "test": "POST /memories/image with JPG",
+      "passed": true,
+      "details": "node_id=1000002, format=jpeg, embedding_dim=512",
+      "response": {
+        "node_id": 1000002,
+        "width": 64,
+        "height": 64,
+        "format": "jpeg",
+        "embedding_dim": 512,
+        "media_type": "Image",
+        "description_ingested": true,
+        "metrics": {
+          "chunks_processed": 1,
+          "entities_extracted": 0,
+          "relations_extracted": 0,
+          "contradictions_detected": 0,
+          "total_us": 36093
+        }
+      },
+      "status_code": 201
+    },
+    {
+      "test": "POST /images indexes with CLIP",
+      "passed": true,
+      "details": "node_id=1000004, embedding_dim=512, format=png",
+      "response": {
+        "node_id": 1000004,
+        "width": 64,
+        "height": 64,
+        "format": "png",
+        "embedding_dim": 512
+      },
+      "status_code": 200
+    },
+    {
+      "test": "CLIP embeddings are 512-dimensional",
+      "passed": true,
+      "details": "embedding_dim=512 (expected 512)",
+      "response": {
+        "node_id": 1000005,
+        "width": 32,
+        "height": 32,
+        "format": "png",
+        "embedding_dim": 512
+      },
+      "status_code": 200
+    },
+    {
+      "test": "POST /images/search returns results",
+      "passed": true,
+      "details": "total=5, results_count=5, top_score=0.25749844, top_content=A warm orange sunset over the ocean",
+      "response": {
+        "results": [
+          {
+            "node_id": 1000006,
+            "score": 0.25749844,
+            "content": "A warm orange sunset over the ocean",
+            "timestamp": 1772071497
+          },
+          {
+            "node_id": 1000005,
+            "score": 0.2509958,
+            "content": "[image:32x32 png]",
+            "timestamp": 1772071497
+          },
+          {
+            "node_id": 1000007,
+            "score": 0.2440263,
+            "content": "Dense green forest with tall trees",
+            "timestamp": 1772071497
+          },
+          {
+            "node_id": 1000002,
+            "score": 0.24155128,
+            "content": "A blue gradient test image for QA-007",
+            "timestamp": 1772071497
+          },
+          {
+            "node_id": 1000000,
+            "score": 0.24114901,
+            "content": "A red gradient test image for QA-007",
+            "timestamp": 1772071497
+          }
+        ],
+        "total": 5,
+        "query": "sunset ocean orange"
+      },
+      "status_code": 200
+    },
+    {
+      "test": "GET /media/{id} serves media",
+      "passed": true,
+      "details": "content_type=image/png, content_length=266 bytes",
+      "response": "\ufffdPNG\r\n\u001a\n\u0000\u0000\u0000\rIHDR\u0000\u0000\u0000@\u0000\u0000\u0000@\b\u0002\u0000\u0000\u0000%\u000b\ufffd\u0000\u0000\u0000\ufffdIDATx\ufffd\ufffd\ufffd\u0011V \u0000\u0000@\ufffdy/\b\ufffd \b\ufffd \b\ufffd \b\ufffd \b\ufffd \b\ufffd \b\ufffd \b\ufffd \b\ufffd \b\ufffd \b\ufffd \b\ufffd`aaa!\b\ufffd \b\ufffd \b\ufffd:B\u0017\ufffds\ufffd\ufffd\ufffd\u0017\ufffd|\ufffd\ufffd\u001b\ufffd\ufffd\ufffd\ufffd\u0013\ufffd<\ufffd\u007f\ufffd\ufffd\u000f\ufffd\ufffdq\ufffd\r\ufffd\\q\ufffd\u0005\ufffdq\ufffd\t\ufffd\u001cq\ufffd\u0001\ufffd\ufffd\ufffd\u000e\ufffdl\ufffd\ufffd\u0006\ubb31\ufffd\n\ufffd,\ufffd\ufffd\u0002\ufffd\ufffd1\ufffd\f\ufffdL1\ufffd\u0004\ufffd1\ufffd\b\ufffd\f1\ufffd\u0000\n\u0014(P\ufffd@\ufffd\u0002\u0005\n\u0014(P\ufffd@\ufffd\u0002\u0005\n\u0014(P\ufffd@\ufffd\u0002\u0005\n\u0014(P\ufffd@\ufffd\u0002\u0005\n\u0014(P\ufffd@\ufffd\u0002\u0005\n\u0014(P\ufffd@\ufffd\u0002\ufffd\u0005~\u0000\ufffd\ufffd\u0010yDh\ufffdo\u0000\u0000\u0000\u0000IEND\ufffdB`\ufffd",
+      "status_code": 200
+    },
+    {
+      "test": "Image search returns semantically relevant results",
+      "passed": true,
+      "details": "top_score=0.2423, num_results=5, all_scores=[0.2423, 0.2423, 0.1996, 0.1946, 0.1905]",
+      "response": {
+        "results": [
+          {
+            "node_id": 1000007,
+            "score": 0.24230474,
+            "content": "Dense green forest with tall trees",
+            "timestamp": 1772071497
+          },
+          {
+            "node_id": 1000004,
+            "score": 0.24226707,
+            "content": "A green nature scene",
+            "timestamp": 1772071497
+          },
+          {
+            "node_id": 1000000,
+            "score": 0.19962835,
+            "content": "A red gradient test image for QA-007",
+            "timestamp": 1772071497
+          },
+          {
+            "node_id": 1000008,
+            "score": 0.1945616,
+            "content": "Clear blue sky on a sunny day",
+            "timestamp": 1772071497
+          },
+          {
+            "node_id": 1000002,
+            "score": 0.1904785,
+            "content": "A blue gradient test image for QA-007",
+            "timestamp": 1772071497
+          }
+        ],
+        "total": 5,
+        "query": "green forest trees nature"
+      },
+      "status_code": 200
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0,
+    "created_node_ids": [
+      {
+        "label": "png_memory",
+        "node_id": 1000000
+      },
+      {
+        "label": "jpg_memory",
+        "node_id": 1000002
+      },
+      {
+        "label": "indexed_image",
+        "node_id": 1000004
+      },
+      {
+        "label": "dim_test",
+        "node_id": 1000005
+      },
+      {
+        "label": "search_index",
+        "node_id": 1000006
+      },
+      {
+        "label": "search_index",
+        "node_id": 1000007
+      },
+      {
+        "label": "search_index",
+        "node_id": 1000008
+      }
+    ]
+  }
+}

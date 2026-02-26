@@ -248,3 +248,25 @@ Created: 2026-02-25
 - **Recommendation**: Re-run benchmarks when `llm` feature is implemented and compiled to measure real LLM inference overhead
 - Config restored to no explicit llm_model after test
 - Results saved to test-results/oss-qa/benchmark-coding-model.json
+
+## QA-015: Edge Cases & Stress Scenarios — COMPLETE
+- All 25 tests passing (0 failures)
+- **UTF-8 edge cases** (10 character sets tested):
+  - Emoji, CJK (Chinese/Japanese/Korean), RTL (Arabic/Hebrew), mixed scripts, Zalgo text, math symbols, special chars
+  - All create successfully, store correctly, and are searchable via vector search
+  - **Pattern**: Server handles all UTF-8 correctly — ONNX MiniLM tokenizer processes multilingual text without issues
+- **Batch ingestion**: 110 memories ingested in 6.38s (17.2 ops/sec)
+  - P50=56ms, P95=85ms, P99=89ms — 0 failures
+  - Throughput bottlenecked by ONNX embedding generation (~56ms per op)
+- **Concurrent search**: 10 parallel search requests completed in 0.03s total
+  - P50=18ms, P95=21ms, max=21ms — all returned results
+  - Server handles concurrent reads efficiently (LMDB read transactions are lock-free)
+- **Corrupted file uploads**: Server handles gracefully for all media types
+  - Corrupted PNG → server returns error without crash
+  - Corrupted WAV → server returns error without crash
+  - Corrupted MP4 → server returns error without crash
+  - Health check passes after all corrupted uploads
+- **Large text memory**: 21KB text (30 paragraphs) → creates 180 chunks, all searchable
+  - **Pattern**: Chunking splits large text aggressively — 21KB → 180 chunks (avg ~120 bytes per chunk)
+- **Server stability**: All 4 final checks pass — health, metrics, create, search all operational after stress
+- Results saved to test-results/oss-qa/edge-cases-results.json

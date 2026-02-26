@@ -206,7 +206,7 @@
       "id": "QA-015",
       "story": "Test edge cases and stress scenarios",
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Test UTF-8 edge cases: emoji, CJK characters, RTL text in memories",
         "Test batch ingestion: 100+ memories in rapid succession",

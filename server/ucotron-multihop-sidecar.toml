@@ -1,0 +1,42 @@
+# Ucotron config for multi-hop tests with Qwen3-VL-Embedding-2B + Reranker-2B sidecar.
+# Uses isolated data directories to avoid HNSW dimension conflicts.
+
+[server]
+host = "0.0.0.0"
+port = 8420
+log_level = "info"
+log_format = "json"
+
+[storage]
+mode = "embedded"
+
+[storage.vector]
+backend = "helix"
+data_dir = "data/vector-multihop-sidecar"
+
+[storage.vector.hnsw]
+ef_construction = 200
+ef_search = 200
+
+[storage.graph]
+backend = "helix"
+data_dir = "data/graph-multihop-sidecar"
+
+[models]
+models_dir = "models"
+embedding_model = "Qwen3-VL-Embedding-2B"
+ner_model = "gliner_small-v2.1"
+# Sidecar embedding provider
+embedding_provider = "sidecar"
+sidecar_url = "http://localhost:8421"
+sidecar_embedding_dim = 384
+enable_reranker = true
+
+[telemetry]
+enabled = false
+
+[ingestion]
+chunk_size = 512
+
+[auth]
+enabled = false

@@ -1,0 +1,87 @@
+# Progress Log: oss-qa
+
+Created: 2026-02-25
+
+## Project Setup
+- PRD and prd.json ready with 16 user stories
+- Phases: health, CRUD, search, benchmark (3 configs), multimodal (4 types), auth, import/export, MCP, edge cases, final report
+- Working directory: /Users/martinriesco/Documents/Code/Ucotron/repos/ucotron.nosync
+- Branch: ralph/oss-qa
+
+## Important Notes
+- Build Rust server ONCE, reuse binary unless code changes
+- Save all test artifacts to server/test-results/oss-qa/
+- Server config at server/ucotron.toml
+- Models download automatically on first run (~678MB)
+
+## QA-001: Build & Health Check — COMPLETE
+- `cargo build --release` succeeded in 8m 12s
+- Models downloaded: all-MiniLM-L6-v2 (90MB ONNX), gliner_small-v2.1 (583MB ONNX)
+- **Important**: MiniLM model must be at `models/all-MiniLM-L6-v2/onnx/model.onnx` (need onnx/ subdirectory)
+- Server starts fine on port 8420 with embedded storage mode
+- Health (200), Metrics (200), OpenAPI (200) all verified
+- NER model shows `ner_loaded: false` in health despite being downloaded — may need investigation
+- Results saved to test-results/oss-qa/health-check-results.json
+- Server left running for next phases (PID varies, kill with `pkill -f ucotron_server`)
+
+## QA-002: Memory CRUD Operations — COMPLETE
+- All 11 CRUD tests passing
+- **BUG FOUND & FIXED**: GET /memories/{id} returned 200 for soft-deleted nodes instead of 404
+  - Root cause: delete_memory_handler uses soft delete (clears content, sets metadata.deleted=true) but get_memory_handler didn't check for deleted flag
+  - Fix: Added `node_is_deleted()` helper in handlers/mod.rs, used in get_memory_handler and update_memory_handler
+  - File changed: `server/ucotron_server/src/handlers/mod.rs`
+- Namespace isolation working: X-Ucotron-Namespace header correctly isolates CRUD ops
+- Audit log captures all CRUD actions: memories.create, memories.delete, memories.get, memories.list, memories.update
+- Results saved to test-results/oss-qa/crud-results.json
+- **Pattern**: Server uses soft delete — vector embedding removed (unsearchable) + node content cleared + metadata.deleted=true
+- **Pattern**: List endpoint uses zero-vector search, so soft-deleted entries are naturally excluded (no embedding)
+
+## QA-003: Vector Search & Hybrid Search — COMPLETE
+- All 14 tests passing (0 failures)
+- Ingested 55 diverse text memories across 6 categories (tech, science, history, geography, food/culture, misc)
+- **API patterns discovered**:
+  - POST /memories uses `text` field (not `content`) — response returns `chunk_node_ids` array (not `id`)
+  - POST /memories/search uses `query`, `limit`, `query_mindset` fields — response has `results` array with `content`, `score`, `vector_sim`, `graph_centrality`, `recency`, `mindset_score`
+  - POST /augment uses `context`, `limit`, `debug` fields — response has `memories`, `entities`, `context_text`, `debug`
+- **Vector search**: Semantic similarity working correctly — "programming language" query returns Rust memory as top result, "biological cells" returns mitochondria
+- **Hybrid pipeline**: Always runs full LazyGraphRAG pipeline (vector + entity extraction + graph expansion + community selection + reranking). `query_mindset` parameter ("convergent"/"divergent"/"algorithmic") supported
+- **Score components**: Results include vector_sim, graph_centrality, recency, mindset_score — graph_centrality=0.0 for freshly ingested memories (no graph connections yet)
+- **Augment endpoint**: Returns memories + context_text + entities. Debug mode provides pipeline_timings with per-stage microsecond metrics
+- **Namespace isolation (BUG-1)**: VERIFIED FIXED — alpha namespace search only returns alpha data, beta only beta, default namespace doesn't leak namespaced data
+- Results saved to test-results/oss-qa/search-results.json
+
+## QA-004: Benchmark No-LLM — COMPLETE
+- All 3 benchmark categories passing (100 ops each)
+- **Create**: P50=66ms, P95=108ms, P99=115ms — includes embedding generation via ONNX
+- **Search**: P50=1.96ms, P95=2.08ms, P99=2.41ms — **well under 25ms P95 target**
+- **Augment**: P50=1.93ms, P95=2.02ms, P99=2.14ms — nearly identical to raw search (no LLM overhead)
+- Server config: embedded storage, helix vector backend, no LLM model
+- **Pattern**: Create latency dominated by ONNX embedding generation (~60-70ms). Search/augment are sub-2ms without LLM.
+- **Pattern**: Augment without LLM is essentially search + context assembly, no LLM inference overhead
+- Results saved to test-results/oss-qa/benchmark-no-llm.json
+
+## QA-005: Entities, Graph, and Namespace Management — COMPLETE
+- All 9 tests passing (0 failures)
+- **Entities**: GET /entities returns JSON array directly (not wrapped object). Returns empty when NER not loaded (ner_loaded=false).
+- **Entity detail**: GET /entities/{id} returns 404 for non-existent entity, includes `neighbors` field with 1-hop relations
+- **Graph**: GET /graph returns `{nodes, edges, total_nodes, total_edges}`. All 60 nodes are type "Event" (memories). No edges yet (NER needed for entity extraction and relationship building).
+- **Namespace CRUD**: Full lifecycle working — list (includes "default"), create (201), get (with memory_count/entity_count), delete (404 after)
+- **Namespace isolation**: Memory ingested with X-Ucotron-Namespace header correctly increments namespace memory_count
+- **BUG-5 VERIFIED FIXED**: Audit entries correctly include `namespace` field matching the request namespace. Audit entry keys: timestamp, method, path, action, status, duration_us, user, role, namespace, resource_id
+- **Pattern**: Namespace sentinel nodes have entity_count=1 on creation (the sentinel node itself)
+- **Pattern**: GET /entities uses zero-vector search + NodeType::Entity filter — returns empty when no NER extraction has run
+- Results saved to test-results/oss-qa/graph-results.json
+
+## QA-006: Agent Clone/Merge Operations — COMPLETE
+- All 12 tests passing (0 failures)
+- **Agent CRUD**: POST /agents (201), GET /agents (200 with pagination), GET /agents/{id} (200), DELETE /agents/{id} (200, returns 404 after)
+- **API patterns**:
+  - POST /agents takes `name` + `config` (HashMap). Response includes auto-generated `id`, `namespace` (format: agent_{name}-{random}), `owner`, `created_at`
+  - Each agent gets its own isolated namespace — memories ingested with `X-Ucotron-Namespace: {agent.namespace}`
+  - Clone: POST /agents/{id}/clone with empty body auto-generates target_namespace. Returns `nodes_copied`, `edges_copied`
+  - Merge: POST /agents/{id}/merge with `source_agent_id`. Returns `nodes_copied`, `edges_copied`, `nodes_deduplicated`, `ids_remapped`
+- **Clone independence verified**: Cloned namespace has its own searchable copy of memories, independent from original
+- **Merge verified**: After merging B into A, B's content (Docker/Kubernetes) is searchable in A's namespace
+- **Delete cascade**: DELETE removes agent and returns 404 on subsequent GET
+- **Auth levels**: Create/Clone/Merge = Writer, List/Get = Reader, Delete = Admin (tested without auth enabled)
+- Results saved to test-results/oss-qa/agent-results.json

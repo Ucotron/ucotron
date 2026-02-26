@@ -94,7 +94,7 @@
       "id": "QA-007",
       "story": "Test multimodal: image ingestion and CLIP search",
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "POST /memories/image ingests a PNG image",
         "POST /memories/image ingests a JPG image",

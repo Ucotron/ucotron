@@ -85,3 +85,22 @@ Created: 2026-02-25
 - **Delete cascade**: DELETE removes agent and returns 404 on subsequent GET
 - **Auth levels**: Create/Clone/Merge = Writer, List/Get = Reader, Delete = Admin (tested without auth enabled)
 - Results saved to test-results/oss-qa/agent-results.json
+
+## QA-007: Multimodal Image Ingestion & CLIP Search — COMPLETE
+- All 7 tests passing (0 failures)
+- **CLIP models**: Downloaded from jmzzomg/clip-vit-base-patch32-{vision,text}-onnx repos (official HF openai/clip-vit-base-patch32 has no ONNX exports)
+  - visual_model.onnx (335MB), text_model.onnx (242MB), tokenizer.json (2.1MB)
+  - Models at `models/clip-vit-base-patch32/`
+- **Server changes required**:
+  - Added `try_init_clip()` in main.rs to load ClipImagePipeline + ClipTextPipeline at startup
+  - Added visual vector backend initialization (HelixVisualVectorBackend) when CLIP models are present
+  - Changed `AppState::new()` to `AppState::with_all_pipelines()` to pass image_embedder and cross_modal_encoder
+- **API patterns**:
+  - POST /memories/image: multipart form (file + description), returns 201 with node_id, width, height, format, embedding_dim, media_type, description_ingested, metrics
+  - POST /images: lightweight CLIP indexing only (no text ingestion), returns 200/201 with node_id, embedding_dim
+  - POST /images/search: JSON body {query, limit, min_similarity}, returns {results: [{node_id, score, content, timestamp}], total, query}
+  - GET /media/{id}: serves stored media files with correct content-type
+- **Embedding dimensions**: CLIP produces 512-dim vectors, stored in separate visual vector index (not mixed with 384-dim MiniLM text embeddings)
+- **Visual backend**: Requires `HelixVisualVectorBackend` (separate LMDB index at 512-dim) — without it, images are stored but search returns 501
+- **Pattern**: Images get dual storage — CLIP embedding in visual index + optional text embedding in text index (if description provided)
+- Results saved to test-results/oss-qa/multimodal-image.json

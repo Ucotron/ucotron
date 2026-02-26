@@ -1,0 +1,66 @@
+{
+  "story": "QA-002",
+  "title": "Test all memory CRUD operations",
+  "timestamp": "2026-02-26T01:31:29Z",
+  "total": 11,
+  "passed": 11,
+  "failed": 0,
+  "all_passed": true,
+  "tests": [
+    {
+      "test": "CREATE memory (default ns)",
+      "status": "PASS",
+      "detail": "HTTP 201, chunk_ids=[1000000]"
+    },
+    {
+      "test": "CREATE second memory",
+      "status": "PASS",
+      "detail": "HTTP 201, id=1000001"
+    },
+    {
+      "test": "LIST memories",
+      "status": "PASS",
+      "detail": "HTTP 200, count=2"
+    },
+    {
+      "test": "GET memory by ID",
+      "status": "PASS",
+      "detail": "HTTP 200, content=QA-002 test memory: The quick brown fox jumps over the lazy "
+    },
+    {
+      "test": "UPDATE memory",
+      "status": "PASS",
+      "detail": "HTTP 200, content=QA-002 UPDATED: The quick brown fox was updated successfully"
+    },
+    {
+      "test": "VERIFY update persisted",
+      "status": "PASS",
+      "detail": "Content contains 'UPDATED'"
+    },
+    {
+      "test": "CREATE in custom namespace",
+      "status": "PASS",
+      "detail": "HTTP 201, id=1000002"
+    },
+    {
+      "test": "LIST in custom namespace",
+      "status": "PASS",
+      "detail": "HTTP 200, count=1"
+    },
+    {
+      "test": "DELETE memory",
+      "status": "PASS",
+      "detail": "HTTP 204"
+    },
+    {
+      "test": "VERIFY delete (404)",
+      "status": "PASS",
+      "detail": "HTTP 404 - correctly not found"
+    },
+    {
+      "test": "AUDIT has CRUD entries",
+      "status": "PASS",
+      "detail": "actions=['memories.create', 'memories.delete', 'memories.get', 'memories.list', 'memories.update'], ingest=True, delete=True, update=True"
+    }
+  ]
+}

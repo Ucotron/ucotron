@@ -104,3 +104,19 @@ Created: 2026-02-25
 - **Visual backend**: Requires `HelixVisualVectorBackend` (separate LMDB index at 512-dim) — without it, images are stored but search returns 501
 - **Pattern**: Images get dual storage — CLIP embedding in visual index + optional text embedding in text index (if description provided)
 - Results saved to test-results/oss-qa/multimodal-image.json
+
+## QA-008: Multimodal Audio Transcription with Whisper — COMPLETE
+- All 5 tests passing (0 failures)
+- **TWO BUGS FOUND & FIXED**:
+  - **BUG-8**: Token decoder garbled output — `load_token_map()` in audio.rs didn't parse sherpa-onnx tokens.txt format (base64_token token_id columns). Fixed by adding base64 decoding for the two-column format.
+  - **BUG-9**: Whisper pipeline not initialized — main.rs passed `None` for transcriber despite models being present. Fixed by adding `try_init_whisper()` (mirrors `try_init_clip()` pattern).
+- **Model downloads**: whisper-tiny ONNX from `k2-fsa/sherpa-onnx` releases (tar.bz2 archive, not individual files — direct file URLs 404). encoder.onnx=36MB, decoder.onnx=109MB, tokens.txt=798KB
+- **API patterns**:
+  - POST /memories/audio: multipart form (file + description), returns 201 with chunk_node_ids, transcription, audio metadata (duration, sample_rate, channels, detected_language), metrics
+  - POST /transcribe: multipart form (file), returns text, chunks (with start_secs/end_secs), audio metadata, optional ingestion results
+  - Audio files must be WAV format (mono, 16kHz, 16-bit PCM — auto-resamples if needed)
+- **Transcription quality**: EXCELLENT for clear English speech — exact case-insensitive match on test sentences from sherpa-onnx test_wavs
+- **Searchability**: Audio transcriptions ingested as text memories, fully searchable via vector search (top result for relevant queries)
+- **Pattern**: sherpa-onnx tokens.txt uses base64-encoded byte sequences with explicit token IDs (format: `b64_token token_id`)
+- **Pattern**: Whisper-tiny has 4 text layers, 384-dim, processes 30-second chunks with 80 mel bins
+- Results saved to test-results/oss-qa/multimodal-audio.json

@@ -252,13 +252,16 @@ async fn main() -> anyhow::Result<()> {
     // Initialize CLIP image/text pipelines (optional).
     let (image_embedder, cross_modal_encoder) = try_init_clip(&config);
 
+    // Initialize Whisper transcription pipeline (optional).
+    let transcriber = try_init_whisper(&config);
+
     // Build application state.
     let mut app_state = AppState::with_all_pipelines(
         registry,
         embedder,
         None, // NER pipeline loaded separately if model present
         None, // Relation extractor loaded separately if model present
-        None, // Transcription pipeline loaded separately if model present
+        transcriber,
         image_embedder,
         cross_modal_encoder,
         config.clone(),
@@ -704,6 +707,32 @@ fn try_init_embedder(
 
     let pipeline = OnnxEmbeddingPipeline::new(&model_path, &tokenizer_path, 4)?;
     Ok(Arc::new(pipeline))
+}
+
+/// Try to initialize Whisper transcription pipeline for audio support.
+/// Returns None if Whisper model files are not present.
+fn try_init_whisper(
+    config: &UcotronConfig,
+) -> Option<Arc<dyn ucotron_extraction::TranscriptionPipeline>> {
+    use ucotron_extraction::audio::{WhisperConfig, WhisperOnnxPipeline};
+
+    let models_dir = &config.models.models_dir;
+    let whisper_dir = format!("{}/whisper-tiny", models_dir);
+
+    let encoder_path = format!("{}/encoder.onnx", whisper_dir);
+    let decoder_path = format!("{}/decoder.onnx", whisper_dir);
+    let tokens_path = format!("{}/tokens.txt", whisper_dir);
+
+    match WhisperOnnxPipeline::new(&encoder_path, &decoder_path, &tokens_path, WhisperConfig::default()) {
+        Ok(pipeline) => {
+            tracing::info!("Whisper transcription pipeline loaded from {}", whisper_dir);
+            Some(Arc::new(pipeline))
+        }
+        Err(e) => {
+            tracing::info!("Whisper transcription pipeline not available: {}", e);
+            None
+        }
+    }
 }
 
 /// Try to initialize CLIP image and text pipelines for multimodal support.

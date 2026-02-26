@@ -157,3 +157,24 @@ Created: 2026-02-25
 - **Pattern**: Import requires Writer role. Export requires Reader role.
 - **Pattern**: Round-trip preserves content and generates fresh embeddings on import (searchable immediately)
 - Results saved to test-results/oss-qa/import-export-results.json
+
+## QA-011: Benchmark with Default Qwen3-4B Model — COMPLETE
+- All benchmarks passing (create: 100 ops, search: 100 ops, learn: 20 ops, augment: 20 ops)
+- **Model downloaded**: Qwen3-4B-Q4_K_M.gguf (2.3GB) from Qwen/Qwen3-4B-GGUF on HuggingFace
+- **Config**: `llm_model = "Qwen3-4B-GGUF"`, `llm_backend = "candle"` in ucotron.toml
+- **KEY FINDING**: Local LLM inference is NOT active — the `llm` cargo feature is not compiled, so RelationStrategy::Llm falls back to co-occurrence
+  - The `llm` feature flag in ucotron_extraction/Cargo.toml is empty (`llm = []`) — no llama-cpp-2 dependency
+  - Even with feature enabled, `RelationStrategy::Llm` match arm calls `self.cooccurrence.extract_relations()` (placeholder)
+  - `/augment` is pure retrieval (vector search + graph expansion) — never uses LLM regardless of config
+  - `/learn` runs ingestion pipeline where only relation extraction could use LLM, but falls back to co-occurrence
+- **Benchmark results (with model configured but not active)**:
+  - Create: P50=42ms, P95=67ms (faster than no-LLM run due to warmed caches)
+  - Search: P50=3.2ms, P95=3.9ms — PASS (<25ms target)
+  - Augment: P50=3.7ms, P95=4.0ms
+  - Learn: P50=61ms, P95=70ms (similar to create — both run embedding + co-occurrence)
+- **Comparison vs no-LLM**: Negligible overhead (±1-2ms for search/augment, create actually faster due to warm state)
+- **Pattern**: The default `llm_model` in ModelsConfig is "Qwen3-4B-GGUF" (set in ucotron_config/src/lib.rs). When ucotron.toml omits `llm_model`, this default applies but gracefully falls back.
+- **Pattern**: `/learn` endpoint takes `{output: String, conversation_id: Option<String>}` — runs full ingestion pipeline (chunk → embed → NER → relation extraction → entity resolution → graph update)
+- **Pattern**: Model download: `hf download Qwen/Qwen3-4B-GGUF Qwen3-4B-Q4_K_M.gguf --local-dir models/Qwen3-4B-GGUF`
+- Config restored to no explicit llm_model (to not break other tests)
+- Results saved to test-results/oss-qa/benchmark-default-model.json

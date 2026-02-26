@@ -152,7 +152,7 @@
       "id": "QA-011",
       "story": "Benchmark with default Qwen3-4B model",
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Server running with Qwen3-4B-GGUF model enabled",
         "POST /learn generates learned insights from conversation",

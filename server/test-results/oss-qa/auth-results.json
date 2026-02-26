@@ -1,0 +1,253 @@
+{
+  "test_suite": "QA-009: Auth, RBAC & API Key Management",
+  "timestamp": "2026-02-25T23:42:09.968962",
+  "tests": [
+    {
+      "name": "Health endpoint is public (no auth needed)",
+      "status": "PASS",
+      "detail": {
+        "status_code": 200,
+        "note": "Health endpoint is public even with auth enabled"
+      }
+    },
+    {
+      "name": "Unauthorized request returns 401",
+      "status": "PASS",
+      "detail": {
+        "status_code": 401,
+        "body": {
+          "code": "UNAUTHORIZED",
+          "message": "Missing or invalid Authorization header. Use: Authorization: Bearer <api-key>"
+        }
+      }
+    },
+    {
+      "name": "Invalid API key returns 401",
+      "status": "PASS",
+      "detail": {
+        "status_code": 401
+      }
+    },
+    {
+      "name": "Whoami with admin key",
+      "status": "PASS",
+      "detail": {
+        "role": "admin",
+        "namespace_scope": null,
+        "key_name": "admin-key",
+        "auth_enabled": true
+      }
+    },
+    {
+      "name": "Whoami with reader key",
+      "status": "PASS",
+      "detail": {
+        "role": "reader",
+        "namespace_scope": null,
+        "key_name": "reader-key",
+        "auth_enabled": true
+      }
+    },
+    {
+      "name": "Whoami with namespace-scoped key",
+      "status": "PASS",
+      "detail": {
+        "role": "writer",
+        "namespace_scope": "scoped-ns",
+        "key_name": "ns-scoped-key",
+        "auth_enabled": true
+      }
+    },
+    {
+      "name": "List API keys (admin)",
+      "status": "PASS",
+      "detail": {
+        "key_count": 5,
+        "keys": [
+          {
+            "name": "admin-key",
+            "key_preview": "mk_****0000",
+            "role": "admin",
+            "namespace": null,
+            "active": true
+          },
+          {
+            "name": "writer-key",
+            "key_preview": "mk_****0000",
+            "role": "writer",
+            "namespace": null,
+            "active": true
+          },
+          {
+            "name": "reader-key",
+            "key_preview": "mk_****0000",
+            "role": "reader",
+            "namespace": null,
+            "active": true
+          },
+          {
+            "name": "ns-scoped-key",
+            "key_preview": "mk_****0000",
+            "role": "writer",
+            "namespace": "scoped-ns",
+            "active": true
+          },
+          {
+            "name": "test-dynamic-key",
+            "key_preview": "mk_****4fd8",
+            "role": "reader",
+            "namespace": null,
+            "active": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "List API keys denied for reader (403)",
+      "status": "PASS",
+      "detail": {
+        "status_code": 403,
+        "note": "Reader correctly denied admin endpoint"
+      }
+    },
+    {
+      "name": "Create API key via API (admin)",
+      "status": "PASS",
+      "detail": {
+        "name": "test-dynamic-1772073729",
+        "role": "reader",
+        "key_preview": "mk_1897aba..."
+      }
+    },
+    {
+      "name": "Create key denied for writer (403)",
+      "status": "PASS",
+      "detail": {
+        "status_code": 403
+      }
+    },
+    {
+      "name": "Admin has full access to all endpoints",
+      "status": "PASS",
+      "detail": {
+        "list_memories": 200,
+        "create_memory": 201,
+        "search": 200,
+        "delete_memory": 204
+      }
+    },
+    {
+      "name": "Reader can read but not create/delete (403)",
+      "status": "PASS",
+      "detail": {
+        "list_memories": {
+          "status": 200,
+          "allowed": true
+        },
+        "search": {
+          "status": 200,
+          "allowed": true
+        },
+        "create_memory": {
+          "status": 403,
+          "denied": true
+        },
+        "delete_memory": {
+          "status": 403,
+          "denied": true
+        }
+      }
+    },
+    {
+      "name": "Writer can create but not admin endpoints (403)",
+      "status": "PASS",
+      "detail": {
+        "create_memory": {
+          "status": 201,
+          "allowed": true
+        },
+        "search": {
+          "status": 200,
+          "allowed": true
+        },
+        "list_keys": {
+          "status": 403,
+          "denied": true
+        }
+      }
+    },
+    {
+      "name": "Namespace-scoped key isolation",
+      "status": "PASS",
+      "detail": {
+        "own_namespace_create": {
+          "status": 201,
+          "allowed": true
+        },
+        "own_namespace_search": {
+          "status": 200,
+          "allowed": true
+        },
+        "other_namespace_denied": {
+          "status": 403,
+          "denied": true
+        },
+        "default_namespace_denied": {
+          "status": 403,
+          "denied": true
+        }
+      }
+    },
+    {
+      "name": "Audit entries include auth information",
+      "status": "PASS",
+      "detail": {
+        "total_audit_entries": 68,
+        "entries_with_auth_info": 68,
+        "sample": [
+          {
+            "timestamp": 1772073700,
+            "method": "GET",
+            "path": "/api/v1/auth/whoami",
+            "action": "auth.whoami",
+            "status": 200,
+            "duration_us": 23,
+            "user": "admin-key",
+            "role": "admin",
+            "namespace": null,
+            "resource_id": "whoami"
+          },
+          {
+            "timestamp": 1772073700,
+            "method": "GET",
+            "path": "/api/v1/auth/whoami",
+            "action": "auth.whoami",
+            "status": 200,
+            "duration_us": 4,
+            "user": "reader-key",
+            "role": "reader",
+            "namespace": null,
+            "resource_id": "whoami"
+          },
+          {
+            "timestamp": 1772073700,
+            "method": "GET",
+            "path": "/api/v1/auth/whoami",
+            "action": "auth.whoami",
+            "status": 200,
+            "duration_us": 3,
+            "user": "ns-scoped-key",
+            "role": "writer",
+            "namespace": "scoped-ns",
+            "resource_id": "whoami"
+          }
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "total": 15,
+    "passed": 15,
+    "failed": 0
+  }
+}

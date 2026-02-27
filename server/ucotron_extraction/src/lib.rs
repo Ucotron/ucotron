@@ -62,6 +62,7 @@ pub mod ingestion;
 pub mod ner;
 pub mod ocr;
 pub mod relations;
+pub mod reranker;
 pub mod retrieval;
 pub mod video;
 

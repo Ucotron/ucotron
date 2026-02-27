@@ -6,8 +6,8 @@ use std::time::Instant;
 use ucotron_config::{ApiKeyEntry, UcotronConfig};
 use ucotron_core::BackendRegistry;
 use ucotron_extraction::{
-    CrossModalTextEncoder, DocumentOcrPipeline, EmbeddingPipeline, ImageEmbeddingPipeline,
-    NerPipeline, RelationExtractor, TranscriptionPipeline, VideoPipeline,
+    reranker::RerankerPipeline, CrossModalTextEncoder, DocumentOcrPipeline, EmbeddingPipeline,
+    ImageEmbeddingPipeline, NerPipeline, RelationExtractor, TranscriptionPipeline, VideoPipeline,
 };
 
 use ucotron_connectors::CronScheduler;
@@ -32,6 +32,8 @@ pub struct AppState {
     pub ner: Option<Arc<dyn NerPipeline>>,
     /// Relation extractor (co-occurrence or LLM, optional).
     pub relation_extractor: Option<Arc<dyn RelationExtractor>>,
+    /// Active relation extraction strategy ("co_occurrence", "llm", or "fireworks").
+    pub relation_strategy: String,
     /// Audio transcription pipeline (Whisper ONNX, optional).
     pub transcriber: Option<Arc<dyn TranscriptionPipeline>>,
     /// Image embedding pipeline (CLIP visual encoder, optional).
@@ -42,6 +44,8 @@ pub struct AppState {
     pub ocr_pipeline: Option<Arc<dyn DocumentOcrPipeline>>,
     /// Video frame extraction pipeline (FFmpeg, optional).
     pub video_pipeline: Option<Arc<dyn VideoPipeline>>,
+    /// Cross-encoder reranker pipeline (sidecar, optional).
+    pub reranker: Option<Arc<dyn RerankerPipeline>>,
     /// Full configuration.
     pub config: UcotronConfig,
     /// Server start time (for uptime metric).
@@ -185,16 +189,25 @@ impl AppState {
         let id_end = id_start.saturating_add(config.instance.id_range_size);
         let api_keys = RwLock::new(config.auth.api_keys.clone());
         let audit_log = AuditLog::new(config.audit.max_entries, config.audit.retention_secs);
+        // Determine default relation strategy from config.
+        let relation_strategy = if relation_extractor.is_some() {
+            // Will be overridden by main.rs if CompositeRelationExtractor is used.
+            "co_occurrence".to_string()
+        } else {
+            "none".to_string()
+        };
         Self {
             registry,
             embedder,
             ner,
             relation_extractor,
+            relation_strategy,
             transcriber,
             image_embedder,
             cross_modal_encoder,
             ocr_pipeline,
             video_pipeline,
+            reranker: None,
             config,
             start_time: Instant::now(),
             next_node_id: Mutex::new(id_start),

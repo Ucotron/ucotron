@@ -403,6 +403,12 @@ pub struct ModelStatus {
     pub ner_loaded: bool,
     /// Whether a relation extractor is loaded.
     pub relation_extractor_loaded: bool,
+    /// Whether an LLM model is loaded for relation extraction (e.g., Qwen3-4B-GGUF).
+    pub llm_loaded: bool,
+    /// Name of the configured LLM model (empty if none).
+    pub llm_model: String,
+    /// Active relation extraction strategy ("co_occurrence", "llm", or "fireworks").
+    pub relation_strategy: String,
     /// Whether the audio transcription pipeline is loaded (Whisper ONNX).
     pub transcriber_loaded: bool,
     /// Whether the CLIP image embedding pipeline is loaded.
@@ -411,6 +417,10 @@ pub struct ModelStatus {
     pub cross_modal_encoder_loaded: bool,
     /// Whether the document OCR pipeline is loaded (pdf_extract + Tesseract).
     pub ocr_pipeline_loaded: bool,
+    /// Embedding provider in use: "onnx" or "sidecar".
+    pub embedding_provider: String,
+    /// Whether the cross-encoder reranker is loaded (via sidecar).
+    pub reranker_loaded: bool,
 }
 
 /// GET /api/v1/metrics — response.

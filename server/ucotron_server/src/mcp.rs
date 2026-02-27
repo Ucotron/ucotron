@@ -159,6 +159,7 @@ impl UcotronMcpServer {
         let next_id = self.state.alloc_next_node_id();
         let config = IngestionConfig {
             next_node_id: Some(next_id),
+            chunk_size: self.state.config.ingestion.chunk_size,
             ..IngestionConfig::default()
         };
 
@@ -527,6 +528,7 @@ impl UcotronMcpServer {
         let next_id = self.state.alloc_next_node_id();
         let config = IngestionConfig {
             next_node_id: Some(next_id),
+            chunk_size: self.state.config.ingestion.chunk_size,
             ..IngestionConfig::default()
         };
 

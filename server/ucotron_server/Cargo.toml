@@ -17,6 +17,10 @@ path = "src/main.rs"
 name = "ucotron_mcp"
 path = "src/mcp_main.rs"
 
+[features]
+default = []
+llm = ["ucotron-extraction/llm"]
+
 [dependencies]
 ucotron-core = { workspace = true }
 ucotron-config = { path = "../ucotron_config" }

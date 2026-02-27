@@ -79,6 +79,9 @@ pub struct UcotronConfig {
     /// Connector scheduling configuration.
     #[serde(default)]
     pub connectors: ConnectorsConfig,
+    /// Ingestion pipeline configuration.
+    #[serde(default)]
+    pub ingestion: IngestionSection,
 }
 
 /// HTTP server configuration.
@@ -355,6 +358,23 @@ pub struct ModelsConfig {
     /// The actual key is read from this env var at runtime — never stored in config files.
     #[serde(default = "default_fine_tuned_re_api_key_env")]
     pub fine_tuned_re_api_key_env: String,
+    /// Embedding provider: "onnx" (default, local ONNX Runtime) or "sidecar" (Python sidecar).
+    /// When set to "sidecar", the server delegates embedding to the sidecar service.
+    #[serde(default = "default_embedding_provider")]
+    pub embedding_provider: String,
+    /// Sidecar service URL for embedding/reranking (default: "http://localhost:8421").
+    /// Only used when embedding_provider = "sidecar".
+    #[serde(default = "default_sidecar_url")]
+    pub sidecar_url: String,
+    /// Embedding dimension for sidecar provider (default: 384).
+    /// Qwen3-VL-Embedding supports 64-2048 via Matryoshka Representation Learning.
+    /// Use 384 for compatibility with existing HNSW indices.
+    #[serde(default = "default_sidecar_embedding_dim")]
+    pub sidecar_embedding_dim: usize,
+    /// Enable cross-encoder reranking via sidecar (default: false).
+    /// When true, search results are re-scored by the sidecar reranker model.
+    #[serde(default)]
+    pub enable_reranker: bool,
 }
 
 impl Default for ModelsConfig {
@@ -372,6 +392,10 @@ impl Default for ModelsConfig {
             fine_tuned_re_model: String::new(),
             fine_tuned_re_endpoint: default_fine_tuned_re_endpoint(),
             fine_tuned_re_api_key_env: default_fine_tuned_re_api_key_env(),
+            embedding_provider: default_embedding_provider(),
+            sidecar_url: default_sidecar_url(),
+            sidecar_embedding_dim: default_sidecar_embedding_dim(),
+            enable_reranker: false,
         }
     }
 }
@@ -408,6 +432,15 @@ fn default_fine_tuned_re_endpoint() -> String {
 }
 fn default_fine_tuned_re_api_key_env() -> String {
     "FIREWORKS_API_KEY".to_string()
+}
+fn default_embedding_provider() -> String {
+    "onnx".to_string()
+}
+fn default_sidecar_url() -> String {
+    "http://localhost:8421".to_string()
+}
+fn default_sidecar_embedding_dim() -> usize {
+    384
 }
 
 /// Background consolidation worker configuration.
@@ -1007,6 +1040,34 @@ fn default_connector_retries() -> u32 {
     3
 }
 
+/// Ingestion pipeline configuration.
+///
+/// Controls text chunking behavior for the ingestion pipeline.
+///
+/// ```toml
+/// [ingestion]
+/// chunk_size = 512
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IngestionSection {
+    /// Maximum chunk size in characters. Sentences are grouped together until
+    /// this limit is reached. Default: 512.
+    #[serde(default = "default_chunk_size")]
+    pub chunk_size: usize,
+}
+
+impl Default for IngestionSection {
+    fn default() -> Self {
+        Self {
+            chunk_size: default_chunk_size(),
+        }
+    }
+}
+
+fn default_chunk_size() -> usize {
+    512
+}
+
 impl UcotronConfig {
     /// Load configuration from a TOML file, then apply environment variable overrides.
     pub fn from_file(path: &str) -> anyhow::Result<Self> {
@@ -1142,6 +1203,22 @@ impl UcotronConfig {
         }
         if let Ok(v) = std::env::var("UCOTRON_MODELS_FINE_TUNED_RE_API_KEY_ENV") {
             self.models.fine_tuned_re_api_key_env = v;
+        }
+        if let Ok(v) = std::env::var("UCOTRON_MODELS_EMBEDDING_PROVIDER") {
+            self.models.embedding_provider = v;
+        }
+        if let Ok(v) = std::env::var("UCOTRON_MODELS_SIDECAR_URL") {
+            self.models.sidecar_url = v;
+        }
+        if let Ok(v) = std::env::var("UCOTRON_MODELS_SIDECAR_EMBEDDING_DIM") {
+            if let Ok(d) = v.parse::<usize>() {
+                self.models.sidecar_embedding_dim = d;
+            }
+        }
+        if let Ok(v) = std::env::var("UCOTRON_MODELS_ENABLE_RERANKER") {
+            if let Ok(b) = v.parse::<bool>() {
+                self.models.enable_reranker = b;
+            }
         }
 
         // Consolidation overrides
@@ -1283,6 +1360,13 @@ impl UcotronConfig {
         if let Ok(v) = std::env::var("UCOTRON_CONNECTORS_CHECK_INTERVAL_SECS") {
             if let Ok(n) = v.parse::<u64>() {
                 self.connectors.check_interval_secs = n;
+            }
+        }
+
+        // Ingestion overrides
+        if let Ok(v) = std::env::var("UCOTRON_INGESTION_CHUNK_SIZE") {
+            if let Ok(n) = v.parse::<usize>() {
+                self.ingestion.chunk_size = n;
             }
         }
     }
@@ -1528,6 +1612,13 @@ impl UcotronConfig {
                     entry.connector_id
                 );
             }
+        }
+
+        // --- Ingestion validation ---
+        if self.ingestion.chunk_size == 0 {
+            anyhow::bail!(
+                "ingestion.chunk_size must be > 0. Set a valid value in ucotron.toml or via UCOTRON_INGESTION_CHUNK_SIZE env var."
+            );
         }
 
         Ok(())

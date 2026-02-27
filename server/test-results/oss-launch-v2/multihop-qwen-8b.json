@@ -1,0 +1,58 @@
+{
+  "benchmark": "multihop-qwen-8b",
+  "description": "Multi-hop reasoning test with Qwen3-VL-Embedding-8B + Qwen3-VL-Reranker-8B — SKIPPED (infeasible locally)",
+  "timestamp": "2026-02-26T14:30:00Z",
+  "status": "SKIPPED",
+  "skip_reason": "8B models cannot run on local machine (16GB RAM, 4.9GB disk free). See qwen-8b-feasibility.md for details.",
+  "server_config": null,
+  "hardware_requirements": {
+    "disk_needed_gb": 32,
+    "ram_needed_gb": 32,
+    "disk_available_gb": 4.9,
+    "ram_available_gb": 16,
+    "recommended_instance": "AWS g5.4xlarge (64GB RAM) or Mac Studio M2 Ultra (64GB+ unified)"
+  },
+  "integration_notes": {
+    "code_changes_needed": "none",
+    "how_to_run": "Set EMBEDDING_MODEL=Qwen/Qwen3-VL-Embedding-8B and RERANKER_MODEL=Qwen/Qwen3-VL-Reranker-8B env vars for sidecar",
+    "sidecar_is_model_agnostic": true
+  },
+  "comparison_placeholder": {
+    "configs_tested": [
+      {
+        "name": "no-llm (MiniLM baseline)",
+        "accuracy": "53.3%",
+        "1_hop": "80%",
+        "2_hop": "60%",
+        "3_hop": "20%",
+        "query_p50_ms": 218
+      },
+      {
+        "name": "Qwen3-4B LLM",
+        "accuracy": "86.7%",
+        "1_hop": "100%",
+        "2_hop": "80%",
+        "3_hop": "80%",
+        "query_p50_ms": 89
+      },
+      {
+        "name": "Qwen 2B embedding+reranker",
+        "accuracy": "73.3%",
+        "1_hop": "100%",
+        "2_hop": "60%",
+        "3_hop": "60%",
+        "query_p50_ms": 297
+      },
+      {
+        "name": "Qwen 8B embedding+reranker",
+        "accuracy": "NOT TESTED",
+        "1_hop": "NOT TESTED",
+        "2_hop": "NOT TESTED",
+        "3_hop": "NOT TESTED",
+        "query_p50_ms": "NOT TESTED",
+        "reason": "Hardware constraints — needs cloud instance"
+      }
+    ]
+  },
+  "feasibility_report": "test-results/oss-launch-v2/qwen-8b-feasibility.md"
+}

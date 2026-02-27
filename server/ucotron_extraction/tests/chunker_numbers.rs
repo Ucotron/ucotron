@@ -17,7 +17,7 @@ use ucotron_extraction::ocr::{chunk_document_text, PageExtraction};
 #[test]
 fn test_decimal_numbers_preserved() {
     // BUG-2 regression: "$99.99" must not be split into "$99." and "99"
-    let chunks = chunk_text("The price is $99.99 for this item.");
+    let chunks = chunk_text("The price is $99.99 for this item.", 512);
     assert_eq!(chunks.len(), 1, "Should be one chunk: {:?}", chunks);
     assert!(
         chunks[0].contains("$99.99"),
@@ -29,7 +29,7 @@ fn test_decimal_numbers_preserved() {
 #[test]
 fn test_version_numbers_preserved() {
     // Version numbers like 2.0.1 contain two decimal points
-    let chunks = chunk_text("Using version 2.0.1 of the library.");
+    let chunks = chunk_text("Using version 2.0.1 of the library.", 512);
     assert_eq!(chunks.len(), 1, "Should be one chunk: {:?}", chunks);
     assert!(
         chunks[0].contains("2.0.1"),
@@ -41,7 +41,7 @@ fn test_version_numbers_preserved() {
 #[test]
 fn test_percentage_preserved() {
     // "15.5 percent" must keep the number intact
-    let chunks = chunk_text("Inflation was 15.5 percent last year. It may decrease.");
+    let chunks = chunk_text("Inflation was 15.5 percent last year. It may decrease.", 1);
     // Two sentences separated by a real period after "year"
     assert_eq!(chunks.len(), 2, "Should be two sentences: {:?}", chunks);
     assert!(
@@ -54,7 +54,7 @@ fn test_percentage_preserved() {
 #[test]
 fn test_range_preserved() {
     // "From 8.2 to 6.5" — both numbers must survive intact
-    let chunks = chunk_text("Growth from 8.2 to 6.5 percent.");
+    let chunks = chunk_text("Growth from 8.2 to 6.5 percent.", 512);
     assert_eq!(chunks.len(), 1, "Should be one chunk: {:?}", chunks);
     assert!(
         chunks[0].contains("8.2"),

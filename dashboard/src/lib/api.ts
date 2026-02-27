@@ -541,6 +541,7 @@ export interface AugmentRequest {
   query: string;
   max_memories?: number;
   max_hops?: number;
+  debug?: boolean;
 }
 
 export interface AugmentResponse {
@@ -596,9 +597,16 @@ export async function augmentQuery(
 ): Promise<AugmentResponse> {
   const headers: Record<string, string> = {};
   if (namespace) headers["X-Ucotron-Namespace"] = namespace;
+  // Server expects { context, limit, max_hops, debug } — map from our interface
+  const serverBody: Record<string, unknown> = {
+    context: body.query,
+    debug: body.debug ?? true,
+  };
+  if (body.max_memories != null) serverBody.limit = body.max_memories;
+  if (body.max_hops != null) serverBody.max_hops = body.max_hops;
   return apiFetch("/augment", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(serverBody),
     headers,
   });
 }
@@ -608,13 +616,10 @@ export async function augmentQueryDebug(
   namespace?: string,
   limit?: number
 ): Promise<AugmentResponse> {
-  const headers: Record<string, string> = {};
-  if (namespace) headers["X-Ucotron-Namespace"] = namespace;
-  return apiFetch("/augment", {
-    method: "POST",
-    body: JSON.stringify({ context: query, limit: limit ?? 10, debug: true }),
-    headers,
-  });
+  return augmentQuery(
+    { query, max_memories: limit ?? 10, debug: true },
+    namespace
+  );
 }
 
 export async function learnText(

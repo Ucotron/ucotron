@@ -1,0 +1,345 @@
+{
+  "metadata": {
+    "description": "Multi-hop reasoning test data for Ucotron knowledge graph evaluation",
+    "created": "2026-02-26",
+    "version": "1.0",
+    "total_facts": 30,
+    "total_queries": 15,
+    "domains": ["people", "organizations", "technologies", "locations"],
+    "hop_distribution": { "1-hop": 5, "2-hop": 5, "3-hop": 5 }
+  },
+  "facts": [
+    {
+      "id": "F01",
+      "subject": "Ada Lovelace",
+      "relation": "worked_with",
+      "object": "Charles Babbage",
+      "context": "Ada Lovelace worked closely with Charles Babbage on the Analytical Engine, writing the first algorithm intended for machine processing."
+    },
+    {
+      "id": "F02",
+      "subject": "Charles Babbage",
+      "relation": "invented",
+      "object": "Analytical Engine",
+      "context": "Charles Babbage designed and invented the Analytical Engine, a general-purpose mechanical computer concept from the 1830s."
+    },
+    {
+      "id": "F03",
+      "subject": "Analytical Engine",
+      "relation": "inspired",
+      "object": "ENIAC",
+      "context": "The design principles of Babbage's Analytical Engine directly inspired the architecture of ENIAC, one of the first electronic computers."
+    },
+    {
+      "id": "F04",
+      "subject": "ENIAC",
+      "relation": "built_at",
+      "object": "University of Pennsylvania",
+      "context": "ENIAC was built at the University of Pennsylvania's Moore School of Electrical Engineering, completed in 1945."
+    },
+    {
+      "id": "F05",
+      "subject": "Alan Turing",
+      "relation": "worked_at",
+      "object": "Bletchley Park",
+      "context": "Alan Turing worked at Bletchley Park during World War II, where he led the effort to break the Enigma cipher."
+    },
+    {
+      "id": "F06",
+      "subject": "Bletchley Park",
+      "relation": "located_in",
+      "object": "Milton Keynes",
+      "context": "Bletchley Park is located in Milton Keynes, Buckinghamshire, England."
+    },
+    {
+      "id": "F07",
+      "subject": "Alan Turing",
+      "relation": "invented",
+      "object": "Turing Machine",
+      "context": "Alan Turing invented the concept of the Turing Machine in 1936, a mathematical model of computation."
+    },
+    {
+      "id": "F08",
+      "subject": "Turing Machine",
+      "relation": "foundation_of",
+      "object": "Computer Science",
+      "context": "The Turing Machine became the theoretical foundation of modern computer science, defining what is computable."
+    },
+    {
+      "id": "F09",
+      "subject": "Linus Torvalds",
+      "relation": "created",
+      "object": "Linux",
+      "context": "Linus Torvalds created the Linux kernel in 1991 while a student at the University of Helsinki."
+    },
+    {
+      "id": "F10",
+      "subject": "Linus Torvalds",
+      "relation": "studied_at",
+      "object": "University of Helsinki",
+      "context": "Linus Torvalds studied computer science at the University of Helsinki in Finland."
+    },
+    {
+      "id": "F11",
+      "subject": "University of Helsinki",
+      "relation": "located_in",
+      "object": "Helsinki",
+      "context": "The University of Helsinki is the oldest and largest university in Finland, located in Helsinki."
+    },
+    {
+      "id": "F12",
+      "subject": "Linux",
+      "relation": "powers",
+      "object": "Android",
+      "context": "The Linux kernel powers the Android operating system, used by billions of mobile devices worldwide."
+    },
+    {
+      "id": "F13",
+      "subject": "Android",
+      "relation": "developed_by",
+      "object": "Google",
+      "context": "Android is developed by Google, which acquired Android Inc. in 2005."
+    },
+    {
+      "id": "F14",
+      "subject": "Google",
+      "relation": "headquartered_in",
+      "object": "Mountain View",
+      "context": "Google is headquartered at the Googleplex in Mountain View, California."
+    },
+    {
+      "id": "F15",
+      "subject": "Google",
+      "relation": "founded_by",
+      "object": "Larry Page",
+      "context": "Google was co-founded by Larry Page and Sergey Brin in 1998 while they were PhD students at Stanford."
+    },
+    {
+      "id": "F16",
+      "subject": "Larry Page",
+      "relation": "studied_at",
+      "object": "Stanford University",
+      "context": "Larry Page studied computer science at Stanford University, where he began the research that led to Google."
+    },
+    {
+      "id": "F17",
+      "subject": "Stanford University",
+      "relation": "located_in",
+      "object": "Palo Alto",
+      "context": "Stanford University is located in Palo Alto, in the heart of Silicon Valley, California."
+    },
+    {
+      "id": "F18",
+      "subject": "Tim Berners-Lee",
+      "relation": "invented",
+      "object": "World Wide Web",
+      "context": "Tim Berners-Lee invented the World Wide Web in 1989 while working at CERN."
+    },
+    {
+      "id": "F19",
+      "subject": "Tim Berners-Lee",
+      "relation": "worked_at",
+      "object": "CERN",
+      "context": "Tim Berners-Lee worked at CERN, the European Organization for Nuclear Research, in Geneva."
+    },
+    {
+      "id": "F20",
+      "subject": "CERN",
+      "relation": "located_in",
+      "object": "Geneva",
+      "context": "CERN is located near Geneva, on the Franco-Swiss border."
+    },
+    {
+      "id": "F21",
+      "subject": "World Wide Web",
+      "relation": "built_on",
+      "object": "TCP/IP",
+      "context": "The World Wide Web is built on top of TCP/IP, the fundamental communication protocol of the Internet."
+    },
+    {
+      "id": "F22",
+      "subject": "TCP/IP",
+      "relation": "designed_by",
+      "object": "Vint Cerf",
+      "context": "TCP/IP was co-designed by Vint Cerf and Bob Kahn, often called the fathers of the Internet."
+    },
+    {
+      "id": "F23",
+      "subject": "Vint Cerf",
+      "relation": "works_at",
+      "object": "Google",
+      "context": "Vint Cerf works at Google as Chief Internet Evangelist, advocating for open Internet standards."
+    },
+    {
+      "id": "F24",
+      "subject": "Ada Lovelace",
+      "relation": "born_in",
+      "object": "London",
+      "context": "Ada Lovelace was born in London, England in 1815, the daughter of Lord Byron."
+    },
+    {
+      "id": "F25",
+      "subject": "Linus Torvalds",
+      "relation": "created",
+      "object": "Git",
+      "context": "Linus Torvalds also created Git in 2005, the distributed version control system used by most software projects."
+    },
+    {
+      "id": "F26",
+      "subject": "Git",
+      "relation": "used_by",
+      "object": "GitHub",
+      "context": "Git is the core technology used by GitHub, the world's largest code hosting platform."
+    },
+    {
+      "id": "F27",
+      "subject": "GitHub",
+      "relation": "acquired_by",
+      "object": "Microsoft",
+      "context": "GitHub was acquired by Microsoft in 2018 for $7.5 billion."
+    },
+    {
+      "id": "F28",
+      "subject": "Microsoft",
+      "relation": "headquartered_in",
+      "object": "Redmond",
+      "context": "Microsoft is headquartered in Redmond, Washington."
+    },
+    {
+      "id": "F29",
+      "subject": "Helsinki",
+      "relation": "capital_of",
+      "object": "Finland",
+      "context": "Helsinki is the capital and largest city of Finland."
+    },
+    {
+      "id": "F30",
+      "subject": "Mountain View",
+      "relation": "part_of",
+      "object": "Silicon Valley",
+      "context": "Mountain View is a city in Silicon Valley, the global center of high technology and innovation."
+    }
+  ],
+  "queries": [
+    {
+      "id": "Q01",
+      "hops": 1,
+      "question": "Who created Linux?",
+      "expected_answer": "Linus Torvalds",
+      "reasoning_path": ["F09"],
+      "path_description": "Linus Torvalds --created--> Linux"
+    },
+    {
+      "id": "Q02",
+      "hops": 1,
+      "question": "Where is CERN located?",
+      "expected_answer": "Geneva",
+      "reasoning_path": ["F20"],
+      "path_description": "CERN --located_in--> Geneva"
+    },
+    {
+      "id": "Q03",
+      "hops": 1,
+      "question": "Who invented the World Wide Web?",
+      "expected_answer": "Tim Berners-Lee",
+      "reasoning_path": ["F18"],
+      "path_description": "Tim Berners-Lee --invented--> World Wide Web"
+    },
+    {
+      "id": "Q04",
+      "hops": 1,
+      "question": "What company acquired GitHub?",
+      "expected_answer": "Microsoft",
+      "reasoning_path": ["F27"],
+      "path_description": "GitHub --acquired_by--> Microsoft"
+    },
+    {
+      "id": "Q05",
+      "hops": 1,
+      "question": "Where was Ada Lovelace born?",
+      "expected_answer": "London",
+      "reasoning_path": ["F24"],
+      "path_description": "Ada Lovelace --born_in--> London"
+    },
+    {
+      "id": "Q06",
+      "hops": 2,
+      "question": "In what city did the creator of Linux study?",
+      "expected_answer": "Helsinki",
+      "reasoning_path": ["F09", "F10", "F11"],
+      "path_description": "Linus Torvalds --created--> Linux; Linus Torvalds --studied_at--> University of Helsinki --located_in--> Helsinki"
+    },
+    {
+      "id": "Q07",
+      "hops": 2,
+      "question": "Where was the World Wide Web invented (city)?",
+      "expected_answer": "Geneva",
+      "reasoning_path": ["F18", "F19", "F20"],
+      "path_description": "Tim Berners-Lee --invented--> WWW; Tim Berners-Lee --worked_at--> CERN --located_in--> Geneva"
+    },
+    {
+      "id": "Q08",
+      "hops": 2,
+      "question": "What company develops the OS powered by Linux?",
+      "expected_answer": "Google",
+      "reasoning_path": ["F12", "F13"],
+      "path_description": "Linux --powers--> Android --developed_by--> Google"
+    },
+    {
+      "id": "Q09",
+      "hops": 2,
+      "question": "Where is the company that acquired GitHub headquartered?",
+      "expected_answer": "Redmond",
+      "reasoning_path": ["F27", "F28"],
+      "path_description": "GitHub --acquired_by--> Microsoft --headquartered_in--> Redmond"
+    },
+    {
+      "id": "Q10",
+      "hops": 2,
+      "question": "What did the person who worked at Bletchley Park invent?",
+      "expected_answer": "Turing Machine",
+      "reasoning_path": ["F05", "F07"],
+      "path_description": "Alan Turing --worked_at--> Bletchley Park; Alan Turing --invented--> Turing Machine"
+    },
+    {
+      "id": "Q11",
+      "hops": 3,
+      "question": "What is the theoretical foundation established by the invention of the person who worked at Bletchley Park?",
+      "expected_answer": "Computer Science",
+      "reasoning_path": ["F05", "F07", "F08"],
+      "path_description": "Alan Turing --worked_at--> Bletchley Park; Alan Turing --invented--> Turing Machine --foundation_of--> Computer Science"
+    },
+    {
+      "id": "Q12",
+      "hops": 3,
+      "question": "Where is the headquarters of the company that develops the OS powered by Linux?",
+      "expected_answer": "Mountain View",
+      "reasoning_path": ["F12", "F13", "F14"],
+      "path_description": "Linux --powers--> Android --developed_by--> Google --headquartered_in--> Mountain View"
+    },
+    {
+      "id": "Q13",
+      "hops": 3,
+      "question": "Who designed the protocol that the World Wide Web is built on?",
+      "expected_answer": "Vint Cerf",
+      "reasoning_path": ["F18", "F21", "F22"],
+      "path_description": "Tim Berners-Lee --invented--> WWW --built_on--> TCP/IP --designed_by--> Vint Cerf"
+    },
+    {
+      "id": "Q14",
+      "hops": 3,
+      "question": "In what city is the university where the founder of Google studied?",
+      "expected_answer": "Palo Alto",
+      "reasoning_path": ["F15", "F16", "F17"],
+      "path_description": "Google --founded_by--> Larry Page --studied_at--> Stanford University --located_in--> Palo Alto"
+    },
+    {
+      "id": "Q15",
+      "hops": 3,
+      "question": "Where is the company that acquired the platform built on the version control system created by Linus Torvalds?",
+      "expected_answer": "Redmond",
+      "reasoning_path": ["F25", "F26", "F27", "F28"],
+      "path_description": "Linus Torvalds --created--> Git --used_by--> GitHub --acquired_by--> Microsoft --headquartered_in--> Redmond"
+    }
+  ]
+}

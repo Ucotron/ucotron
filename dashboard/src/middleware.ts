@@ -24,6 +24,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Dev-only auth bypass for local QA testing (never enable in production)
+  if (process.env.SKIP_AUTH === "true") {
+    const response = NextResponse.next();
+    response.headers.set("x-user-id", "dev-user");
+    response.headers.set("x-authenticated", "true");
+    return response;
+  }
+
   const sessionToken = request.cookies.get("better-auth.session_token");
 
   if (!sessionToken?.value) {

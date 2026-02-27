@@ -12,27 +12,27 @@
     "export": "Exportar",
     "import": "Importar",
     "refresh": "Actualizar",
-    "settings": "Configuracion",
-    "back": "Atras",
+    "settings": "Configuración",
+    "back": "Atrás",
     "next": "Siguiente",
     "previous": "Anterior",
     "submit": "Enviar",
     "close": "Cerrar",
     "confirm": "Confirmar",
-    "yes": "Si",
+    "yes": "Sí",
     "no": "No"
   },
   "dashboard": {
     "title": "Panel",
     "welcome": "Bienvenido a Ucotron",
     "overview": "Resumen",
-    "quickActions": "Acciones Rapidas",
+    "quickActions": "Acciones Rápidas",
     "recentActivity": "Actividad Reciente",
-    "statistics": "Estadisticas",
+    "statistics": "Estadísticas",
     "totalMemories": "Total de Recuerdos",
     "totalEntities": "Total de Entidades",
     "totalConnections": "Total de Conexiones",
-    "lastUpdated": "Ultima Actualizacion"
+    "lastUpdated": "Última Actualización"
   },
   "nav": {
     "home": "Inicio",
@@ -41,28 +41,28 @@
     "connectors": "Conectores",
     "namespaces": "Espacios de Nombres",
     "frames": "Frames",
-    "audit": "Registros de Auditoria",
-    "settings": "Configuracion",
+    "audit": "Registros de Auditoría",
+    "settings": "Configuración",
     "compliance": "Cumplimiento",
     "reverseRag": "RAG Inverso",
-    "onboarding": "Incorporacion",
-    "privacyVault": "Boveda de Privacidad",
+    "onboarding": "Incorporación",
+    "privacyVault": "Bóveda de Privacidad",
     "timeTravel": "Viaje en el Tiempo",
-    "logicGuards": "Guardias de Logica"
+    "logicGuards": "Guardias de Lógica"
   },
   "settings": {
-    "title": "Configuracion",
+    "title": "Configuración",
     "profile": "Perfil",
     "apiKeys": "Claves API",
     "notifications": "Notificaciones",
     "preferences": "Preferencias",
     "displayName": "Nombre para Mostrar",
-    "email": "Direccion de Correo",
-    "password": "Contrasena",
-    "currentPassword": "Contrasena Actual",
-    "newPassword": "Nueva Contrasena",
+    "email": "Dirección de Correo",
+    "password": "Contraseña",
+    "currentPassword": "Contraseña Actual",
+    "newPassword": "Nueva Contraseña",
     "saveChanges": "Guardar Cambios",
-    "saved": "Guardado!",
+    "saved": "¡Guardado!",
     "profileUpdated": "Perfil actualizado",
     "preferencesUpdated": "Preferencias actualizadas",
     "appearance": "Apariencia",
@@ -71,9 +71,9 @@
     "dark": "Oscuro",
     "system": "Sistema",
     "language": "Idioma",
-    "languageRegion": "Idioma y Region",
+    "languageRegion": "Idioma y Región",
     "about": "Acerca de",
-    "version": "Version"
+    "version": "Versión"
   },
   "graph": {
     "title": "Grafo de Conocimiento",
@@ -93,10 +93,10 @@
     "results": "Resultados",
     "noResults": "No se encontraron resultados",
     "copyToClipboard": "Copiar al portapapeles",
-    "copied": "Copiado!",
+    "copied": "¡Copiado!",
     "context": "Contexto",
     "sources": "Fuentes",
-    "score": "Puntuacion"
+    "score": "Puntuación"
   },
   "connectors": {
     "title": "Conectores",
@@ -104,19 +104,19 @@
     "status": "Estado",
     "connected": "Conectado",
     "disconnected": "Desconectado",
-    "lastSync": "Ultima Sincronizacion",
+    "lastSync": "Última Sincronización",
     "noConnectors": "No hay conectores configurados"
   },
   "namespaces": {
     "title": "Espacios de Nombres",
     "create": "Crear Espacio de Nombres",
     "delete": "Eliminar Espacio de Nombres",
-    "stats": "Estadisticas",
+    "stats": "Estadísticas",
     "switch": "Cambiar"
   },
   "frames": {
     "title": "Ucotron Frames",
-    "proFeature": "Caracteristica Pro",
+    "proFeature": "Característica Pro",
     "save": "Guardar Frame",
     "load": "Cargar Frame",
     "run": "Ejecutar",
@@ -129,8 +129,8 @@
     }
   },
   "audit": {
-    "title": "Registros de Auditoria",
-    "action": "Accion",
+    "title": "Registros de Auditoría",
+    "action": "Acción",
     "user": "Usuario",
     "date": "Fecha",
     "filter": "Filtrar",

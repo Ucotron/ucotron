@@ -255,12 +255,18 @@ async fn main() -> anyhow::Result<()> {
     // Initialize FFmpeg video pipeline (optional — requires ffmpeg libs).
     let video_pipeline = try_init_video();
 
+    // Initialize NER pipeline (optional — requires GLiNER ONNX model files).
+    let ner_pipeline = try_init_ner(&config);
+
+    // Initialize relation extractor (auto-selects: Fireworks > local LLM > co-occurrence).
+    let (relation_extractor, relation_strategy) = try_init_relation_extractor(&config);
+
     // Build application state with all optional pipelines.
     let mut app_state = AppState::with_all_pipelines_full(
         registry,
         embedder,
-        None, // NER pipeline loaded separately if model present
-        None, // Relation extractor loaded separately if model present
+        ner_pipeline,
+        relation_extractor,
         transcriber,
         image_embedder,
         cross_modal_encoder,
@@ -268,6 +274,21 @@ async fn main() -> anyhow::Result<()> {
         video_pipeline,
         config.clone(),
     );
+    app_state.relation_strategy = relation_strategy;
+
+    // Initialize reranker if enabled and sidecar is configured.
+    if config.models.enable_reranker {
+        match try_init_reranker(&config) {
+            Some(reranker) => {
+                app_state.reranker = Some(reranker);
+                tracing::info!("Cross-encoder reranker initialized via sidecar");
+            }
+            None => {
+                tracing::warn!("Reranker enabled but sidecar initialization failed");
+            }
+        }
+    }
+
     // Attach OTLP metrics instruments if metrics export is enabled.
     app_state.otel_metrics = _telemetry_guard.otel_metrics();
 
@@ -694,21 +715,61 @@ async fn handle_migrate(
     Ok(())
 }
 
-/// Try to initialize the real ONNX embedding pipeline.
+/// Try to initialize the embedding pipeline based on config.
+///
+/// Supports two providers:
+/// - "onnx" (default): Local ONNX Runtime with all-MiniLM-L6-v2
+/// - "sidecar": Python sidecar for HF Transformers models (e.g., Qwen3-VL-Embedding-2B)
 fn try_init_embedder(
     config: &UcotronConfig,
 ) -> anyhow::Result<Arc<dyn ucotron_extraction::EmbeddingPipeline>> {
-    use ucotron_extraction::embeddings::OnnxEmbeddingPipeline;
+    match config.models.embedding_provider.as_str() {
+        "sidecar" => {
+            use ucotron_extraction::embeddings::SidecarEmbeddingPipeline;
 
-    let models_dir = &config.models.models_dir;
-    let model_name = &config.models.embedding_model;
-    let model_dir = format!("{}/{}", models_dir, model_name);
+            let url = &config.models.sidecar_url;
+            let dim = config.models.sidecar_embedding_dim;
+            tracing::info!(
+                "Initializing sidecar embedding pipeline at {} (dim={})",
+                url,
+                dim
+            );
 
-    let model_path = format!("{}/onnx/model.onnx", model_dir);
-    let tokenizer_path = format!("{}/tokenizer.json", model_dir);
+            let pipeline = SidecarEmbeddingPipeline::new(url, dim, None)?;
 
-    let pipeline = OnnxEmbeddingPipeline::new(&model_path, &tokenizer_path, 4)?;
-    Ok(Arc::new(pipeline))
+            // Health check
+            match pipeline.health_check() {
+                Ok(true) => {
+                    tracing::info!("Sidecar embedding pipeline connected successfully");
+                }
+                Ok(false) => {
+                    tracing::warn!("Sidecar returned unhealthy status — embeddings may fail");
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "Sidecar health check failed: {} — will retry on requests",
+                        e
+                    );
+                }
+            }
+
+            Ok(Arc::new(pipeline))
+        }
+        _ => {
+            // Default: ONNX provider
+            use ucotron_extraction::embeddings::OnnxEmbeddingPipeline;
+
+            let models_dir = &config.models.models_dir;
+            let model_name = &config.models.embedding_model;
+            let model_dir = format!("{}/{}", models_dir, model_name);
+
+            let model_path = format!("{}/onnx/model.onnx", model_dir);
+            let tokenizer_path = format!("{}/tokenizer.json", model_dir);
+
+            let pipeline = OnnxEmbeddingPipeline::new(&model_path, &tokenizer_path, 4)?;
+            Ok(Arc::new(pipeline))
+        }
+    }
 }
 
 /// Try to initialize Whisper transcription pipeline for audio support.
@@ -802,6 +863,92 @@ fn try_init_video() -> Option<Arc<dyn ucotron_extraction::VideoPipeline>> {
         }
         Err(_) => {
             tracing::info!("FFmpeg video pipeline not available");
+            None
+        }
+    }
+}
+
+/// Try to initialize the GLiNER NER pipeline for entity extraction.
+/// Returns None if model files are not present.
+fn try_init_ner(config: &UcotronConfig) -> Option<Arc<dyn ucotron_extraction::NerPipeline>> {
+    use ucotron_extraction::ner::{GlinerConfig, GlinerNerPipeline};
+
+    let models_dir = &config.models.models_dir;
+    let ner_model = &config.models.ner_model;
+    let model_dir = format!("{}/{}", models_dir, ner_model);
+
+    let model_path = format!("{}/onnx/model.onnx", model_dir);
+    let tokenizer_path = format!("{}/tokenizer.json", model_dir);
+
+    // Check if model files exist before attempting to load.
+    if !std::path::Path::new(&model_path).exists() {
+        tracing::info!(
+            "NER model not found at {}. Entity extraction disabled.",
+            model_path
+        );
+        return None;
+    }
+
+    match GlinerNerPipeline::new(&model_path, &tokenizer_path, GlinerConfig::default()) {
+        Ok(pipeline) => {
+            tracing::info!("GLiNER NER pipeline loaded from {}", model_dir);
+            Some(Arc::new(pipeline))
+        }
+        Err(e) => {
+            tracing::warn!(
+                "Failed to load NER pipeline: {}. Entity extraction disabled.",
+                e
+            );
+            None
+        }
+    }
+}
+
+/// Try to initialize the relation extractor pipeline.
+/// Uses `CompositeRelationExtractor` which auto-selects the best strategy:
+/// Fireworks fine-tuned model > local LLM (GGUF) > co-occurrence fallback.
+/// Returns the extractor and a string describing the active strategy.
+fn try_init_relation_extractor(
+    config: &UcotronConfig,
+) -> (
+    Option<Arc<dyn ucotron_extraction::RelationExtractor>>,
+    String,
+) {
+    use ucotron_extraction::relations::CompositeRelationExtractor;
+
+    let extractor = CompositeRelationExtractor::new(&config.models);
+
+    let strategy = match extractor.strategy() {
+        ucotron_extraction::relations::RelationStrategy::CoOccurrence => {
+            tracing::info!("Relation extraction: co-occurrence fallback (no LLM model loaded)");
+            "co_occurrence".to_string()
+        }
+        ucotron_extraction::relations::RelationStrategy::Llm => {
+            tracing::info!("Relation extraction: local LLM loaded");
+            "llm".to_string()
+        }
+        ucotron_extraction::relations::RelationStrategy::Fireworks => {
+            tracing::info!("Relation extraction: Fireworks fine-tuned model");
+            "fireworks".to_string()
+        }
+    };
+
+    (Some(Arc::new(extractor)), strategy)
+}
+
+/// Try to initialize the cross-encoder reranker via sidecar.
+fn try_init_reranker(
+    config: &UcotronConfig,
+) -> Option<Arc<dyn ucotron_extraction::reranker::RerankerPipeline>> {
+    use ucotron_extraction::reranker::SidecarReranker;
+
+    let url = &config.models.sidecar_url;
+    tracing::info!("Initializing cross-encoder reranker via sidecar at {}", url);
+
+    match SidecarReranker::new(url, None) {
+        Ok(reranker) => Some(Arc::new(reranker)),
+        Err(e) => {
+            tracing::warn!("Failed to initialize sidecar reranker: {}", e);
             None
         }
     }

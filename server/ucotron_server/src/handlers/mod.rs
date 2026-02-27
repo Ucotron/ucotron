@@ -112,10 +112,15 @@ pub async fn health_handler(State(state): State<Arc<AppState>>) -> Json<HealthRe
             embedding_model: state.config.models.embedding_model.clone(),
             ner_loaded: state.ner.is_some(),
             relation_extractor_loaded: state.relation_extractor.is_some(),
+            llm_loaded: state.relation_strategy == "llm",
+            llm_model: state.config.models.llm_model.clone(),
+            relation_strategy: state.relation_strategy.clone(),
             transcriber_loaded: state.transcriber.is_some(),
             image_embedder_loaded: state.image_embedder.is_some(),
             cross_modal_encoder_loaded: state.cross_modal_encoder.is_some(),
             ocr_pipeline_loaded: state.ocr_pipeline.is_some(),
+            embedding_provider: state.config.models.embedding_provider.clone(),
+            reranker_loaded: state.reranker.is_some(),
         },
     })
 }
@@ -185,6 +190,7 @@ pub async fn create_memory_handler(
     let next_id = state.alloc_next_node_id();
     let config = IngestionConfig {
         next_node_id: Some(next_id),
+        chunk_size: state.config.ingestion.chunk_size,
         ..IngestionConfig::default()
     };
 
@@ -1093,6 +1099,7 @@ pub async fn learn_handler(
     let next_id = state.alloc_next_node_id();
     let config = IngestionConfig {
         next_node_id: Some(next_id),
+        chunk_size: state.config.ingestion.chunk_size,
         ..IngestionConfig::default()
     };
 
@@ -1789,6 +1796,7 @@ pub async fn transcribe_handler(
         let next_id = state.alloc_next_node_id();
         let config = IngestionConfig {
             next_node_id: Some(next_id),
+            chunk_size: state.config.ingestion.chunk_size,
             ..IngestionConfig::default()
         };
 
@@ -2235,6 +2243,7 @@ pub async fn ocr_handler(
         let next_id = state.alloc_next_node_id();
         let config = IngestionConfig {
             next_node_id: Some(next_id),
+            chunk_size: state.config.ingestion.chunk_size,
             ..IngestionConfig::default()
         };
 
@@ -4570,6 +4579,7 @@ pub async fn create_text_memory_handler(
     let next_id = state.alloc_next_node_id();
     let config = IngestionConfig {
         next_node_id: Some(next_id),
+        chunk_size: state.config.ingestion.chunk_size,
         ..IngestionConfig::default()
     };
 
@@ -4713,7 +4723,7 @@ pub async fn create_audio_memory_handler(
     // Transcribe audio.
     let transcription = transcriber
         .transcribe_file(&temp_path)
-        .map_err(|e| AppError::internal(format!("Transcription failed: {}", e)))?;
+        .map_err(|e| AppError::bad_request(format!("Failed to process audio file: {}", e)))?;
 
     if transcription.text.trim().is_empty() {
         return Err(AppError::bad_request(
@@ -4728,6 +4738,7 @@ pub async fn create_audio_memory_handler(
     let next_id = state.alloc_next_node_id();
     let config = IngestionConfig {
         next_node_id: Some(next_id),
+        chunk_size: state.config.ingestion.chunk_size,
         ..IngestionConfig::default()
     };
 
@@ -4897,7 +4908,7 @@ pub async fn create_image_memory_handler(
     // Generate CLIP embedding (512-dim).
     let embedding = image_embedder
         .embed_image_bytes(&image_bytes)
-        .map_err(|e| AppError::internal(format!("Image embedding failed: {}", e)))?;
+        .map_err(|e| AppError::bad_request(format!("Failed to process image file: {}", e)))?;
     let embed_dim = embedding.len();
 
     // Create node for this image.
@@ -4979,6 +4990,7 @@ pub async fn create_image_memory_handler(
         let next_id = state.alloc_next_node_id();
         let config = IngestionConfig {
             next_node_id: Some(next_id),
+            chunk_size: state.config.ingestion.chunk_size,
             ..IngestionConfig::default()
         };
 
@@ -5124,7 +5136,7 @@ pub async fn create_video_memory_handler(
     // Step 1: Extract frames from video.
     let extraction_result = video_pipeline
         .extract_frames(&temp_path)
-        .map_err(|e| AppError::internal(format!("Frame extraction failed: {}", e)))?;
+        .map_err(|e| AppError::bad_request(format!("Failed to process video file: {}", e)))?;
 
     if extraction_result.frames.is_empty() {
         return Err(AppError::bad_request(
@@ -5356,6 +5368,7 @@ pub async fn create_video_memory_handler(
                 let next_id = state.alloc_next_node_id();
                 let config = IngestionConfig {
                     next_node_id: Some(next_id),
+                    chunk_size: state.config.ingestion.chunk_size,
                     ..IngestionConfig::default()
                 };
 
@@ -5749,14 +5762,18 @@ fn embed_frame_rgb(
 ) -> Result<Vec<f32>, AppError> {
     // Encode the raw RGB bytes to PNG in-memory, then pass to embed_image_bytes.
     let img = image::RgbImage::from_raw(frame.width, frame.height, frame.rgb_data.clone())
-        .ok_or_else(|| AppError::internal("Failed to construct image from frame RGB data"))?;
+        .ok_or_else(|| {
+            AppError::bad_request(
+                "Failed to construct image from frame RGB data — video may be corrupted",
+            )
+        })?;
     let mut buf = std::io::Cursor::new(Vec::new());
     image::DynamicImage::ImageRgb8(img)
         .write_to(&mut buf, image::ImageFormat::Png)
-        .map_err(|e| AppError::internal(format!("Failed to encode frame to PNG: {}", e)))?;
+        .map_err(|e| AppError::bad_request(format!("Failed to encode video frame: {}", e)))?;
     embedder
         .embed_image_bytes(buf.get_ref())
-        .map_err(|e| AppError::internal(format!("Frame embedding failed: {}", e)))
+        .map_err(|e| AppError::bad_request(format!("Failed to process video frame: {}", e)))
 }
 
 // ---------------------------------------------------------------------------
